@@ -18,8 +18,8 @@ executable server
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
-    , process
     , cmdargs
+    , process
 
     -- , aeson >=1.0.0.0
     -- , bytestring
