@@ -88,6 +88,8 @@ startLogging = do
             setFormatter lh (simpleLogFormatter "$msg")
     updateGlobalLogger "LSP" (setLevel DEBUG)
     updateGlobalLogger "LSP" (addHandler h)
+    updateGlobalLogger rootLoggerName removeHandler
+
 
 lg :: String -> IO ()
 lg = infoM "LSP"
