@@ -20,28 +20,25 @@ executable agda-language-server
   build-depends:       base
     , cmdargs
     , process
-    , haskell-lsp
 
-    -- , aeson >=1.0.0.0
+    -- , aeson
     -- , bytestring
-    -- --  , containers
-    -- --  , directory
+    -- , containers
+    -- , directory
     -- , data-default
-    -- --  , filepath
-    --  , hslogger
-    -- , hashable
+    -- , filepath
+    , hslogger
     -- , lens >= 4.15.2
     -- , mtl
-    -- --  , parsec
-    -- --  , sorted-list == 0.2.0.*
+    -- , parsec
     -- , stm
     -- , text
-    -- --  , time
+    -- , time
+    -- , transformers
     -- , unordered-containers
     -- , vector
     -- , yi-rope
-    -- , haskell-lsp
-
+    
   default-language:    Haskell2010
 
 test-suite agda-language-server-test

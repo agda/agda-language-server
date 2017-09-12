@@ -37,12 +37,13 @@ resolver: lts-9.1
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - location: .
-# - location: ../haskell-lsp
-    # git: https://github.com/alanz/haskell-lsp.git
-    # commit: 50076561c9c9e4d86536efd9458ac3f1d14a68a4
+- location:
+    git: https://github.com/alanz/haskell-lsp.git
+    commit: 50076561c9c9e4d86536efd9458ac3f1d14a68a4
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
+
 
 # Override default flag values for local packages and extra-deps
 flags: {}
