@@ -3,27 +3,25 @@
 module Language.Agda.LSP.Util
     (   Args(..)
     ,   getArgs
-
-    ,   spawnAgda
     ,   which
 
     ,   startLogging
-    ,   lg
+    ,   logs
     ,   stopLogging
     )   where
 
 import System.Console.CmdArgs.Implicit hiding (args)
 import System.Exit
 import System.Info (os)
-import System.IO
+-- import System.IO
 import System.Process
-
 
 import System.Log.Logger
 import System.Log.Formatter (simpleLogFormatter)
 import System.Log.Handler.Simple (fileHandler)
 import System.Log.Handler (setFormatter)
 
+-- import Language.Agda.LSP.Core (runner)
 --------------------------------------------------------------------------------
 -- | Command line argument stuffs
 
@@ -50,20 +48,21 @@ getArgs = cmdArgs defaultArgs
 --------------------------------------------------------------------------------
 -- | Child process spawning stuffs
 
-
-spawnAgda :: FilePath -> (String -> IO String) -> IO ()
-spawnAgda filepath handler = do
-    (Just hin, _, _, _) <- createProcess $ (proc filepath ["--interaction"])
-        {   std_in = CreatePipe
-        }
-    hSetBuffering stdout NoBuffering
-    hSetBuffering hin LineBuffering
-    loop hin
-    where   loop hin = do
-                inputFromEditor <- getLine
-                outputToAgda <- handler inputFromEditor
-                hPutStrLn hin outputToAgda
-                loop hin
+    -- hSetBuffering hout NoBuffering
+    -- hSetBuffering hin LineBuffering
+    -- loop hin
+    -- where   loop hin = do
+    --             -- putStr "Agda2>"
+    --             -- request from the editor
+    --             reqFromEditor <- getLine
+    --             reqToAgda <- reqHandler reqFromEditor
+    --             hPutStrLn hin reqToAgda
+    --             -- response from Agda
+    --             -- resFromAgda <- hGetLine hout
+    --             -- resToEditor <- resHandler resFromAgda
+    --             -- putStrLn resToEditor
+    --
+    --             loop hin
 
 which :: String -> IO (Maybe String)
 which prog = do
@@ -91,8 +90,8 @@ startLogging = do
     updateGlobalLogger rootLoggerName removeHandler
 
 
-lg :: String -> IO ()
-lg = infoM "LSP"
+logs :: String -> IO ()
+logs = infoM "LSP"
 
 stopLogging :: IO ()
 stopLogging = removeAllHandlers

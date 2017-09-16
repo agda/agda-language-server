@@ -21,24 +21,26 @@ executable agda-language-server
     , cmdargs
     , process
 
-    -- , aeson
-    -- , bytestring
-    -- , containers
-    -- , directory
-    -- , data-default
-    -- , filepath
+    , aeson
+    , bytestring
+    , containers
+    , directory
+    , data-default
+    , filepath
     , hslogger
-    -- , lens >= 4.15.2
-    -- , mtl
+    , lens >= 4.15.2
+    , mtl
     -- , parsec
-    -- , stm
-    -- , text
-    -- , time
-    -- , transformers
-    -- , unordered-containers
-    -- , vector
-    -- , yi-rope
-    
+    , stm
+    , text
+    , time
+    , transformers
+    , unordered-containers
+    , vector
+    , yi-rope
+    , haskell-lsp
+  other-modules:        Language.Agda.LSP.Core
+                    ,   Language.Agda.LSP.Util
   default-language:    Haskell2010
 
 test-suite agda-language-server-test

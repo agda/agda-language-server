@@ -40,6 +40,8 @@ packages:
 - location:
     git: https://github.com/alanz/haskell-lsp.git
     commit: 50076561c9c9e4d86536efd9458ac3f1d14a68a4
+  extra-dep: true
+
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
