@@ -37,9 +37,10 @@ resolver: lts-9.1
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - location: .
-- location:
-    git: https://github.com/alanz/haskell-lsp.git
-    commit: 50076561c9c9e4d86536efd9458ac3f1d14a68a4
+- location: ../haskell-lsp
+# - location:
+#     git: https://github.com/alanz/haskell-lsp.git
+#     commit: 50076561c9c9e4d86536efd9458ac3f1d14a68a4
   extra-dep: true
 
 # Dependency packages to be pulled from upstream that are not in the resolver

@@ -36,13 +36,17 @@ runner :: IO ()
 runner = do
     rin  <- atomically newTChan :: IO (TChan ReactorInput)
 
+    -- rin' <- atomically $ cloneTChan rin
+    --
+    -- forkIO $ do
+    --   s <- atomically $ readTChan rin'
+    --   logs (show s)
+
+    Core.setupLogger (Just "/tmp/lsp-hello.log") [] L.DEBUG
     CTRL.run (dp rin) (lspHandlers rin) lspOptions
     return ()
     where   dp rin lf = do
-                liftIO $ logs $ "main.run:dp entered"
                 _rpid <- forkIO $ reactor lf rin
-                liftIO $ logs $ "main.run:dp tchan"
-                liftIO $ logs $ "main.run:dp after dispatcherProc"
                 return Nothing
 
 -- ---------------------------------------------------------------------
@@ -53,6 +57,7 @@ runner = do
 
 data ReactorInput
   = HandlerRequest Core.OutMessage
+  deriving (Show)
       -- ^ injected into the reactor input by each of the individual callback handlers
 
 -- ---------------------------------------------------------------------
