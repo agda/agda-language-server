@@ -50,7 +50,7 @@ spawnAgda filepath = do
     hSetBuffering toAgda NoBuffering
     hSetBuffering fromAgda NoBuffering
 
-    runner
+    -- runner
     --
     -- loop hin
     -- where   loop hin = do
