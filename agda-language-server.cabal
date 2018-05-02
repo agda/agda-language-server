@@ -21,7 +21,6 @@ executable agda-language-server
     , cmdargs
     , process
     , hslogger
-
     -- , aeson
     -- , bytestring
     -- , containers
@@ -37,7 +36,6 @@ executable agda-language-server
     -- , unordered-containers
     -- , vector
     -- , yi-rope
-    -- , haskell-lsp
   other-modules:
     -- Language.Agda.LSP.Core
                       Language.Agda.LSP.Util
