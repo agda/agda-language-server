@@ -1,3 +1,53 @@
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+module Language.Agda.LSP.Core (run) where
+
+import           Control.Concurrent
+import           Control.Concurrent.STM.TChan
+import qualified Control.Exception                     as E
+import           Control.Lens
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Reader
+import           Control.Monad.STM
+import qualified Data.Aeson                            as J
+import           Data.Default
+import qualified Data.HashMap.Strict                   as H
+#if __GLASGOW_HASKELL__ < 804
+import           Data.Monoid
+#endif
+import qualified Data.Text                             as T
+import qualified Data.Vector                           as V
+import qualified Language.Haskell.LSP.Control          as CTRL
+import qualified Language.Haskell.LSP.Core             as Core
+import           Language.Haskell.LSP.Diagnostics
+import           Language.Haskell.LSP.Messages
+import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
+import qualified Language.Haskell.LSP.Utility          as U
+import           Language.Haskell.LSP.VFS
+import           System.Exit
+import qualified System.Log.Logger                     as L
+import qualified Yi.Rope                               as Yi
+
+
+-- ---------------------------------------------------------------------
+{-# ANN module ("HLint: ignore Eta reduce"         :: String) #-}
+{-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
+{-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
+-- ---------------------------------------------------------------------
+--
+
+-- main :: IO ()
+-- main = do
+--   run (return ()) >>= \case
+--     0 -> exitSuccess
+--     c -> exitWith . ExitFailure $ c
+
 -----------------------------------------------------------------
 
 run :: IO () -> IO Int
