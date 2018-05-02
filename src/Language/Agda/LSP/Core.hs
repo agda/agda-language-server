@@ -35,14 +35,7 @@ import Language.Agda.LSP.Util
 runner :: IO ()
 runner = do
     rin  <- atomically newTChan :: IO (TChan ReactorInput)
-
-    -- rin' <- atomically $ cloneTChan rin
-    --
-    -- forkIO $ do
-    --   s <- atomically $ readTChan rin'
-    --   logs (show s)
-
-    Core.setupLogger (Just "/tmp/lsp-hello.log") [] L.DEBUG
+    Core.setupLogger (Just "/tmp/agda-language-server.log") [] L.DEBUG
     CTRL.run (return (Right ()), dp rin) (lspHandlers rin) lspOptions
     return ()
     where   dp rin lf = do
@@ -57,7 +50,6 @@ runner = do
 
 data ReactorInput
   = HandlerRequest Core.OutMessage
-  deriving (Show)
       -- ^ injected into the reactor input by each of the individual callback handlers
 
 -- ---------------------------------------------------------------------
@@ -97,7 +89,7 @@ nextLspReqId = do
 -- server and backend compiler
 reactor :: Core.LspFuncs () -> TChan ReactorInput -> IO ()
 reactor lf inp = do
-  liftIO $ logs $ "reactor:entered"
+  liftIO $ U.logs $ "reactor:entered"
   flip runReaderT lf $ forever $ do
     inval <- liftIO $ atomically $ readTChan inp
     case inval of
@@ -105,7 +97,7 @@ reactor lf inp = do
       -- Handle any response from a message originating at the server, such as
       -- "workspace/applyEdit"
       HandlerRequest (Core.RspFromClient rm) -> do
-        liftIO $ logs $ "reactor:got RspFromClient:" ++ show rm
+        liftIO $ U.logs $ "reactor:got RspFromClient:" ++ show rm
 
       -- -------------------------------
 
@@ -156,7 +148,7 @@ reactor lf inp = do
                                  . J.textDocument
                                  . J.uri
             fileName =  J.uriToFilePath doc
-        liftIO $ logs $ "********* fileName=" ++ show fileName
+        liftIO $ U.logs $ "********* fileName=" ++ show fileName
         sendDiagnostics doc (Just 0)
 
       -- -------------------------------
@@ -169,11 +161,11 @@ reactor lf inp = do
         mdoc <- liftIO $ Core.getVirtualFileFunc lf doc
         case mdoc of
           Just (VirtualFile _version str) -> do
-            liftIO $ logs $ "reactor:processing NotDidChangeTextDocument: vf got:" ++ (show $ Yi.toString str)
+            liftIO $ U.logs $ "reactor:processing NotDidChangeTextDocument: vf got:" ++ (show $ Yi.toString str)
           Nothing -> do
-            liftIO $ logs $ "reactor:processing NotDidChangeTextDocument: vf returned Nothing"
+            liftIO $ U.logs $ "reactor:processing NotDidChangeTextDocument: vf returned Nothing"
 
-        liftIO $ logs $ "reactor:processing NotDidChangeTextDocument: uri=" ++ (show doc)
+        liftIO $ U.logs $ "reactor:processing NotDidChangeTextDocument: uri=" ++ (show doc)
 
       -- -------------------------------
 
@@ -184,13 +176,13 @@ reactor lf inp = do
                                  . J.textDocument
                                  . J.uri
             fileName = J.uriToFilePath doc
-        liftIO $ logs $ "********* fileName=" ++ show fileName
+        liftIO $ U.logs $ "********* fileName=" ++ show fileName
         sendDiagnostics doc Nothing
 
       -- -------------------------------
 
       HandlerRequest (Core.ReqRename req) -> do
-        liftIO $ logs $ "reactor:got RenameRequest:" ++ show req
+        liftIO $ U.logs $ "reactor:got RenameRequest:" ++ show req
         let
             _params = req ^. J.params
             _doc  = _params ^. J.textDocument . J.uri
@@ -206,7 +198,7 @@ reactor lf inp = do
       -- -------------------------------
 
       HandlerRequest (Core.ReqHover req) -> do
-        liftIO $ logs $ "reactor:got HoverRequest:" ++ show req
+        liftIO $ U.logs $ "reactor:got HoverRequest:" ++ show req
         let J.TextDocumentPositionParams _doc pos = req ^. J.params
             J.Position _l _c' = pos
 
@@ -219,7 +211,7 @@ reactor lf inp = do
       -- -------------------------------
 
       HandlerRequest (Core.ReqCodeAction req) -> do
-        liftIO $ logs $ "reactor:got CodeActionRequest:" ++ show req
+        liftIO $ U.logs $ "reactor:got CodeActionRequest:" ++ show req
         let params = req ^. J.params
             doc = params ^. J.textDocument
             -- fileName = drop (length ("file://"::String)) doc
@@ -246,18 +238,18 @@ reactor lf inp = do
       -- -------------------------------
 
       HandlerRequest (Core.ReqExecuteCommand req) -> do
-        liftIO $ logs $ "reactor:got ExecuteCommandRequest:" -- ++ show req
+        liftIO $ U.logs $ "reactor:got ExecuteCommandRequest:" -- ++ show req
         let params = req ^. J.params
             margs = params ^. J.arguments
 
-        liftIO $ logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
+        liftIO $ U.logs $ "reactor:ExecuteCommandRequest:margs=" ++ show margs
 
         let
           reply v = reactorSend $ Core.makeResponseMessage req v
         -- When we get a RefactorResult or HieDiff, we need to send a
         -- separate WorkspaceEdit Notification
           r = J.List [] :: J.List Int
-        liftIO $ logs $ "ExecuteCommand response got:r=" ++ show r
+        liftIO $ U.logs $ "ExecuteCommand response got:r=" ++ show r
         case toWorkspaceEdit r of
           Just we -> do
             reply (J.Object mempty)
@@ -270,7 +262,7 @@ reactor lf inp = do
       -- -------------------------------
 
       HandlerRequest om -> do
-        liftIO $ logs $ "reactor:got HandlerRequest:" ++ show om
+        liftIO $ U.logs $ "reactor:got HandlerRequest:" ++ show om
 
 -- ---------------------------------------------------------------------
 
@@ -335,6 +327,6 @@ passHandler rin c notification = do
 
 responseHandlerCb :: TChan ReactorInput -> Core.Handler J.BareResponseMessage
 responseHandlerCb _rin resp = do
-  logs $ "******** got ResponseMessage, ignoring:" ++ show resp
+  U.logs $ "******** got ResponseMessage, ignoring:" ++ show resp
 
 -- ---------------------------------------------------------------------

@@ -18,7 +18,7 @@ import System.Process
 main :: IO ()
 main = flip E.catches [] $ do
     flip E.finally finalProc $ do
-        startLogging
+        -- startLogging
 
         args <- getArgs
         p <- case path args of
@@ -26,12 +26,15 @@ main = flip E.catches [] $ do
             Just p -> return (Just p)
         case p of
             Nothing -> putStrLn "unable to find Agda, please supply a different path to Agda"
-            Just filepath -> spawnAgda' filepath
+            Just filepath -> runner
+
+                -- spawnAgda filepath
 
         where
             finalProc = do
-                logs "k bye"
-                stopLogging
+                return ()
+                -- logs "k bye"
+                -- stopLogging
 -- test :: IO ()
 -- test = spawnAgda "/Users/banacorn/.local/bin/bgda"
 
@@ -50,7 +53,7 @@ spawnAgda filepath = do
     hSetBuffering toAgda NoBuffering
     hSetBuffering fromAgda NoBuffering
 
-    -- runner
+    runner
     --
     -- loop hin
     -- where   loop hin = do

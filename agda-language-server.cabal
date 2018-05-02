@@ -5,9 +5,9 @@ version:             0.0.1.0
 homepage:            https://github.com/banacorn/agda-language-server#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Luā Tîng-Giān
+author:              Luā Tîng-Gān
 maintainer:          banacorn@gmail.com
-copyright:           (c) 2017-2017 Luā Tîng-Giān
+copyright:           (c) 2017-2017 Luā Tîng-Gān
 category:            program
 build-type:          Simple
 extra-source-files:  README.md
@@ -20,7 +20,6 @@ executable agda-language-server
   build-depends:       base
     , cmdargs
     , process
-
     , aeson
     , bytestring
     , containers
@@ -30,7 +29,6 @@ executable agda-language-server
     , hslogger
     , lens >= 4.15.2
     , mtl
-    -- , parsec
     , stm
     , text
     , time
