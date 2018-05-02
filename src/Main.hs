@@ -7,7 +7,7 @@ module Main (main) where
 
 import Language.Agda.LSP.Util
 -- import Language.Agda.LSP.Core
-import Language.Agda.LSP.Core (runner)
+-- import Language.Agda.LSP.Core (runner)
 
 import           Control.Concurrent
 import qualified Control.Exception as E
@@ -26,7 +26,8 @@ main = flip E.catches [] $ do
             Just p -> return (Just p)
         case p of
             Nothing -> putStrLn "unable to find Agda, please supply a different path to Agda"
-            Just filepath -> runner
+            Just filepath -> putStrLn "running"
+              -- runner
 
                 -- spawnAgda filepath
 
@@ -53,7 +54,8 @@ spawnAgda filepath = do
     hSetBuffering toAgda NoBuffering
     hSetBuffering fromAgda NoBuffering
 
-    runner
+    putStrLn "running"
+    -- runner
     --
     -- loop hin
     -- where   loop hin = do
