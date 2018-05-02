@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MultiWayIf          #-}
@@ -9,30 +8,28 @@ module Language.Agda.LSP.Core (run) where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM.TChan
-import qualified Control.Exception                     as E
-import           Control.Lens
+import qualified Control.Exception as E
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Reader
 import           Control.Monad.STM
-import qualified Data.Aeson                            as J
+import           Control.Monad.Reader
+import qualified Data.Aeson as J
 import           Data.Default
-import qualified Data.HashMap.Strict                   as H
-#if __GLASGOW_HASKELL__ < 804
+import qualified Data.HashMap.Strict as H
 import           Data.Monoid
-#endif
-import qualified Data.Text                             as T
-import qualified Data.Vector                           as V
-import qualified Language.Haskell.LSP.Control          as CTRL
-import qualified Language.Haskell.LSP.Core             as Core
+import qualified Data.Text as T
+import qualified Data.Vector as V
+import qualified Language.Haskell.LSP.Control  as CTRL
+import qualified Language.Haskell.LSP.Core     as Core
 import           Language.Haskell.LSP.Diagnostics
 import           Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.TH.DataTypesJSON as J
-import qualified Language.Haskell.LSP.Utility          as U
+import qualified Language.Haskell.LSP.Utility  as U
 import           Language.Haskell.LSP.VFS
 import           System.Exit
-import qualified System.Log.Logger                     as L
-import qualified Yi.Rope                               as Yi
+import qualified System.Log.Logger as L
+import qualified Yi.Rope as Yi
+import Control.Lens
 
 
 -- ---------------------------------------------------------------------
@@ -40,15 +37,15 @@ import qualified Yi.Rope                               as Yi
 {-# ANN module ("HLint: ignore Redundant do"       :: String) #-}
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 -- ---------------------------------------------------------------------
+-- --
 --
-
 -- main :: IO ()
 -- main = do
 --   run (return ()) >>= \case
 --     0 -> exitSuccess
 --     c -> exitWith . ExitFailure $ c
 
------------------------------------------------------------------
+-- ---------------------------------------------------------------------
 
 run :: IO () -> IO Int
 run dispatcherProc = flip E.catches handlers $ do
@@ -254,7 +251,7 @@ reactor lf inp = do
 
         let
           -- makeCommand only generates commands for diagnostics whose source is us
-          makeCommand (J.Diagnostic (J.Range start _) _s _c (Just "lsp-hello") _m _l) = [J.Command title cmd cmdparams]
+          makeCommand (J.Diagnostic (J.Range start _) _s _c (Just "lsp-hello") _m  ) = [J.Command title cmd cmdparams]
             where
               title = "Apply LSP hello command:" <> head (T.lines _m)
               -- NOTE: the cmd needs to be registered via the InitializeResponse message. See lspOptions above
@@ -265,7 +262,7 @@ reactor lf inp = do
                       , J.Object $ H.fromList [("start_pos",J.Object $ H.fromList [("position",    J.toJSON start)])]
                       ]
               cmdparams = Just args
-          makeCommand (J.Diagnostic _r _s _c _source _m _l) = []
+          makeCommand (J.Diagnostic _r _s _c _source _m  ) = []
         let body = J.List $ concatMap makeCommand diags
         reactorSend $ Core.makeResponseMessage req body
 
@@ -316,7 +313,6 @@ sendDiagnostics fileUri mversion = do
               Nothing  -- code
               (Just "lsp-hello") -- source
               "Example diagnostic message"
-              (J.List [])
             ]
   -- reactorSend $ J.NotificationMessage "2.0" "textDocument/publishDiagnostics" (Just r)
   publishDiagnostics 100 fileUri mversion (partitionBySource diags)

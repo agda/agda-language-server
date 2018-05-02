@@ -1,13 +1,17 @@
-resolver: lts-11.7
+# resolver: lts-7.24
+resolver: lts-9.21
+# resolver: lts-11.7
 
 packages:
 - location: .
-- location:
-    git: https://github.com/alanz/haskell-lsp.git
-    commit: e49fc23230017085b450b8dcc2c5a157ef509174
-  extra-dep: true
+# - location:
+#     git: https://github.com/alanz/haskell-lsp.git
+#     commit: e49fc23230017085b450b8dcc2c5a157ef509174
+#   extra-dep: true
 
-extra-deps: []
+extra-deps:
+- haskell-lsp-0.2.0.1
+
 
 flags: {}
 

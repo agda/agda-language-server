@@ -26,7 +26,8 @@ main = flip E.catches [] $ do
             Just p -> return (Just p)
         case p of
             Nothing -> putStrLn "unable to find Agda, please supply a different path to Agda"
-            Just filepath -> putStrLn "running"
+            Just filepath ->
+                putStrLn filepath
               -- runner
 
                 -- spawnAgda filepath
@@ -54,7 +55,7 @@ spawnAgda filepath = do
     hSetBuffering toAgda NoBuffering
     hSetBuffering fromAgda NoBuffering
 
-    putStrLn "running"
+    putStrLn "spawnAgda"
     -- runner
     --
     -- loop hin
