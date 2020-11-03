@@ -1,25 +1,11 @@
 # agda-language-server
+
 Language Server Protocol for Agda
 
-## Development
+To be developed alongside [agda-mode-vscode](https://github.com/banacorn/agda-mode-vscode)
 
-### macOs
+### Why make it standalone?
 
-You would probably need to run this first:
-
-```bash
-make icu-macos-fix
-```
-
-and supply these two arguments when using `stack`:
-
-* `--extra-lib-dirs=/usr/local/opt/icu4c/lib`
-* `--extra-include-dirs=/usr/local/opt/icu4c/include`
-
-for example:
-
-```bash
-stack repl \
-   --extra-lib-dirs=/usr/local/opt/icu4c/lib         \
-   --extra-include-dirs=/usr/local/opt/icu4c/include
-```
+* for less impact on the Agda codebase
+* to help [decouple the Agda codebase](https://github.com/agda/agda/projects/5)
+* we can always merge it back to Agda later anyway
