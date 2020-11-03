@@ -1,63 +1,62 @@
-name:                agda-language-server
-version:             0.0.1.0
--- synopsis:
--- description:
-homepage:            https://github.com/banacorn/agda-language-server#readme
-license:             BSD3
-license-file:        LICENSE
-author:              Luā Tîng-Gān
-maintainer:          banacorn@gmail.com
-copyright:           (c) 2017-2017 Luā Tîng-Gān
-category:            program
-build-type:          Simple
-extra-source-files:  README.md
-cabal-version:       >=1.10
+cabal-version: 1.12
 
-executable agda-language-server
-    hs-source-dirs:      src
-    main-is:             Main.hs
-    ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-    build-depends:
-          base
-        , cmdargs
-        , process
-        , hslogger
-        , aeson
-        , bytestring
-        , containers
-        , directory
-        , data-default
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: b6f525d3d0e658f2fb15d5754cf82bf0de6185735e10ae5dca78110c8379c3fe
 
-        , hashable
-        , filepath
-        , lens >= 4.15.2
-        , mtl
-        , stm
-        , text
-        , network-uri
-        , parsec
-        , sorted-list
-        , unordered-containers
-        , vector
-        , yi-rope
-        
-        , haskell-lsp
-
-    other-modules:
-          Language.Agda.LSP.Core
-        , Language.Agda.LSP.Util
-
-    default-language:
-        Haskell2010
-
-test-suite agda-language-server-test
-    type:                exitcode-stdio-1.0
-    hs-source-dirs:      test
-    main-is:             Spec.hs
-    build-depends:       base
-    ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-    default-language:    Haskell2010
+name:           agda-language-server
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/banacorn/agda-language-server#readme>
+homepage:       https://github.com/banacorn/agda-language-server#readme
+bug-reports:    https://github.com/banacorn/agda-language-server/issues
+author:         Ting-Gian LUA
+maintainer:     banacorn@gmail.com
+copyright:      2020 Author name here :)
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
 
 source-repository head
-    type:     git
-    location: https://github.com/banacorn/agda-language-server
+  type: git
+  location: https://github.com/banacorn/agda-language-server
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_agda_language_server
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
+
+executable agda-language-server
+  main-is: Main.hs
+  other-modules:
+      Paths_agda_language_server
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      agda-language-server
+    , base >=4.7 && <5
+  default-language: Haskell2010
+
+test-suite agda-language-server-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_agda_language_server
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      agda-language-server
+    , base >=4.7 && <5
+  default-language: Haskell2010
