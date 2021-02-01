@@ -1,11 +1,22 @@
-module Server ( run ) where
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
+module Server (run) where
 
 -- entry point of the LSP server
-import Language.LSP.Server
+
 -- import Language.LSP.Types (TextDocumentSyncOptions(..), SaveOptions(..))
-import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
+
 import Control.Monad.IO.Class (liftIO)
+
+import qualified Data.Aeson as JSON
+import qualified Data.Text as Text
+import Data.Text (Text)
+
+import Language.LSP.Server
+import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
+import Data.Aeson (FromJSON, ToJSON)
+import GHC.Generics (Generic)
 
 run :: IO Int
 run = runServer serverDefn
@@ -46,5 +57,51 @@ handlers :: Handlers (LspM ())
 handlers =
   mconcat
     [ -- custom methods, not part of LSP
-      
+      requestHandler (SCustomMethod "agda") $ \req responder -> do
+        let RequestMessage _ i _ params = req
+        -- JSON Value => Request => Response
+        response <- case JSON.fromJSON params of
+          JSON.Error msg -> return $ ResCannotDecodeRequest $ show msg ++ "\n" ++ show params
+          JSON.Success request -> handleRequest request
+        -- respond with the Response
+        responder $ Right $ JSON.toJSON response
     ]
+
+--------------------------------------------------------------------------------
+
+handleRequest :: Request -> LspT () IO Response
+handleRequest request = do
+  -- -- convert Request to LSP side effects
+  -- toLSPSideEffects i request
+  -- convert Request to Response
+  toResponse request
+  where 
+    toResponse :: Request -> LspT () IO Response
+    toResponse ReqInitialize = return $ ResInitialize "2.6.1.1"
+
+--------------------------------------------------------------------------------
+-- | Request
+-- data ReqKind
+--   = ReqInitialize
+--   deriving (Generic)
+
+-- instance FromJSON ReqKind
+
+-- data Request = Req FilePath ReqKind
+data Request = ReqInitialize
+  deriving (Generic)
+
+instance FromJSON Request
+
+
+--------------------------------------------------------------------------------
+
+-- | Response
+-- data ResKind
+--   = ResInitialize
+--   deriving (Generic)
+
+data Response = ResInitialize String | ResCannotDecodeRequest String
+  deriving (Generic)
+
+instance ToJSON Response

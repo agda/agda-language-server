@@ -22,13 +22,15 @@ description:         Please see the README on GitHub at <https://github.com/bana
 dependencies:
   - base >= 4.7 && < 5
   - Agda
+  - aeson
   - lsp
+  - text
 
 library:
   source-dirs: src
 
 executables:
-  agda-language-server:
+  als:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -39,7 +41,7 @@ executables:
     - agda-language-server
 
 tests:
-  agda-language-server-test:
+  als-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:

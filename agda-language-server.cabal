@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7ede69b5c2b0e84a9db08feebf8e2bd97d153a6d69887f0987844f310e12ed29
+-- hash: c81eb385942c655a2163a8fa27b401f2aab0d876a0cb09a05e9a3238fdcf2d19
 
 name:           agda-language-server
 version:        0.1.0.0
@@ -34,11 +34,13 @@ library
       src
   build-depends:
       Agda
+    , aeson
     , base >=4.7 && <5
     , lsp
+    , text
   default-language: Haskell2010
 
-executable agda-language-server
+executable als
   main-is: Main.hs
   other-modules:
       Paths_agda_language_server
@@ -47,12 +49,14 @@ executable agda-language-server
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Agda
+    , aeson
     , agda-language-server
     , base >=4.7 && <5
     , lsp
+    , text
   default-language: Haskell2010
 
-test-suite agda-language-server-test
+test-suite als-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
@@ -62,7 +66,9 @@ test-suite agda-language-server-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Agda
+    , aeson
     , agda-language-server
     , base >=4.7 && <5
     , lsp
+    , text
   default-language: Haskell2010
