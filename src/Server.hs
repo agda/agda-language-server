@@ -17,6 +17,7 @@ import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
+import Process (getAgdaVersion, callAgda)
 
 run :: IO Int
 run = runServer serverDefn
@@ -77,7 +78,10 @@ handleRequest request = do
   toResponse request
   where 
     toResponse :: Request -> LspT () IO Response
-    toResponse ReqInitialize = return $ ResInitialize "2.6.1.1"
+    toResponse ReqInitialize = do 
+      liftIO $ do 
+        version <- getAgdaVersion "agda"
+        return $ ResInitialize version
 
 --------------------------------------------------------------------------------
 -- | Request
@@ -88,7 +92,7 @@ handleRequest request = do
 -- instance FromJSON ReqKind
 
 -- data Request = Req FilePath ReqKind
-data Request = ReqInitialize
+data Request = ReqInitialize | ReqInitialize2 String
   deriving (Generic)
 
 instance FromJSON Request
@@ -101,7 +105,7 @@ instance FromJSON Request
 --   = ResInitialize
 --   deriving (Generic)
 
-data Response = ResInitialize String | ResCannotDecodeRequest String
+data Response = ResInitialize (Maybe String) | ResCannotDecodeRequest String
   deriving (Generic)
 
 instance ToJSON Response

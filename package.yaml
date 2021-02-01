@@ -25,6 +25,7 @@ dependencies:
   - aeson
   - lsp
   - text
+  - process
 
 library:
   source-dirs: src
