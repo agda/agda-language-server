@@ -80,8 +80,7 @@ handleRequest request = do
     toResponse :: Request -> LspT () IO Response
     toResponse ReqInitialize = do 
       liftIO $ do 
-        version <- getAgdaVersion "agda"
-        return $ ResInitialize version
+        return $ ResInitialize getAgdaVersion
 
 --------------------------------------------------------------------------------
 -- | Request
@@ -105,7 +104,7 @@ instance FromJSON Request
 --   = ResInitialize
 --   deriving (Generic)
 
-data Response = ResInitialize (Maybe String) | ResCannotDecodeRequest String
+data Response = ResInitialize String | ResCannotDecodeRequest String
   deriving (Generic)
 
 instance ToJSON Response
