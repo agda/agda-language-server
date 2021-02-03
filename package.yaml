@@ -25,6 +25,8 @@ dependencies:
   - aeson
   - lsp
   - mtl
+  - network
+  - network-simple
   - text
   - process
 

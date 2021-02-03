@@ -1,5 +1,5 @@
 {-# LANGUAGE LambdaCase, OverloadedStrings #-}
-module Lispify where 
+module Lispify where
 
 import Control.Monad.State hiding (state)
 import qualified Data.List as List
@@ -134,8 +134,7 @@ lispifyDisplayInfo info = case info of
             $ B.atTopLevel
             $ allowNonTerminatingReductions
             $ (if computeIgnoreAbstract cmode then ignoreAbstractMode else inConcreteMode)
-            $ (B.showComputed cmode)
-            $ expr
+            $ B.showComputed cmode expr
     Info_InferredType state time expr -> do
       exprDoc <- evalStateT prettyExpr state
       let doc = maybe empty prettyTimed time $$ exprDoc
@@ -144,8 +143,7 @@ lispifyDisplayInfo info = case info of
         prettyExpr = localStateCommandM
             $ lift
             $ B.atTopLevel
-            $ TCP.prettyA
-            $ expr
+            $ TCP.prettyA expr
     Info_ModuleContents modules tel types -> do
       doc <- localTCState $ do
         typeDocs <- addContext tel $ forM types $ \ (x, t) -> do
@@ -213,7 +211,7 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $ B.withInteractionId ii $
             | otherwise  = [ text $ delimiter "Boundary"
                            , vcat $ map pretty bndry
                            ]
-      let constraintsDoc = if (null constraints)
+      let constraintsDoc = if null constraints
             then  []
             else  [ text $ delimiter "Constraints"
                   , vcat $ map pretty constraints
@@ -241,7 +239,7 @@ format content bufname = return [ display_info' False bufname content ]
 -- | Adds a \"last\" tag to a response.
 
 lastTag :: Integer -> Lisp String -> Lisp String
-lastTag n r = Cons (Cons (A "last") (A $ show n)) r
+lastTag n = Cons (Cons (A "last") (A $ show n))
 
 -- | Show an iteraction point identifier as an elisp expression.
 
@@ -303,7 +301,7 @@ showInfoError (Info_HighlightingScopeCheckError ii) =
 
 explainWhyInScope :: FilePath
                   -> String
-                  -> (Maybe LocalVar)
+                  -> Maybe LocalVar
                   -> [AbstractName]
                   -> [AbstractModule]
                   -> TCM Doc
@@ -323,7 +321,7 @@ explainWhyInScope s _ v xs ms = TCP.vcat
          ]
       where
         asVar :: TCM Doc
-        asVar = do
+        asVar =
           "* a variable bound at" TCP.<+> TCP.prettyTCM (nameBindingSite $ localVar x)
         shadowing :: LocalVar -> TCM Doc
         shadowing (LocalVar _ _ [])    = "shadowing"
@@ -352,13 +350,13 @@ explainWhyInScope s _ v xs ms = TCP.vcat
       [ "* a"
         TCP.<+> pKind (anameKind a)
         TCP.<+> TCP.text (prettyShow $ anameName a)
-      , TCP.nest 2 $ "brought into scope by"
+      , TCP.nest 2 "brought into scope by"
       ] TCP.$$
       TCP.nest 2 (pWhy (nameBindingSite $ qnameName $ anameName a) (anameLineage a))
     pMod :: AbstractModule -> TCM Doc
     pMod  a = TCP.sep
       [ "* a module" TCP.<+> TCP.text (prettyShow $ amodName a)
-      , TCP.nest 2 $ "brought into scope by"
+      , TCP.nest 2 "brought into scope by"
       ] TCP.$$
       TCP.nest 2 (pWhy (nameBindingSite $ qnameName $ mnameToQName $ amodName a) (amodLineage a))
 
@@ -406,7 +404,7 @@ prettyResponseContext ii rev ctx = withInteractionId ii $ do
           where c = prettyShow (getCohesion ai)
 
         extras :: [Doc]
-        extras = concat $
+        extras = concat
           [ [ "not in scope" | isInScope nis == C.NotInScope ]
             -- Print erased if hypothesis is erased by goal is non-erased.
           , [ "erased"       | not $ getQuantity  ai `moreQuantity` getQuantity  mod ]
@@ -419,7 +417,7 @@ prettyResponseContext ii rev ctx = withInteractionId ii $ do
       maybeVal <- traverse prettyATop letv
 
       return $
-        [ (attribute ++ prettyCtxName, ":" <+> ty <+> (parenSep extras)) ] ++
+        (attribute ++ prettyCtxName, ":" <+> ty <+> parenSep extras) :
         [ (prettyShow x, "=" <+> val) | val <- maybeToList maybeVal ]
 
   where

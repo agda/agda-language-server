@@ -10,31 +10,77 @@ module Server (run) where
 import Control.Monad.IO.Class (liftIO)
 
 import qualified Data.Aeson as JSON
-import qualified Data.Text as Text
 import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 
 import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
-import qualified Core as Core
+import GHC.IO.IOMode (IOMode (ReadWriteMode))
+import qualified Core
+
+import Network.Simple.TCP (HostPreference (Host), serve)
+import Network.Socket (socketToHandle)
 
 import qualified Agda.Interaction.Base as Agda
 import qualified Agda.Interaction.Response as Agda
+import Control.Concurrent (newChan, Chan, writeChan, forkIO, readChan)
+import Control.Monad.Reader
 
-run :: IO Int
-run = runServer serverDefn
+--------------------------------------------------------------------------------
+
+data Env = Env
+  { envChan :: Chan Text
+  , envDevMode :: Bool
+  }
+
+type ServerM = ReaderT Env IO
+
+runServerM :: Env -> LanguageContextEnv () -> LspT () ServerM a -> IO a
+runServerM env ctxEnv program = runReaderT (runLspT ctxEnv program) env
+
+writeLog :: Text -> LspT () ServerM ()
+writeLog msg = do
+  chan <- lift $ asks envChan
+  liftIO $ writeChan chan msg
+
+--------------------------------------------------------------------------------
+
+run :: Bool -> IO Int
+run devMode = do
+  chan <- newChan
+  if devMode
+    then do
+      let env = Env chan True
+      let port = "3000"
+      _ <- forkIO (printLog env)
+      serve (Host "localhost") port $ \(sock, _remoteAddr) -> do
+        putStrLn $ "== connection established at " ++ port ++ " =="
+        handle <- socketToHandle sock ReadWriteMode
+        _ <- runServerWithHandles handle handle (serverDefn env)
+        putStrLn "== dev server closed =="
+    else do
+      let env = Env chan False
+      runServer (serverDefn env)
   where
-    serverDefn :: ServerDefinition ()
-    serverDefn =
+    printLog :: Env -> IO ()
+    printLog env = do
+      result <- readChan (envChan env)
+      when (envDevMode env) $ do
+        Text.putStrLn result
+      printLog env
+
+    serverDefn :: Env -> ServerDefinition ()
+    serverDefn env =
       ServerDefinition
         { onConfigurationChange = const $ pure $ Right (),
           doInitialize = \ctxEnv _req -> pure $ Right ctxEnv,
           staticHandlers = handlers,
-          interpretHandler = \ctxEnv -> Iso (runLspT ctxEnv) liftIO,
+          interpretHandler = \ctxEnv -> Iso (runServerM env ctxEnv) liftIO,
           options = lspOptions
         }
-
     lspOptions :: Options
     lspOptions =
       defaultOptions
@@ -57,7 +103,7 @@ run = runServer serverDefn
     saveOptions = SaveOptions (Just True)
 
 -- handlers of the LSP server
-handlers :: Handlers (LspM ())
+handlers :: Handlers (LspT () ServerM)
 handlers =
   mconcat
     [ -- custom methods, not part of LSP
@@ -73,14 +119,14 @@ handlers =
 
 --------------------------------------------------------------------------------
 
-handleRequest :: Request -> LspT () IO Response
+handleRequest :: Request -> LspT () ServerM Response
 handleRequest request = do
   -- -- convert Request to LSP side effects
   -- toLSPSideEffects i request
   -- convert Request to Response
   toResponse request
   where
-    toResponse :: Request -> LspT () IO Response
+    toResponse :: Request -> LspT () ServerM Response
     toResponse ReqInitialize = return $ ResInitialize Core.getAgdaVersion
     toResponse (ReqPayload req) = liftIO $ ResPayload <$> Core.run req
 
