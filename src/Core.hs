@@ -15,11 +15,12 @@ import Agda.VersionCommit (versionWithCommitInfo)
 import Control.Monad.Except (catchError)
 import Data.Maybe (listToMaybe)
 import Agda.Interaction.Options (CommandLineOptions(optAbsoluteIncludePaths))
-import Agda.Interaction.InteractionTop (initialiseCommandQueue, runInteraction)
+import Agda.Interaction.InteractionTop (initialiseCommandQueue, runInteraction, handleCommand_)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.State
 import Agda.TypeChecking.Monad.State (setInteractionOutputCallback)
 import Control.Concurrent
+import Control.Exception
 import Lispify (lispifyResponse)
 import Agda.Utils.Pretty (pretty, render)
 
@@ -46,6 +47,8 @@ run raw = do
           liftIO $ putMVar responseMVar response
         
         commands <- liftIO $ initialiseCommandQueue (return $ Command command)
+
+        handleCommand_ (lift (return ())) `evalStateT` initCommandState commands
 
         opts <- commandLineOptions
         let commandState = (initCommandState commands) { optionsOnReload = opts { optAbsoluteIncludePaths = [] } }
@@ -85,7 +88,7 @@ parseIOTCM raw =
 -- TODO: handle the caught errors
 -- | Run a TCM action in IO and throw away all of the errors
 runTCMPrettyErrors :: TCM String -> IO (Either String String)
-runTCMPrettyErrors program = runTCMTop' $ (Right <$> program) `catchError` handleTCErr `catchImpossible` handleImpossible
+runTCMPrettyErrors program = runTCMTop' ((Right <$> program) `catchError` handleTCErr `catchImpossible` handleImpossible) `catch` catchException
   where
     handleTCErr :: TCErr -> TCM (Either String String)
     handleTCErr err = do
@@ -97,3 +100,6 @@ runTCMPrettyErrors program = runTCMTop' $ (Right <$> program) `catchError` handl
 
     handleImpossible :: Impossible -> TCM (Either String String)
     handleImpossible = return . Left . show
+
+    catchException :: SomeException -> IO (Either String String)
+    catchException e = return $ Left $ show e
