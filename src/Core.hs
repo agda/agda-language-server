@@ -27,36 +27,40 @@ import Agda.Utils.Pretty (pretty, render)
 import Agda.Interaction.EmacsCommand ()
 -- import Control.Exception (catchError)
 
+import Common
+
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
 
 
 
-run :: String -> IO String
+run :: String -> ServerM String
 run raw = do
   let result = parseIOTCM raw
   case result of
     Left err -> return err
     Right command -> do
-      result <- runTCMPrettyErrors $ do
+      result <- liftIO $ runTCMPrettyErrors $ do
 
-        responseMVar <- liftIO newEmptyMVar 
+        -- responseMVar <- liftIO newEmptyMVar 
 
 
-        setInteractionOutputCallback $ \response -> do 
-          liftIO $ putMVar responseMVar response
+        -- setInteractionOutputCallback $ \response -> do 
+        --   liftIO $ putMVar responseMVar response
         
-        commands <- liftIO $ initialiseCommandQueue (return $ Command command)
+        -- commands <- liftIO $ initialiseCommandQueue (return $ Command command)
 
-        handleCommand_ (lift (return ())) `evalStateT` initCommandState commands
+        -- handleCommand_ (lift (return ())) `evalStateT` initCommandState commands
 
-        opts <- commandLineOptions
-        let commandState = (initCommandState commands) { optionsOnReload = opts { optAbsoluteIncludePaths = [] } }
-        runStateT (runInteraction command) commandState
+        -- opts <- commandLineOptions
+        -- let commandState = (initCommandState commands) { optionsOnReload = opts { optAbsoluteIncludePaths = [] } }
+        -- runStateT (runInteraction command) commandState
 
-        response <- liftIO $ readMVar responseMVar
-        lispified <- lispifyResponse response
-        return $ render $ pretty lispified
+        -- response <- liftIO $ readMVar responseMVar
+        -- lispified <- lispifyResponse response
+        -- return $ render $ pretty lispified
+
+        return "broken"
 
       case result of
         Left err -> return err

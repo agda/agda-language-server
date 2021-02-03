@@ -19,7 +19,7 @@ import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import GHC.IO.IOMode (IOMode (ReadWriteMode))
-import qualified Core
+
 
 import Network.Simple.TCP (HostPreference (Host), serve)
 import Network.Socket (socketToHandle)
@@ -29,22 +29,9 @@ import qualified Agda.Interaction.Response as Agda
 import Control.Concurrent (newChan, Chan, writeChan, forkIO, readChan)
 import Control.Monad.Reader
 
---------------------------------------------------------------------------------
 
-data Env = Env
-  { envChan :: Chan Text
-  , envDevMode :: Bool
-  }
-
-type ServerM = ReaderT Env IO
-
-runServerM :: Env -> LanguageContextEnv () -> LspT () ServerM a -> IO a
-runServerM env ctxEnv program = runReaderT (runLspT ctxEnv program) env
-
-writeLog :: Text -> LspT () ServerM ()
-writeLog msg = do
-  chan <- lift $ asks envChan
-  liftIO $ writeChan chan msg
+import qualified Core
+import Common
 
 --------------------------------------------------------------------------------
 
@@ -54,8 +41,9 @@ run devMode = do
   if devMode
     then do
       let env = Env chan True
-      let port = "3000"
+      let port = "4000"
       _ <- forkIO (printLog env)
+      putStrLn $ "== opening a dev server at port " ++ port ++ " =="
       serve (Host "localhost") port $ \(sock, _remoteAddr) -> do
         putStrLn $ "== connection established at " ++ port ++ " =="
         handle <- socketToHandle sock ReadWriteMode
@@ -128,7 +116,7 @@ handleRequest request = do
   where
     toResponse :: Request -> LspT () ServerM Response
     toResponse ReqInitialize = return $ ResInitialize Core.getAgdaVersion
-    toResponse (ReqPayload req) = liftIO $ ResPayload <$> Core.run req
+    toResponse (ReqPayload req) = lift $ ResPayload <$> Core.run req
 
 --------------------------------------------------------------------------------
 -- | Request
