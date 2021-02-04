@@ -51,22 +51,8 @@ interact = do
   result <- runTCMPrettyErrors $ do
       -- decides how to output Response
     lift $ setInteractionOutputCallback $ \response -> do
-        -- let message = case response of
-        --       Resp_HighlightingInfo {} -> "Resp_HighlightingInfo"
-        --       Resp_Status {} -> "Resp_Status"
-        --       Resp_JumpToError {} -> "Resp_JumpToError"
-        --       Resp_InteractionPoints {} -> "Resp_InteractionPoints"
-        --       Resp_GiveAction {} -> "Resp_GiveAction"
-        --       Resp_MakeCase {} -> "Resp_MakeCase"
-        --       Resp_SolveAll {} -> "Resp_SolveAll"
-        --       Resp_DisplayInfo {} -> "Resp_DisplayInfo"
-        --       Resp_RunningInfo {} -> "Resp_RunningInfo"
-        --       Resp_ClearRunningInfo {} -> "Resp_ClearRunningInfo"
-        --       Resp_ClearHighlighting {} -> "Resp_ClearHighlighting"
-        --       Resp_DoneAborting {} -> "Resp_DoneAborting"
-        --       Resp_DoneExiting {} -> "Resp_DoneExiting"
         lispified <- lispifyResponse response
-        signalResponse env response
+        sendResponse env response
 
     -- keep reading command
     commands <- liftIO $ initialiseCommandQueue (readCommand env)
@@ -94,7 +80,7 @@ interact = do
             writeLog ("Error " <> pack s)
             return False
           Command _ -> do
-            signalCommandDone 
+            completeCommand
             return False
 
       lift Bench.print
@@ -102,14 +88,14 @@ interact = do
 
     -- Reads the next command from the Channel
     readCommand :: Env -> IO Command
-    readCommand env = Command <$> readChan (envCommandChan env)
+    readCommand env = Command <$> peekCommand env
 
 parseIOTCM :: String -> Either String IOTCM
 parseIOTCM raw = case listToMaybe $ reads raw of
   Just (x, "") -> Right x
   Just (_, rem) -> Left $ "not consumed: " ++ rem
   _ -> Left $ "cannot read: " ++ raw
-  
+
 -- TODO: handle the caught errors
 -- | Run a TCM action in IO and throw away all of the errors
 runTCMPrettyErrors :: ServerM' TCM String -> ServerM' IO (Either String String)

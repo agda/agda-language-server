@@ -126,10 +126,8 @@ handleRequest request = do
           return ResCommandDone
         Right iotcm -> do 
           lift $ do 
-            chan <- asks envCommandChan
-            liftIO $ writeChan chan iotcm
-            -- wait until the command is done
-            waitCommandDone 
+            -- issue the command, block until it is handled
+            issueCommand iotcm 
             return ResCommandDone
 
 --------------------------------------------------------------------------------
