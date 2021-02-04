@@ -1,99 +1,123 @@
--- {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module Core where
 
 
-import Agda.Interaction.Base (Interaction (..), IOTCM, CommandState (optionsOnReload), initCommandState, Command'(Command))
+
+
+
+
+
+
+import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandState (optionsOnReload), IOTCM, Interaction (..), initCommandState, CommandM)
 import qualified Agda.Interaction.Imports as Imp
+import Agda.Interaction.InteractionTop (handleCommand_, initialiseCommandQueue, runInteraction, maybeAbort)
+import Agda.Interaction.Options (CommandLineOptions (optAbsoluteIncludePaths))
 import Agda.Interaction.Response (Response (..))
 import Agda.TypeChecking.Errors (prettyError, prettyTCWarnings')
 import Agda.TypeChecking.Monad
-    ( TCErr, runTCMTop', commandLineOptions )
+  ( TCErr,
+    commandLineOptions,
+    runTCMTop',
+  )
 import Agda.TypeChecking.Monad.Base (TCM)
-import Agda.Utils.Impossible (CatchImpossible (catchImpossible), Impossible)
-import Agda.VersionCommit (versionWithCommitInfo)
-import Control.Monad.Except (catchError)
-import Data.Maybe (listToMaybe)
-import Agda.Interaction.Options (CommandLineOptions(optAbsoluteIncludePaths))
-import Agda.Interaction.InteractionTop (initialiseCommandQueue, runInteraction, handleCommand_)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.State
 import Agda.TypeChecking.Monad.State (setInteractionOutputCallback)
+import Agda.Utils.Impossible (CatchImpossible (catchImpossible), Impossible)
+import Agda.Utils.Pretty (pretty, render)
+import Agda.VersionCommit (versionWithCommitInfo)
+import Common
 import Control.Concurrent
 import Control.Exception
+import Control.Monad.Except (catchError)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Reader
+import Control.Monad.State
+import Data.Maybe (listToMaybe)
+import Data.Text (pack)
 import Lispify (lispifyResponse)
-import Agda.Utils.Pretty (pretty, render)
-
-import Agda.Interaction.EmacsCommand ()
--- import Control.Exception (catchError)
-
-import Common
+import qualified Agda.TypeChecking.Monad.Benchmark as Bench
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
 
+-- instance Show Response where
+-- instance Show CommandState where
 
+interact :: ServerM ()
+interact = do
+  env <- ask
 
-run :: String -> ServerM String
-run raw = do
-  let result = parseIOTCM raw
+  result <- runTCMPrettyErrors $ do
+      -- decides how to output Response
+    lift $ setInteractionOutputCallback $ \response -> do
+        -- let message = case response of
+        --       Resp_HighlightingInfo {} -> "Resp_HighlightingInfo"
+        --       Resp_Status {} -> "Resp_Status"
+        --       Resp_JumpToError {} -> "Resp_JumpToError"
+        --       Resp_InteractionPoints {} -> "Resp_InteractionPoints"
+        --       Resp_GiveAction {} -> "Resp_GiveAction"
+        --       Resp_MakeCase {} -> "Resp_MakeCase"
+        --       Resp_SolveAll {} -> "Resp_SolveAll"
+        --       Resp_DisplayInfo {} -> "Resp_DisplayInfo"
+        --       Resp_RunningInfo {} -> "Resp_RunningInfo"
+        --       Resp_ClearRunningInfo {} -> "Resp_ClearRunningInfo"
+        --       Resp_ClearHighlighting {} -> "Resp_ClearHighlighting"
+        --       Resp_DoneAborting {} -> "Resp_DoneAborting"
+        --       Resp_DoneExiting {} -> "Resp_DoneExiting"
+        lispified <- lispifyResponse response
+        signalResponse env response
+
+    -- keep reading command
+    commands <- liftIO $ initialiseCommandQueue (readCommand env)
+
+    -- start the loop     
+    opts <- commandLineOptions
+    let commandState = (initCommandState commands) { optionsOnReload = opts { optAbsoluteIncludePaths = [] } }
+    mapReaderT (`runStateT` commandState) loop
+
+    return ""
+
   case result of
-    Left err -> return err
-    Right command -> do
-      result <- liftIO $ runTCMPrettyErrors $ do
+    Left err -> return ()
+    Right val -> return ()
+  where
 
-        -- responseMVar <- liftIO newEmptyMVar 
+    loop :: ServerM' CommandM ()
+    loop = do
+      Bench.reset
+      done <- Bench.billTo [] $ do
+        r <- lift $ maybeAbort runInteraction
+        case r of
+          Done      -> return True -- Done.
+          Error s   -> do
+            writeLog ("Error " <> pack s)
+            return False
+          Command _ -> do
+            signalCommandDone 
+            return False
 
+      lift Bench.print
+      unless done loop
 
-        -- setInteractionOutputCallback $ \response -> do 
-        --   liftIO $ putMVar responseMVar response
-        
-        -- commands <- liftIO $ initialiseCommandQueue (return $ Command command)
-
-        -- handleCommand_ (lift (return ())) `evalStateT` initCommandState commands
-
-        -- opts <- commandLineOptions
-        -- let commandState = (initCommandState commands) { optionsOnReload = opts { optAbsoluteIncludePaths = [] } }
-        -- runStateT (runInteraction command) commandState
-
-        -- response <- liftIO $ readMVar responseMVar
-        -- lispified <- lispifyResponse response
-        -- return $ render $ pretty lispified
-
-        return "broken"
-
-      case result of
-        Left err -> return err
-        Right val -> return val
-
-
-
-  -- result <- runTCMPrettyErrors $ do 
-
-
-  --   case listToMaybe $ reads raw of
-  --     Just (x, "")  -> return $ x
-  --     Just (_, rem) -> return $ "not consumed: " ++ rem
-  --     _             -> return $ "cannot read: " ++ raw
-
-  -- case result of 
-  --   Left err -> return err 
-  --   Right val -> return val
+    -- Reads the next command from the Channel
+    readCommand :: Env -> IO Command
+    readCommand env = Command <$> readChan (envCommandChan env)
 
 parseIOTCM :: String -> Either String IOTCM
-parseIOTCM raw =
-    case listToMaybe $ reads raw of
-      Just (x, "")  -> Right x
-      Just (_, rem) -> Left $ "not consumed: " ++ rem
-      _             -> Left $ "cannot read: " ++ raw
-
-
-
+parseIOTCM raw = case listToMaybe $ reads raw of
+  Just (x, "") -> Right x
+  Just (_, rem) -> Left $ "not consumed: " ++ rem
+  _ -> Left $ "cannot read: " ++ raw
+  
 -- TODO: handle the caught errors
 -- | Run a TCM action in IO and throw away all of the errors
-runTCMPrettyErrors :: TCM String -> IO (Either String String)
-runTCMPrettyErrors program = runTCMTop' ((Right <$> program) `catchError` handleTCErr `catchImpossible` handleImpossible) `catch` catchException
+runTCMPrettyErrors :: ServerM' TCM String -> ServerM' IO (Either String String)
+runTCMPrettyErrors program = mapReaderT f program
   where
+    f :: TCM String -> IO (Either String String)
+    f program = runTCMTop' ((Right <$> program) `catchError` handleTCErr `catchImpossible` handleImpossible) `catch` catchException
+
     handleTCErr :: TCErr -> TCM (Either String String)
     handleTCErr err = do
       s2s <- prettyTCWarnings' =<< Imp.getAllWarningsOfTCErr err

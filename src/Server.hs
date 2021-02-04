@@ -7,58 +7,58 @@ module Server (run) where
 
 -- import Language.LSP.Types (TextDocumentSyncOptions(..), SaveOptions(..))
 
-import Control.Monad.IO.Class (liftIO)
-
-import qualified Data.Aeson as JSON
-import Data.Text (Text)
-import qualified Data.Text as Text
-import qualified Data.Text.IO as Text
-
-import Language.LSP.Server
-import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
-import Data.Aeson (FromJSON, ToJSON)
-import GHC.Generics (Generic)
-import GHC.IO.IOMode (IOMode (ReadWriteMode))
-
-
-import Network.Simple.TCP (HostPreference (Host), serve)
-import Network.Socket (socketToHandle)
-
 import qualified Agda.Interaction.Base as Agda
 import qualified Agda.Interaction.Response as Agda
-import Control.Concurrent (newChan, Chan, writeChan, forkIO, readChan)
-import Control.Monad.Reader
-
-
-import qualified Core
 import Common
+import Control.Concurrent 
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Reader
+import qualified Core
+import Data.Aeson (FromJSON, ToJSON)
+import qualified Data.Aeson as JSON
+import Data.Text (Text, pack)
+import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
+import GHC.Generics (Generic)
+import GHC.IO.IOMode (IOMode (ReadWriteMode))
+import Language.LSP.Server
+import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
+import Network.Simple.TCP (HostPreference (Host), serve)
+import Network.Socket (socketToHandle)
 
 --------------------------------------------------------------------------------
 
 run :: Bool -> IO Int
 run devMode = do
-  chan <- newChan
+
+
+  env <- createInitEnv devMode
+  
+  forkIO $ liftIO $ runReaderT Core.interact env
+
   if devMode
     then do
-      let env = Env chan True
       let port = "4000"
-      _ <- forkIO (printLog env)
+      --
+      keepPrintLog env
+
       putStrLn $ "== opening a dev server at port " ++ port ++ " =="
       serve (Host "localhost") port $ \(sock, _remoteAddr) -> do
-        putStrLn $ "== connection established at " ++ port ++ " =="
+        putStrLn "== connection established =="
         handle <- socketToHandle sock ReadWriteMode
         _ <- runServerWithHandles handle handle (serverDefn env)
-        putStrLn "== dev server closed =="
+        putStrLn "== connection closed =="
     else do
-      let env = Env chan False
       runServer (serverDefn env)
   where
-    printLog :: Env -> IO ()
-    printLog env = do
-      result <- readChan (envChan env)
-      when (envDevMode env) $ do
-        Text.putStrLn result
-      printLog env
+    -- keeps reading and printing from `envLogChan`
+    keepPrintLog :: Env -> IO ()
+    keepPrintLog env = void $
+      forkIO $ do
+        result <- readChan (envLogChan env)
+        when (envDevMode env) $ do
+          Text.putStrLn result
+        keepPrintLog env
 
     serverDefn :: Env -> ServerDefinition ()
     serverDefn env =
@@ -66,7 +66,7 @@ run devMode = do
         { onConfigurationChange = const $ pure $ Right (),
           doInitialize = \ctxEnv _req -> pure $ Right ctxEnv,
           staticHandlers = handlers,
-          interpretHandler = \ctxEnv -> Iso (runServerM env ctxEnv) liftIO,
+          interpretHandler = \ctxEnv -> Iso (runServerLSP env ctxEnv) liftIO,
           options = lspOptions
         }
     lspOptions :: Options
@@ -94,7 +94,10 @@ run devMode = do
 handlers :: Handlers (LspT () ServerM)
 handlers =
   mconcat
-    [ -- custom methods, not part of LSP
+    [ 
+      notificationHandler SInitialized $ \_ -> do 
+        return (),
+      -- custom methods, not part of LSP
       requestHandler (SCustomMethod "agda") $ \req responder -> do
         let RequestMessage _ i _ params = req
         -- JSON Value => Request => Response
@@ -116,9 +119,21 @@ handleRequest request = do
   where
     toResponse :: Request -> LspT () ServerM Response
     toResponse ReqInitialize = return $ ResInitialize Core.getAgdaVersion
-    toResponse (ReqPayload req) = lift $ ResPayload <$> Core.run req
+    toResponse (ReqCommand cmd) = do
+      case Core.parseIOTCM cmd of 
+        Left error -> do 
+          lift $ writeLog $ "Error: parseIOTCM" <> pack error
+          return ResCommandDone
+        Right iotcm -> do 
+          lift $ do 
+            chan <- asks envCommandChan
+            liftIO $ writeChan chan iotcm
+            -- wait until the command is done
+            waitCommandDone 
+            return ResCommandDone
 
 --------------------------------------------------------------------------------
+
 -- | Request
 -- data ReqKind
 --   = ReqInitialize
@@ -126,13 +141,11 @@ handleRequest request = do
 
 -- instance FromJSON ReqKind
 
-
 -- data Request = Req FilePath ReqKind
-data Request = ReqInitialize | ReqPayload String
+data Request = ReqInitialize | ReqCommand String
   deriving (Generic)
 
 instance FromJSON Request
-
 
 --------------------------------------------------------------------------------
 
@@ -140,8 +153,10 @@ instance FromJSON Request
 -- data ResKind
 --   = ResInitialize
 --   deriving (Generic)
-
-data Response = ResInitialize String | ResPayload String | ResCannotDecodeRequest String
+data Response
+  = ResInitialize String
+  | ResCommandDone
+  | ResCannotDecodeRequest String
   deriving (Generic)
 
 instance ToJSON Response
