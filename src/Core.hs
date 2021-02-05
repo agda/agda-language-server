@@ -89,6 +89,7 @@ interact = do
             writeLog ("Error " <> pack s)
             return False
           Command _ -> do
+            waitUntilResponsesSent
             signalCommandFinish
             return False
 

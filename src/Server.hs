@@ -25,6 +25,7 @@ import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Network.Simple.TCP (HostPreference (Host), serve)
 import Network.Socket (socketToHandle)
+import Lispify (responseAbbr)
 
 --------------------------------------------------------------------------------
 
@@ -38,7 +39,6 @@ run devMode = do
     then do
       let port = "4000"
       --
-      keepPrintLog env
 
       putStrLn $ "== opening a dev server at port " ++ port ++ " =="
       serve (Host "localhost") port $ \(sock, _remoteAddr) -> do
@@ -51,17 +51,27 @@ run devMode = do
   where
     -- keeps reading and printing from `envLogChan`
     keepPrintLog :: Env -> IO ()
-    keepPrintLog env = void $ forkIO $ do
+    keepPrintLog env = do
       result <- readChan (envLogChan env)
       when (envDevMode env) $ do
         Text.putStrLn result
       keepPrintLog env
 
     keepSendindResponse :: Env -> LanguageContextEnv () -> IO ()
-    keepSendindResponse env ctxEnv = void $ forkIO $ do
-      (_response, lispified) <- readChan (envResponseChan env)
-      runLspT ctxEnv $ do
-        sendNotification (SCustomMethod "agda") $ JSON.toJSON (ResResponse lispified)
+    keepSendindResponse env ctxEnv = do
+      
+      responsePacket <- readChan (envResponseChan env)
+
+      case responsePacket of 
+        ResponsePacket _response lispified -> do 
+          runLspT ctxEnv $ do
+            sendNotification (SCustomMethod "agda") $ JSON.toJSON lispified
+          -- liftIO $ putStrLn $ "[Response!] " <> responseAbbr _response
+          liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response
+
+        ResponseDone mvar -> do 
+          putMVar mvar ()
+
       keepSendindResponse env ctxEnv
 
     serverDefn :: Env -> ServerDefinition ()
@@ -69,8 +79,11 @@ run devMode = do
       ServerDefinition
         { onConfigurationChange = const $ pure $ Right (),
           doInitialize = \ctxEnv _req -> do 
-            forkIO $ liftIO $ runReaderT Core.interact env
+            putStrLn "[LSP] doInitialize"
+            forkIO $ keepPrintLog env
+            forkIO $ runReaderT Core.interact env
             forkIO $ keepSendindResponse env ctxEnv
+            
             pure $ Right ctxEnv,
           staticHandlers = handlers,
           interpretHandler = \ctxEnv -> Iso (runServerLSP env ctxEnv) liftIO,
@@ -170,9 +183,16 @@ instance FromJSON Request
 --   deriving (Generic)
 data Response
   = ResInitialize String
-  | ResResponse String
+  -- | ResResponse String
   | ResCommandDone
   | ResCannotDecodeRequest String
   deriving (Generic)
 
 instance ToJSON Response
+
+--------------------------------------------------------------------------------
+
+data Ntf = NtfResponse String | NtfDummy 
+  deriving (Generic)
+
+instance ToJSON Ntf

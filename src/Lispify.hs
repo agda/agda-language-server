@@ -34,6 +34,23 @@ import Agda.Utils.Pretty
 import Agda.Utils.String
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit
+import Data.String (IsString)
+
+responseAbbr :: IsString a => Response -> a 
+responseAbbr response = case response of
+  Resp_HighlightingInfo {} -> "Resp_HighlightingInfo"
+  Resp_Status {} -> "Resp_Status"
+  Resp_JumpToError {} -> "Resp_JumpToError"
+  Resp_InteractionPoints {} -> "Resp_InteractionPoints"
+  Resp_GiveAction {} -> "Resp_GiveAction"
+  Resp_MakeCase {} -> "Resp_MakeCase"
+  Resp_SolveAll {} -> "Resp_SolveAll"
+  Resp_DisplayInfo {} -> "Resp_DisplayInfo"
+  Resp_RunningInfo {} -> "Resp_RunningInfo"
+  Resp_ClearRunningInfo {} -> "Resp_ClearRunningInfo"
+  Resp_ClearHighlighting {} -> "Resp_ClearHighlighting"
+  Resp_DoneAborting {} -> "Resp_DoneAborting"
+  Resp_DoneExiting {} -> "Resp_DoneExiting"
 
 ----------------------------------
 

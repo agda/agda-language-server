@@ -16,11 +16,14 @@ import Data.IORef
 
 --------------------------------------------------------------------------------
 
+
+data ResponsePacket = ResponsePacket Response String | ResponseDone (MVar ())
+
 data Env = Env
   { envLogChan :: Chan Text
   , envCmdThrottler :: Throttler IOTCM 
   , envCmdDoneCallback :: IORef (Maybe (() -> IO ())) 
-  , envResponseChan :: Chan (Response, String) 
+  , envResponseChan :: Chan ResponsePacket
   , envDevMode :: Bool
   }
 
@@ -59,6 +62,13 @@ consumeCommand env = liftIO $ do
   writeIORef (envCmdDoneCallback env) (Just callback)
   return iotcm
 
+waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()  
+waitUntilResponsesSent = do 
+  responseChan <- asks envResponseChan 
+  lock <- liftIO newEmptyMVar 
+  liftIO $ writeChan responseChan (ResponseDone lock)
+  liftIO $ takeMVar lock
+
 signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m () 
 signalCommandFinish = do 
   callbackRef <- asks envCmdDoneCallback
@@ -71,24 +81,9 @@ signalCommandFinish = do
 
 sendResponse :: (Monad m, MonadIO m) => Env -> (Response, String) -> TCMT m ()
 sendResponse env (response, lispified) = do
-  let message = case response of
-        Resp_HighlightingInfo {} -> "Resp_HighlightingInfo"
-        Resp_Status {} -> "Resp_Status"
-        Resp_JumpToError {} -> "Resp_JumpToError"
-        Resp_InteractionPoints {} -> "Resp_InteractionPoints"
-        Resp_GiveAction {} -> "Resp_GiveAction"
-        Resp_MakeCase {} -> "Resp_MakeCase"
-        Resp_SolveAll {} -> "Resp_SolveAll"
-        Resp_DisplayInfo {} -> "Resp_DisplayInfo"
-        Resp_RunningInfo {} -> "Resp_RunningInfo"
-        Resp_ClearRunningInfo {} -> "Resp_ClearRunningInfo"
-        Resp_ClearHighlighting {} -> "Resp_ClearHighlighting"
-        Resp_DoneAborting {} -> "Resp_DoneAborting"
-        Resp_DoneExiting {} -> "Resp_DoneExiting"
-  liftIO $ writeChan (envResponseChan env) (response, lispified)
-  liftIO $ writeChan (envLogChan env) $ "[Response] " <> message
+  liftIO $ writeChan (envResponseChan env) (ResponsePacket response lispified)
 
-recvResponse :: (Monad m, MonadIO m) => ServerM' m (Response, String)
+recvResponse :: (Monad m, MonadIO m) => ServerM' m ResponsePacket
 recvResponse = do
   chan <- asks envResponseChan
   writeLog "[Response] waiting ..."
