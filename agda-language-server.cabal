@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: de78edb62cbbda7b13dc052af45a8c41c7ce1ab8b68bd08cf5e9ee647db7f602
+-- hash: 066c48746ed7f542236e38cc45c37c01de3adf518ed850b8d83b0265aed36e0c
 
 name:           agda-language-server
 version:        0.1.0.0
@@ -28,6 +28,7 @@ source-repository head
 library
   exposed-modules:
       Common
+      Control.Throttler
       Core
       Lispify
       Server

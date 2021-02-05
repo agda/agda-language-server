@@ -6,6 +6,8 @@ module Core where
 
 
 
+import qualified Control.Throttler as Throttler
+
 
 
 
@@ -37,6 +39,11 @@ import Data.Maybe (listToMaybe)
 import Data.Text (pack)
 import Lispify (lispifyResponse)
 import qualified Agda.TypeChecking.Monad.Benchmark as Bench
+import GHC.IO.Handle (hFlush)
+import System.IO (stdout)
+import Data.IORef (writeIORef, readIORef)
+
+
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
@@ -48,11 +55,13 @@ interact :: ServerM ()
 interact = do
   env <- ask
 
+  writeLog "[Interact] start"
+
   result <- runTCMPrettyErrors $ do
       -- decides how to output Response
     lift $ setInteractionOutputCallback $ \response -> do
-        lispified <- lispifyResponse response
-        sendResponse env response
+        lispified <- show . pretty <$> lispifyResponse response
+        sendResponse env (response,  lispified)
 
     -- keep reading command
     commands <- liftIO $ initialiseCommandQueue (readCommand env)
@@ -60,7 +69,7 @@ interact = do
     -- start the loop     
     opts <- commandLineOptions
     let commandState = (initCommandState commands) { optionsOnReload = opts { optAbsoluteIncludePaths = [] } }
-    mapReaderT (`runStateT` commandState) loop
+    mapReaderT (`runStateT` commandState) (loop env)
 
     return ""
 
@@ -69,8 +78,8 @@ interact = do
     Right val -> return ()
   where
 
-    loop :: ServerM' CommandM ()
-    loop = do
+    loop :: Env -> ServerM' CommandM ()
+    loop env = do
       Bench.reset
       done <- Bench.billTo [] $ do
         r <- lift $ maybeAbort runInteraction
@@ -80,15 +89,15 @@ interact = do
             writeLog ("Error " <> pack s)
             return False
           Command _ -> do
-            completeCommand
+            signalCommandFinish
             return False
 
       lift Bench.print
-      unless done loop
+      unless done (loop env)
 
     -- Reads the next command from the Channel
     readCommand :: Env -> IO Command
-    readCommand env = Command <$> peekCommand env
+    readCommand env = Command <$> consumeCommand env
 
 parseIOTCM :: String -> Either String IOTCM
 parseIOTCM raw = case listToMaybe $ reads raw of

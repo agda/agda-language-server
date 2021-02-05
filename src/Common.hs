@@ -8,14 +8,19 @@ import Control.Monad.Reader
 import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 import Agda.Interaction.Base (IOTCM)
 import Agda.Interaction.Response (Response (..))
-    
+import Agda.TypeChecking.Monad (TCMT)
+
+import Control.Throttler (Throttler)
+import qualified Control.Throttler as Throttler
+import Data.IORef
+
 --------------------------------------------------------------------------------
 
 data Env = Env
   { envLogChan :: Chan Text
-  , envCommandVar :: MVar IOTCM 
-  , envResponseChan :: Chan Response 
-  , envCommandDoneVar :: MVar ()
+  , envCmdThrottler :: Throttler IOTCM 
+  , envCmdDoneCallback :: IORef (Maybe (() -> IO ())) 
+  , envResponseChan :: Chan (Response, String) 
   , envDevMode :: Bool
   }
 
@@ -25,11 +30,10 @@ type ServerM = ServerM' IO
 createInitEnv :: Bool -> IO Env 
 createInitEnv devMode = 
   Env <$> newChan 
-    <*> newEmptyMVar
+    <*> Throttler.new
+    <*> newIORef Nothing
     <*> newChan
-    <*> newEmptyMVar
     <*> pure devMode 
-
 
 runServerLSP :: Env -> LanguageContextEnv () -> LspT () (ServerM' m) a -> m a
 runServerLSP env ctxEnv program = runReaderT (runLspT ctxEnv program) env
@@ -39,39 +43,34 @@ writeLog msg = do
   chan <- asks envLogChan
   liftIO $ writeChan chan msg
 
-issueCommand :: (Monad m, MonadIO m) => IOTCM -> ServerM' m ()
-issueCommand iotcm = do 
-  cmdVar <- asks envCommandVar 
-  writeLog "[Command] 1. trying to issue a command ..."
-  liftIO $ putMVar cmdVar iotcm 
-  writeLog "[Command] 2. command issued, waiting it to be handled ..."
-  doneVar <- asks envCommandDoneVar
-  liftIO $ takeMVar doneVar
-  writeLog "[Command] 4. command handled!"
+-- | Provider 
+provideCommand :: (Monad m, MonadIO m) => IOTCM -> ServerM' m ()
+provideCommand iotcm = do 
+  throttler <- asks envCmdThrottler
+  writeLog "[Command] command issued"
+  liftIO $ Throttler.put throttler iotcm 
+  writeLog "[Command] command handled!"
+
+-- | Consumter
+consumeCommand :: (Monad m, MonadIO m) => Env -> m IOTCM 
+consumeCommand env = liftIO $ do 
+  (iotcm, callback) <- Throttler.take (envCmdThrottler env)
+  -- store the callback, so that we can signal when we are done
+  writeIORef (envCmdDoneCallback env) (Just callback)
+  return iotcm
+
+signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m () 
+signalCommandFinish = do 
+  callbackRef <- asks envCmdDoneCallback
+  result <- liftIO $ readIORef callbackRef
+  case result of 
+    Nothing -> return ()
+    Just callback -> do 
+      liftIO $ callback ()
 
 
--- peek the command but don't take it away
--- only take it away after the command has been handled and all responses have been sent
-peekCommand :: (Monad m, MonadIO m) => Env -> m IOTCM 
-peekCommand env = do 
-  liftIO $ readMVar (envCommandVar env) 
-
--- remove the command from the MVar to signal that it's been completed
--- so that the next command could come in 
-completeCommand :: (Monad m, MonadIO m) => ServerM' m () 
-completeCommand = do 
-  -- unblock `envCommandVar`
-  cmdVar <- asks envCommandVar 
-  void $ liftIO $ takeMVar cmdVar
-  -- signal complete 
-  doneVar <- asks envCommandDoneVar 
-  liftIO $ putMVar doneVar ()
-  writeLog "[Command] 3. signal command handled"
-  
-
-
-sendResponse :: (Monad m, MonadIO m) => Env -> Response -> m ()
-sendResponse env response = do
+sendResponse :: (Monad m, MonadIO m) => Env -> (Response, String) -> TCMT m ()
+sendResponse env (response, lispified) = do
   let message = case response of
         Resp_HighlightingInfo {} -> "Resp_HighlightingInfo"
         Resp_Status {} -> "Resp_Status"
@@ -86,10 +85,10 @@ sendResponse env response = do
         Resp_ClearHighlighting {} -> "Resp_ClearHighlighting"
         Resp_DoneAborting {} -> "Resp_DoneAborting"
         Resp_DoneExiting {} -> "Resp_DoneExiting"
-  liftIO $ writeChan (envResponseChan env) response
+  liftIO $ writeChan (envResponseChan env) (response, lispified)
   liftIO $ writeChan (envLogChan env) $ "[Response] " <> message
 
-recvResponse :: (Monad m, MonadIO m) => ServerM' m Response
+recvResponse :: (Monad m, MonadIO m) => ServerM' m (Response, String)
 recvResponse = do
   chan <- asks envResponseChan
   writeLog "[Response] waiting ..."
