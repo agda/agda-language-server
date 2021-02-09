@@ -3,18 +3,9 @@
 
 module Core where
 
-
-
-
-import qualified Control.Throttler as Throttler
-
-
-
-
-
-import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandState (optionsOnReload), IOTCM, Interaction (..), initCommandState, CommandM)
+import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandM, CommandState (optionsOnReload), IOTCM, Interaction (..), initCommandState)
 import qualified Agda.Interaction.Imports as Imp
-import Agda.Interaction.InteractionTop (handleCommand_, initialiseCommandQueue, runInteraction, maybeAbort)
+import Agda.Interaction.InteractionTop (handleCommand_, initialiseCommandQueue, maybeAbort, runInteraction)
 import Agda.Interaction.Options (CommandLineOptions (optAbsoluteIncludePaths))
 import Agda.Interaction.Response (Response (..))
 import Agda.TypeChecking.Errors (prettyError, prettyTCWarnings')
@@ -24,6 +15,7 @@ import Agda.TypeChecking.Monad
     runTCMTop',
   )
 import Agda.TypeChecking.Monad.Base (TCM)
+import qualified Agda.TypeChecking.Monad.Benchmark as Bench
 import Agda.TypeChecking.Monad.State (setInteractionOutputCallback)
 import Agda.Utils.Impossible (CatchImpossible (catchImpossible), Impossible)
 import Agda.Utils.Pretty (pretty, render)
@@ -35,15 +27,13 @@ import Control.Monad.Except (catchError)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
 import Control.Monad.State
+import qualified Control.Throttler as Throttler
+import Data.IORef (readIORef, writeIORef)
 import Data.Maybe (listToMaybe)
 import Data.Text (pack)
-import Lispify (lispifyResponse)
-import qualified Agda.TypeChecking.Monad.Benchmark as Bench
 import GHC.IO.Handle (hFlush)
+import Lispify (lispifyResponse)
 import System.IO (stdout)
-import Data.IORef (writeIORef, readIORef)
-
-
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
@@ -58,17 +48,18 @@ interact = do
   writeLog "[Interact] start"
 
   result <- runTCMPrettyErrors $ do
-      -- decides how to output Response
-    lift $ setInteractionOutputCallback $ \response -> do
+    -- decides how to output Response
+    lift $
+      setInteractionOutputCallback $ \response -> do
         lispified <- show . pretty <$> lispifyResponse response
-        sendResponse env (response,  lispified)
+        sendResponse env (response, lispified)
 
     -- keep reading command
     commands <- liftIO $ initialiseCommandQueue (readCommand env)
 
-    -- start the loop     
+    -- start the loop
     opts <- commandLineOptions
-    let commandState = (initCommandState commands) { optionsOnReload = opts { optAbsoluteIncludePaths = [] } }
+    let commandState = (initCommandState commands) {optionsOnReload = opts {optAbsoluteIncludePaths = []}}
     mapReaderT (`runStateT` commandState) (loop env)
 
     return ""
@@ -77,15 +68,14 @@ interact = do
     Left err -> return ()
     Right val -> return ()
   where
-
     loop :: Env -> ServerM' CommandM ()
     loop env = do
       Bench.reset
       done <- Bench.billTo [] $ do
         r <- lift $ maybeAbort runInteraction
         case r of
-          Done      -> return True -- Done.
-          Error s   -> do
+          Done -> return True -- Done.
+          Error s -> do
             writeLog ("Error " <> pack s)
             return False
           Command _ -> do
@@ -107,6 +97,7 @@ parseIOTCM raw = case listToMaybe $ reads raw of
   _ -> Left $ "cannot read: " ++ raw
 
 -- TODO: handle the caught errors
+
 -- | Run a TCM action in IO and throw away all of the errors
 runTCMPrettyErrors :: ServerM' TCM String -> ServerM' IO (Either String String)
 runTCMPrettyErrors program = mapReaderT f program

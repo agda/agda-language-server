@@ -51,8 +51,6 @@ putWithCallback throttler payload callback = do
   -- see if `thrInput` is empty
   inputEmpty <- isEmptyMVar (thrInput throttler)
 
-  -- putStrLn $ "queueSize: " <> show queueSize <> " inputEmpty: " <> show inputEmpty
-
   if queueSize == 0 && inputEmpty
     then do
       -- doesn't block since `thrInput` is empty

@@ -10,7 +10,7 @@ module Server (run) where
 import qualified Agda.Interaction.Base as Agda
 import qualified Agda.Interaction.Response as Agda
 import Common
-import Control.Concurrent 
+import Control.Concurrent
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
 import qualified Core
@@ -23,16 +23,14 @@ import GHC.Generics (Generic)
 import GHC.IO.IOMode (IOMode (ReadWriteMode))
 import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
+import Lispify (responseAbbr)
 import Network.Simple.TCP (HostPreference (Host), serve)
 import Network.Socket (socketToHandle)
-import Lispify (responseAbbr)
 
 --------------------------------------------------------------------------------
 
 run :: Bool -> IO Int
 run devMode = do
-
-
   env <- createInitEnv devMode
 
   if devMode
@@ -59,17 +57,15 @@ run devMode = do
 
     keepSendindResponse :: Env -> LanguageContextEnv () -> IO ()
     keepSendindResponse env ctxEnv = do
-      
       responsePacket <- readChan (envResponseChan env)
 
-      case responsePacket of 
-        ResponsePacket _response lispified -> do 
+      case responsePacket of
+        ResponsePacket _response lispified -> do
           runLspT ctxEnv $ do
             sendNotification (SCustomMethod "agda") $ JSON.toJSON lispified
-          -- liftIO $ putStrLn $ "[Response!] " <> responseAbbr _response
-          liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response
-
-        ResponseDone mvar -> do 
+            liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response
+        ResponseDone mvar -> do
+          liftIO $ writeChan (envLogChan env) "[Response] Done"
           putMVar mvar ()
 
       keepSendindResponse env ctxEnv
@@ -78,12 +74,11 @@ run devMode = do
     serverDefn env =
       ServerDefinition
         { onConfigurationChange = const $ pure $ Right (),
-          doInitialize = \ctxEnv _req -> do 
+          doInitialize = \ctxEnv _req -> do
             putStrLn "[LSP] doInitialize"
             forkIO $ keepPrintLog env
             forkIO $ runReaderT Core.interact env
             forkIO $ keepSendindResponse env ctxEnv
-            
             pure $ Right ctxEnv,
           staticHandlers = handlers,
           interpretHandler = \ctxEnv -> Iso (runServerLSP env ctxEnv) liftIO,
@@ -114,11 +109,10 @@ run devMode = do
 handlers :: Handlers (LspT () ServerM)
 handlers =
   mconcat
-    [ 
-      -- notificationHandler SInitialized $ \_ -> do 
+    [ -- notificationHandler SInitialized $ \_ -> do
       --   env <- lift ask
-      --   _ <- liftIO $ forkIO $ do 
-          
+      --   _ <- liftIO $ forkIO $ do
+
       --     envResponseChan env
       --     return ()
 
@@ -150,14 +144,15 @@ handleRequest request = do
     toResponse :: Request -> LspT () ServerM Response
     toResponse ReqInitialize = return $ ResInitialize Core.getAgdaVersion
     toResponse (ReqCommand cmd) = do
-      case Core.parseIOTCM cmd of 
-        Left error -> do 
+      case Core.parseIOTCM cmd of
+        Left error -> do
           lift $ writeLog $ "Error: parseIOTCM" <> pack error
           return ResCommandDone
-        Right iotcm -> do 
-          lift $ do 
+        Right iotcm -> do
+          lift $ do
+            writeLog $ "[Request] " <> pack (show cmd)
             -- issue the command, block until it is handled
-            provideCommand iotcm 
+            provideCommand iotcm
             return ResCommandDone
 
 --------------------------------------------------------------------------------
@@ -183,8 +178,8 @@ instance FromJSON Request
 --   deriving (Generic)
 data Response
   = ResInitialize String
-  -- | ResResponse String
-  | ResCommandDone
+  | -- | ResResponse String
+    ResCommandDone
   | ResCannotDecodeRequest String
   deriving (Generic)
 
@@ -192,7 +187,7 @@ instance ToJSON Response
 
 --------------------------------------------------------------------------------
 
-data Ntf = NtfResponse String | NtfDummy 
+data Ntf = NtfResponse String | NtfDummy
   deriving (Generic)
 
 instance ToJSON Ntf
