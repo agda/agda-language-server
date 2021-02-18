@@ -7,6 +7,7 @@ import Agda.Interaction.Response (Response (..))
 import Agda.TypeChecking.Monad (TCMT)
 import Control.Concurrent
 import Control.Monad.Reader
+import Control.Concurrent.Foreman
 import Control.Throttler (Throttler)
 import qualified Control.Throttler as Throttler
 import Data.IORef
@@ -64,9 +65,10 @@ consumeCommand env = liftIO $ do
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
   responseChan <- asks envResponseChan
-  lock <- liftIO newEmptyMVar
-  liftIO $ writeChan responseChan (ResponseDone lock)
-  liftIO $ takeMVar lock
+  liftIO $ do 
+    lock <- newEmptyMVar
+    writeChan responseChan (ResponseDone lock)
+    takeMVar lock
 
 signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m ()
 signalCommandFinish = do

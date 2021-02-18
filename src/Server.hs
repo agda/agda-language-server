@@ -62,8 +62,11 @@ run devMode = do
       case responsePacket of
         ResponsePacket _response lispified -> do
           runLspT ctxEnv $ do
-            sendNotification (SCustomMethod "agda") $ JSON.toJSON lispified
-            liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response
+            let value = JSON.toJSON lispified
+            sendRequest (SCustomMethod "agda") value $ \result -> do 
+              liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " received"
+              pure ()
+            liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " sent"
         ResponseDone mvar -> do
           liftIO $ writeChan (envLogChan env) "[Response] Done"
           putMVar mvar ()
