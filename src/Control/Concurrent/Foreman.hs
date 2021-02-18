@@ -4,17 +4,21 @@
 module Control.Concurrent.Foreman where
 
 import Control.Concurrent
-import Control.Monad (when)
 import Data.IORef
+import Control.Concurrent.SizedChan
+import Control.Monad (when, void)
 
 data Foreman = Foreman
   { -- | The number of work dispatched
     dispatchedCount :: IORef Int,
     -- | The number of work completed
     completedCount :: IORef Int,
-    -- | When set, will store the current `dispatchedCount` and a callback
-    expectedCount :: IORef (Maybe (Int, Int -> IO ()))
+    -- | A channel of "Goals" to be met
+    goalChan :: SizedChan Goal
   }
+
+-- | An "Goal" is just a number with a callback, the callback will be invoked once the number is "met"
+type Goal = (Int, () -> IO ())
 
 -- | Constructs a new Foreman
 new :: IO Foreman
@@ -22,49 +26,45 @@ new =
   Foreman
     <$> newIORef 0
     <*> newIORef 0
-    <*> newIORef Nothing
+    <*> newSizedChan 
 
--- | Invoke the returned callback to signal completion
+-- | Returns a callback, invoked it to signal completion.
+-- This function and the returned callback are both non-blocking.
 dispatch :: Foreman -> IO (() -> IO ())
 dispatch foreman = do
   -- bump `dispatchedCount`
   modifyIORef' (dispatchedCount foreman) succ
   return $ \() -> do
-    -- bump `completedCount`
+    -- work completed, bump `completedCount`
     modifyIORef' (completedCount foreman) succ
-    -- check if `expectedCount` is set
-    expected <- readIORef (expectedCount foreman)
-    case expected of
-      -- `expectedCount` not set, do nothing
+
+    -- see if there's any Goal 
+    result <- tryPeekSizedChan (goalChan foreman)
+    case result of 
+      -- no goals, do nothing 
       Nothing -> return ()
-      -- `expectedCount` is set
-      Just (dispached, callback) -> do
+      -- a goal is set!
+      Just (dispatched, callback) -> do 
         completed <- readIORef (completedCount foreman)
-        print (dispached, completed)
-        -- fill the MVar to signal completion when the number matched
-        when (dispached == completed) $
-          callback dispached
+        -- see if the goal is met 
+        when (dispatched == completed) $ do 
+          -- invoke the callback and remove the goal
+          callback ()
+          void $ readSizedChan (goalChan foreman)
 
--- | The given callback will be invoked with the number of works dispatched, when all of them have been completed
--- This function is non-blocking, and is expected to be called only once.
--- All subsequent calls will be ignored (and the given callback won't be invoked neither)
-complete :: Foreman -> (Int -> IO ()) -> IO ()
-complete foreman callback = do
-  -- check if `expectedCount` is set
-  expected <- readIORef (expectedCount foreman)
-  case expected of
-    -- `expectedCount` is set, ignore this call
-    Just (_, _) -> return ()
-    -- `expectedCount` is not set
-    Nothing -> do
-      -- copy `dispatchedCount`
-      dispatched <- readIORef (dispatchedCount foreman)
-      -- store `dispatchedCount` and the callback
-      writeIORef (expectedCount foreman) $ Just (dispatched, callback)
+-- | Expects a callback, which will be invoked once all works dispatched BEFORE have been completed 
+-- This function is non-blocking
+setGoal :: Foreman -> (() -> IO ()) -> IO ()
+setGoal foreman callback = do
+  -- constructs a Goal from `dispatchedCount`
+  dispatched <- readIORef (dispatchedCount foreman)
+  let goal = (dispatched, callback)
+  -- write it to the channel
+  writeSizedChan (goalChan foreman) goal 
 
--- | The blocking version of `complete`
-completeAndWait :: Foreman -> IO Int
-completeAndWait foreman = do
+-- | The blocking version of `setGoal`
+setGoalAndWait :: Foreman -> IO ()
+setGoalAndWait foreman = do
   mvar <- newEmptyMVar
-  complete foreman (putMVar mvar)
+  setGoal foreman (putMVar mvar)
   takeMVar mvar

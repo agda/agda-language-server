@@ -71,11 +71,27 @@ peekSizedChan (SizedChan chan sizeIORef peekedIORef) = do
     -- return the peeked value
     Just val -> return val
     -- read from the channel instead
-    Nothing -> readChan chan
+    Nothing -> do 
+      val <- readChan chan
+      writeIORef peekedIORef (Just val)
+      return val
 
 -- | A version of `peekSizedChan` which does not block. Instead it returns Nothing if no value is available.
 tryPeekSizedChan :: SizedChan a -> IO (Maybe a)
-tryPeekSizedChan (SizedChan chan sizeIORef peekedIORef) = readIORef peekedIORef
+tryPeekSizedChan (SizedChan chan sizeIORef peekedIORef) = do 
+  peeked <- readIORef peekedIORef
+  case peeked of
+    -- return the peeked value
+    Just val -> return $ Just val
+    -- check the size before reading from the channel, to prevent blocking
+    Nothing -> do
+      size <- readIORef sizeIORef
+      if size == 0
+        then return Nothing
+        else do
+          val <- readChan chan
+          writeIORef peekedIORef (Just val)
+          return $ Just val
 
 measureSizedChan :: SizedChan a -> IO Int
 measureSizedChan (SizedChan _ sizeIORef _) = readIORef sizeIORef

@@ -68,7 +68,7 @@ consumeCommand env = liftIO $ do
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
   foreman <- asks envResponseController
-  liftIO $ Foreman.complete foreman print
+  liftIO $ Foreman.setGoal foreman print
 
   responseChan <- asks envResponseChan
   liftIO $ do 
