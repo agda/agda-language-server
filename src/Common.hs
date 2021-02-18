@@ -17,13 +17,11 @@ import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 
 --------------------------------------------------------------------------------
 
-data ResponsePacket = ResponsePacket Response String | ResponseDone (MVar ())
-
 data Env = Env
   { envLogChan :: Chan Text,
     envCmdThrottler :: Throttler IOTCM,
     envCmdDoneCallback :: IORef (Maybe (() -> IO ())),
-    envResponseChan :: Chan ResponsePacket,
+    envResponseChan :: Chan (Response, String),
     envResponseController :: Foreman,
     envDevMode :: Bool
   }
@@ -54,7 +52,7 @@ provideCommand :: (Monad m, MonadIO m) => IOTCM -> ServerM' m ()
 provideCommand iotcm = do
   throttler <- asks envCmdThrottler
   writeLog "[Command] command issued"
-  liftIO $ Throttler.put throttler iotcm
+  liftIO $ Throttler.putAndWait throttler iotcm
   writeLog "[Command] command handled!"
 
 -- | Consumter
@@ -67,14 +65,15 @@ consumeCommand env = liftIO $ do
 
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
+  -- env <- ask
+  -- foreman <- asks envResponseController
+  -- writeLog "[Foreman] Goal Set"
+  -- liftIO $ Foreman.setGoal foreman $ \() -> do 
+  --   writeChan (envLogChan env) "[Foreman] Done"
+  writeLog "[Foreman] Goal Set"
   foreman <- asks envResponseController
-  liftIO $ Foreman.setGoal foreman print
-
-  responseChan <- asks envResponseChan
-  liftIO $ do 
-    lock <- newEmptyMVar
-    writeChan responseChan (ResponseDone lock)
-    takeMVar lock
+  liftIO $ Foreman.setGoalAndWait foreman 
+  writeLog "[Foreman] Done"
 
 signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m ()
 signalCommandFinish = do
@@ -87,7 +86,7 @@ signalCommandFinish = do
 
 sendResponse :: (Monad m, MonadIO m) => Env -> (Response, String) -> TCMT m ()
 sendResponse env (response, lispified) = do
-  liftIO $ writeChan (envResponseChan env) (ResponsePacket response lispified)
+  liftIO $ writeChan (envResponseChan env) (response, lispified)
 
 -- recvResponse :: (Monad m, MonadIO m) => ServerM' m ResponsePacket
 -- recvResponse = do

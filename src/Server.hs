@@ -58,23 +58,32 @@ run devMode = do
 
     keepSendindResponse :: Env -> LanguageContextEnv () -> IO ()
     keepSendindResponse env ctxEnv = do
-      responsePacket <- readChan (envResponseChan env)
-      
+      (_response, lispified) <- readChan (envResponseChan env)
+      runLspT ctxEnv $ do
+        callback <- liftIO $ Foreman.dispatch (envResponseController env)
+        
+        let value = JSON.toJSON lispified
+        sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do 
+          writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " received"
+          callback ()
+          
+        liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " sent"
+        -- liftIO $ callback ()
 
-      case responsePacket of
-        ResponsePacket _response lispified -> do
-          runLspT ctxEnv $ do
-            callback <- liftIO $ Foreman.dispatch (envResponseController env)
+      -- case responsePacket of
+      --   ResponsePacket _response lispified -> do
+      --     runLspT ctxEnv $ do
+      --       callback <- liftIO $ Foreman.dispatch (envResponseController env)
             
-            let value = JSON.toJSON lispified
-            sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do 
-              writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " received"
-              callback ()
+      --       let value = JSON.toJSON lispified
+      --       sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do 
+      --         writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " received"
+      --         callback ()
               
-            liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " sent"
-        ResponseDone mvar -> do
-          liftIO $ writeChan (envLogChan env) "[Response] Done"
-          putMVar mvar ()
+      --       liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " sent"
+      --   ResponseDone mvar -> do
+      --     liftIO $ writeChan (envLogChan env) "[Response] Done"
+      --     putMVar mvar ()
 
       keepSendindResponse env ctxEnv
 

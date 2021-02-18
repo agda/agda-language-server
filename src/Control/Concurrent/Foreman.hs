@@ -56,11 +56,16 @@ dispatch foreman = do
 -- This function is non-blocking
 setGoal :: Foreman -> (() -> IO ()) -> IO ()
 setGoal foreman callback = do
-  -- constructs a Goal from `dispatchedCount`
   dispatched <- readIORef (dispatchedCount foreman)
-  let goal = (dispatched, callback)
-  -- write it to the channel
-  writeSizedChan (goalChan foreman) goal 
+  completed <- readIORef (completedCount foreman)
+  -- see if the previously dispatched works have been completed
+  if dispatched == completed 
+    then callback ()
+    else do 
+      -- constructs a Goal from `dispatchedCount`
+      let goal = (dispatched, callback)
+      -- write it to the channel
+      writeSizedChan (goalChan foreman) goal 
 
 -- | The blocking version of `setGoal`
 setGoalAndWait :: Foreman -> IO ()

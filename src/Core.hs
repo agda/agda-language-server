@@ -79,8 +79,11 @@ interact = do
             writeLog ("Error " <> pack s)
             return False
           Command _ -> do
+            writeLog "Done"
             waitUntilResponsesSent
+            writeLog "waitUntilResponsesSent"
             signalCommandFinish
+            writeLog "signalCommandFinish"
             return False
 
       lift Bench.print

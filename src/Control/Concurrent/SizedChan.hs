@@ -1,5 +1,5 @@
 -- | Chan with size
-module Control.Concurrent.SizedChan (SizedChan, newSizedChan, writeSizedChan, readSizedChan, tryReadSizedChan, peekSizedChan, tryPeekSizedChan) where
+module Control.Concurrent.SizedChan (SizedChan, newSizedChan, writeSizedChan, readSizedChan, tryReadSizedChan, peekSizedChan, tryPeekSizedChan, isEmptySizedChan) where
 
 import Control.Concurrent.Chan
 import Data.IORef

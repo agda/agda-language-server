@@ -3,40 +3,38 @@ module Control.Throttler
     new,
     take,
     put,
-    putWithCallback,
+    putAndWait,
   )
 where
 
 import Control.Concurrent
-import Control.Monad (when)
+import Control.Monad (when, forM_)
 import Data.IORef
 import Prelude hiding (take)
+import Control.Concurrent.SizedChan
 
 data Throttler a = Throttler
-  { thrQueue :: Chan (a, () -> IO ()),
-    thrQueueSize :: IORef Int,
-    thrInput :: MVar (a, () -> IO ())
+  { queue :: SizedChan (a, () -> IO ()),
+    input :: MVar (a, () -> IO ())
   }
 
 new :: IO (Throttler a)
-new = Throttler <$> newChan <*> newIORef 0 <*> newEmptyMVar
+new = Throttler <$> newSizedChan <*> newEmptyMVar
 
 -- | For the consumer of the payload
 -- | Blocks until the payload is available
 -- | Invoke the callback to signal finished handling the payload
 take :: Throttler a -> IO (a, () -> IO ())
-take throttler = do
-  (payload, callback) <- takeMVar (thrInput throttler)
+take (Throttler queue input) = do
+  (payload, callback) <- takeMVar input
   -- beef-up the callback
   -- so that we can kick start the next cycle once it's invoked
   let callback' () = do
         -- if `thrQueue` is not empty
         -- move the next payload from the queue to `thrInput`
-        size <- readIORef (thrQueueSize throttler)
-        when (size /= 0) $ do
-          next <- readChan (thrQueue throttler)
-          modifyIORef' (thrQueueSize throttler) pred
-          putMVar (thrInput throttler) next
+        result <- tryReadSizedChan queue
+        forM_ result 
+          (putMVar input)
         callback ()
 
   return (payload, callback')
@@ -44,27 +42,19 @@ take throttler = do
 -- | For the provider of the payload
 -- | Does not block
 -- | Callback will be invoked once the payload is handled
-putWithCallback :: Throttler a -> a -> (() -> IO ()) -> IO ()
-putWithCallback throttler payload callback = do
-  -- see if `thrQueue` is empty
-  queueSize <- readIORef (thrQueueSize throttler)
+put :: Throttler a -> a -> (() -> IO ()) -> IO ()
+put (Throttler queue input) payload callback = do
   -- see if `thrInput` is empty
-  inputEmpty <- isEmptyMVar (thrInput throttler)
+  inputEmpty <- isEmptyMVar input
 
-  if queueSize == 0 && inputEmpty
-    then do
-      -- doesn't block since `thrInput` is empty
-      putMVar (thrInput throttler) (payload, callback)
-    else do
-      -- push it into the queue else it will block
-      writeChan (thrQueue throttler) (payload, callback)
-      modifyIORef' (thrQueueSize throttler) succ
+  if inputEmpty
+    then putMVar input (payload, callback)
+    else writeSizedChan queue (payload, callback)
 
 -- | For the provider of the payload
 -- | Blocks until the payload is handled
-put :: Throttler a -> a -> IO ()
-put throttler payload = do
+putAndWait :: Throttler a -> a -> IO ()
+putAndWait throttler payload = do
   blocker <- newEmptyMVar
-  let callback = putMVar blocker
-  putWithCallback throttler payload callback
+  put throttler payload (putMVar blocker)
   takeMVar blocker
