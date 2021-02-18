@@ -26,6 +26,7 @@ import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Lispify (responseAbbr)
 import Network.Simple.TCP (HostPreference (Host), serve)
 import Network.Socket (socketToHandle)
+import qualified Control.Concurrent.Foreman as Foreman
 
 --------------------------------------------------------------------------------
 
@@ -58,14 +59,18 @@ run devMode = do
     keepSendindResponse :: Env -> LanguageContextEnv () -> IO ()
     keepSendindResponse env ctxEnv = do
       responsePacket <- readChan (envResponseChan env)
+      
 
       case responsePacket of
         ResponsePacket _response lispified -> do
           runLspT ctxEnv $ do
+            callback <- liftIO $ Foreman.dispatch (envResponseController env)
+            
             let value = JSON.toJSON lispified
-            sendRequest (SCustomMethod "agda") value $ \result -> do 
-              liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " received"
-              pure ()
+            sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do 
+              writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " received"
+              callback ()
+              
             liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " sent"
         ResponseDone mvar -> do
           liftIO $ writeChan (envLogChan env) "[Response] Done"

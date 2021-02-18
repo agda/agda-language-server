@@ -40,6 +40,7 @@ dispatch foreman = do
       -- `expectedCount` is set
       Just (dispached, callback) -> do
         completed <- readIORef (completedCount foreman)
+        print (dispached, completed)
         -- fill the MVar to signal completion when the number matched
         when (dispached == completed) $
           callback dispached

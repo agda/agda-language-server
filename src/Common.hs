@@ -7,7 +7,8 @@ import Agda.Interaction.Response (Response (..))
 import Agda.TypeChecking.Monad (TCMT)
 import Control.Concurrent
 import Control.Monad.Reader
-import Control.Concurrent.Foreman
+import Control.Concurrent.Foreman (Foreman)
+import qualified Control.Concurrent.Foreman as Foreman
 import Control.Throttler (Throttler)
 import qualified Control.Throttler as Throttler
 import Data.IORef
@@ -23,6 +24,7 @@ data Env = Env
     envCmdThrottler :: Throttler IOTCM,
     envCmdDoneCallback :: IORef (Maybe (() -> IO ())),
     envResponseChan :: Chan ResponsePacket,
+    envResponseController :: Foreman,
     envDevMode :: Bool
   }
 
@@ -36,6 +38,7 @@ createInitEnv devMode =
     <*> Throttler.new
     <*> newIORef Nothing
     <*> newChan
+    <*> Foreman.new
     <*> pure devMode
 
 runServerLSP :: Env -> LanguageContextEnv () -> LspT () (ServerM' m) a -> m a
@@ -64,6 +67,9 @@ consumeCommand env = liftIO $ do
 
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
+  foreman <- asks envResponseController
+  liftIO $ Foreman.complete foreman print
+
   responseChan <- asks envResponseChan
   liftIO $ do 
     lock <- newEmptyMVar
@@ -83,10 +89,10 @@ sendResponse :: (Monad m, MonadIO m) => Env -> (Response, String) -> TCMT m ()
 sendResponse env (response, lispified) = do
   liftIO $ writeChan (envResponseChan env) (ResponsePacket response lispified)
 
-recvResponse :: (Monad m, MonadIO m) => ServerM' m ResponsePacket
-recvResponse = do
-  chan <- asks envResponseChan
-  writeLog "[Response] waiting ..."
-  response <- liftIO $ readChan chan
-  writeLog "[Response] reveived"
-  return response
+-- recvResponse :: (Monad m, MonadIO m) => ServerM' m ResponsePacket
+-- recvResponse = do
+--   chan <- asks envResponseChan
+--   writeLog "[Response] waiting ..."
+--   response <- liftIO $ readChan chan
+--   writeLog "[Response] reveived"
+--   return response
