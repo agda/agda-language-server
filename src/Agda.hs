@@ -32,7 +32,7 @@ import Data.IORef (readIORef, writeIORef)
 import Data.Maybe (listToMaybe)
 import Data.Text (pack)
 import GHC.IO.Handle (hFlush)
-import Agda.Lispify (lispifyResponse)
+import Agda.Lispify (responseToReaction)
 import System.IO (stdout)
 
 getAgdaVersion :: String
@@ -48,8 +48,8 @@ interact = do
     -- decides how to output Response
     lift $
       setInteractionOutputCallback $ \response -> do
-        lispified <- show . pretty <$> lispifyResponse response
-        sendResponse env (response, lispified)
+        reaction <- responseToReaction response
+        sendReaction env reaction
 
     -- keep reading command
     commands <- liftIO $ initialiseCommandQueue (readCommand env)

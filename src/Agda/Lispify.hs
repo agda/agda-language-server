@@ -3,7 +3,7 @@
 
 module Agda.Lispify where
 
-import Agda.Interaction.AgdaTop 
+import Agda.Interaction.AgdaTop
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand hiding (putResponse)
@@ -32,6 +32,7 @@ import Agda.Utils.Pretty
 import Agda.Utils.String
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit
+import Common (Reaction (..))
 import Control.Monad.State hiding (state)
 import qualified Data.List as List
 import Data.String (IsString)
@@ -54,61 +55,72 @@ responseAbbr response = case response of
 
 ----------------------------------
 
--- | Convert Response to an elisp value for the interactive emacs frontend.
-lispifyResponse :: Response -> TCM (Lisp String)
-lispifyResponse (Resp_HighlightingInfo info remove method modFile) =
-  liftIO (lispifyHighlightingInfo info remove method modFile)
-lispifyResponse (Resp_DisplayInfo info) = lispifyDisplayInfo info
-lispifyResponse (Resp_ClearHighlighting tokenBased) =
+serialize :: Lisp String -> String
+serialize = show . pretty
+
+-- | Convert Response to an Reaction for the LSP client
+responseToReaction :: Response -> TCM Reaction
+responseToReaction (Resp_HighlightingInfo info remove method modFile) =
+  ReactionNonLast . serialize <$> liftIO (lispifyHighlightingInfo info remove method modFile)
+responseToReaction (Resp_DisplayInfo info) = ReactionNonLast . serialize <$> lispifyDisplayInfo info
+responseToReaction (Resp_ClearHighlighting tokenBased) =
   return $
-    L $
-        A "agda2-highlight-clear" :
-        case tokenBased of
-          NotOnlyTokenBased -> []
-          TokenBased ->
-            [Q (lispifyTokenBased tokenBased)]
-    
-lispifyResponse Resp_DoneAborting = return $ L [A "agda2-abort-done"]
-lispifyResponse Resp_DoneExiting = return $ L [A "agda2-exit-done"]
-lispifyResponse Resp_ClearRunningInfo = return clearRunningInfo
-lispifyResponse (Resp_RunningInfo n s)
-  | n <= 1 = return $ displayRunningInfo s
-  | otherwise = return $ L [A "agda2-verbose", A (quote s)]
-lispifyResponse (Resp_Status s) =
-  return
-    $ L
-        [ A "agda2-status-action",
-          A (quote $ List.intercalate "," $ catMaybes [checked, showImpl])
-        ]
+    ReactionNonLast $
+      serialize $
+        L $
+          A "agda2-highlight-clear" :
+          case tokenBased of
+            NotOnlyTokenBased -> []
+            TokenBased ->
+              [Q (lispifyTokenBased tokenBased)]
+responseToReaction Resp_DoneAborting = return $ ReactionNonLast $ serialize $ L [A "agda2-abort-done"]
+responseToReaction Resp_DoneExiting = return $ ReactionNonLast $ serialize $ L [A "agda2-exit-done"]
+responseToReaction Resp_ClearRunningInfo = return $ ReactionNonLast $ serialize clearRunningInfo
+responseToReaction (Resp_RunningInfo n s)
+  | n <= 1 = return $ ReactionNonLast $ serialize $ displayRunningInfo s
+  | otherwise = return $ ReactionNonLast $ serialize $ L [A "agda2-verbose", A (quote s)]
+responseToReaction (Resp_Status s) =
+  return $
+    ReactionNonLast $
+      serialize $
+        L
+          [ A "agda2-status-action",
+            A (quote $ List.intercalate "," $ catMaybes [checked, showImpl])
+          ]
   where
     checked = boolToMaybe (sChecked s) "Checked"
     showImpl = boolToMaybe (sShowImplicitArguments s) "ShowImplicit"
-lispifyResponse (Resp_JumpToError f p) =
-  return
-    $ lastTag 3 $
+responseToReaction (Resp_JumpToError f p) =
+  return $
+    ReactionLast 3 $
+      serialize $
         L [A "agda2-maybe-goto", Q $ L [A (quote f), A ".", A (show p)]]
-lispifyResponse (Resp_InteractionPoints is) =
-  return
-    $ lastTag 1 $
+responseToReaction (Resp_InteractionPoints is) =
+  return $
+    ReactionLast 1 $
+      serialize $
         L [A "agda2-goals-action", Q $ L $ map showNumIId is]
-lispifyResponse (Resp_GiveAction ii s) =
-  return $ L [A "agda2-give-action", showNumIId ii, A s']
+responseToReaction (Resp_GiveAction ii s) =
+  return $
+    ReactionNonLast $
+      serialize $ L [A "agda2-give-action", showNumIId ii, A s']
   where
     s' = case s of
       Give_String str -> quote str
       Give_Paren -> "'paren"
       Give_NoParen -> "'no-paren"
-lispifyResponse (Resp_MakeCase ii variant pcs) =
-  return
-    $ lastTag 2 $ L [A cmd, Q $ L $ map (A . quote) pcs]
+responseToReaction (Resp_MakeCase ii variant pcs) =
+  return $
+    ReactionLast 2 $
+      serialize $ L [A cmd, Q $ L $ map (A . quote) pcs]
   where
     cmd = case variant of
       R.Function -> "agda2-make-case-action"
       R.ExtendedLambda -> "agda2-make-case-action-extendlam"
-lispifyResponse (Resp_SolveAll ps) =
-  return
-    $ lastTag 2 $
-        L [A "agda2-solveAll-action", Q . L $ concatMap prn ps]
+responseToReaction (Resp_SolveAll ps) =
+  return $
+    ReactionLast 2 $
+      serialize $ L [A "agda2-solveAll-action", Q . L $ concatMap prn ps]
   where
     prn (ii, e) = [showNumIId ii, A $ quote $ prettyShow e]
 
@@ -208,11 +220,11 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
         doc <- inTopContext $ prettyATop helperType
         return $
           L
-              [ A "agda2-info-action-and-copy",
-                A $ quote "*Helper function*",
-                A $ quote (render doc ++ "\n"),
-                A "nil"
-              ]
+            [ A "agda2-info-action-and-copy",
+              A $ quote "*Helper function*",
+              A $ quote (render doc ++ "\n"),
+              A "nil"
+            ]
       Goal_NormalForm cmode expr -> do
         doc <- showComputed cmode expr
         format (render doc) "*Normal Form*" -- show?

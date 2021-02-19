@@ -22,7 +22,8 @@ import GHC.Generics (Generic)
 
 -- reaction to command (IOCTM) 
 data Reaction 
-  = Reaction String 
+  = ReactionNonLast String 
+  | ReactionLast Int String 
   | ReactionEnd
   deriving (Generic)
 
@@ -82,6 +83,6 @@ signalCommandFinish = do
   -- allow the next Command to be consumed
   liftIO $ Throttler.move (envCmdThrottler env)
 
-sendResponse :: (Monad m, MonadIO m) => Env -> (Agda.Response, String) -> TCMT m ()
-sendResponse env (_response, lispified) = do
-  liftIO $ writeChan (envReactionChan env) (Reaction lispified)
+sendReaction :: (Monad m, MonadIO m) => Env -> Reaction -> TCMT m ()
+sendReaction env reaction = do
+  liftIO $ writeChan (envReactionChan env) reaction
