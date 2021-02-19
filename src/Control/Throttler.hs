@@ -2,8 +2,8 @@ module Control.Throttler
   ( Throttler,
     new,
     take,
+    move,
     put,
-    putAndWait,
   )
 where
 
@@ -14,47 +14,29 @@ import Prelude hiding (take)
 import Control.Concurrent.SizedChan
 
 data Throttler a = Throttler
-  { queue :: SizedChan (a, () -> IO ()),
-    input :: MVar (a, () -> IO ())
+  { queue :: SizedChan a,
+    front :: MVar a
   }
 
 new :: IO (Throttler a)
 new = Throttler <$> newSizedChan <*> newEmptyMVar
 
--- | For the consumer of the payload
--- | Blocks until the payload is available
--- | Invoke the callback to signal finished handling the payload
-take :: Throttler a -> IO (a, () -> IO ())
-take (Throttler queue input) = do
-  (payload, callback) <- takeMVar input
-  -- beef-up the callback
-  -- so that we can kick start the next cycle once it's invoked
-  let callback' () = do
-        -- if `thrQueue` is not empty
-        -- move the next payload from the queue to `thrInput`
-        result <- tryReadSizedChan queue
-        forM_ result 
-          (putMVar input)
-        callback ()
+-- | Blocks if the front is empty
+take :: Throttler a -> IO a
+take (Throttler _ front) = takeMVar front
 
-  return (payload, callback')
+-- | Move the payload from the queue to the front 
+-- Does not block if the front or the queue is empty
+move :: Throttler a -> IO ()
+move (Throttler queue front) = do 
+  result <- tryReadSizedChan queue
+  forM_ result (tryPutMVar front)
 
--- | For the provider of the payload
 -- | Does not block
--- | Callback will be invoked once the payload is handled
-put :: Throttler a -> a -> (() -> IO ()) -> IO ()
-put (Throttler queue input) payload callback = do
-  -- see if `thrInput` is empty
-  inputEmpty <- isEmptyMVar input
-
-  if inputEmpty
-    then putMVar input (payload, callback)
-    else writeSizedChan queue (payload, callback)
-
--- | For the provider of the payload
--- | Blocks until the payload is handled
-putAndWait :: Throttler a -> a -> IO ()
-putAndWait throttler payload = do
-  blocker <- newEmptyMVar
-  put throttler payload (putMVar blocker)
-  takeMVar blocker
+-- Move the payload to the front if the front is empty
+put :: Throttler a -> a -> IO ()
+put (Throttler queue front) payload = do
+  isEmpty <- isEmptyMVar front
+  if isEmpty
+    then putMVar front payload
+    else writeSizedChan queue payload

@@ -1,9 +1,10 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Common where
 
+import qualified Agda.Interaction.Response as Agda
 import Agda.Interaction.Base (IOTCM)
-import Agda.Interaction.Response (Response (..))
 import Agda.TypeChecking.Monad (TCMT)
 import Control.Concurrent
 import Control.Monad.Reader
@@ -14,14 +15,22 @@ import qualified Control.Throttler as Throttler
 import Data.IORef
 import Data.Text (Text)
 import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
+import Data.Aeson (ToJSON)
+import GHC.Generics (Generic)
+
+--------------------------------------------------------------------------------
+
+data Ntf = NtfResponse String | NtfDummy | NtfResponseEnd
+  deriving (Generic)
+
+instance ToJSON Ntf
 
 --------------------------------------------------------------------------------
 
 data Env = Env
   { envLogChan :: Chan Text,
     envCmdThrottler :: Throttler IOTCM,
-    envCmdDoneCallback :: IORef (Maybe (() -> IO ())),
-    envResponseChan :: Chan (Response, String),
+    envResponseChan :: Chan Ntf,
     envResponseController :: Foreman,
     envDevMode :: Bool
   }
@@ -34,7 +43,6 @@ createInitEnv :: Bool -> IO Env
 createInitEnv devMode =
   Env <$> newChan
     <*> Throttler.new
-    <*> newIORef Nothing
     <*> newChan
     <*> Foreman.new
     <*> pure devMode
@@ -51,47 +59,27 @@ writeLog msg = do
 provideCommand :: (Monad m, MonadIO m) => IOTCM -> ServerM' m ()
 provideCommand iotcm = do
   throttler <- asks envCmdThrottler
-  writeLog "[Command] command issued"
-  liftIO $ Throttler.putAndWait throttler iotcm
-  writeLog "[Command] command handled!"
+  liftIO $ Throttler.put throttler iotcm
 
 -- | Consumter
 consumeCommand :: (Monad m, MonadIO m) => Env -> m IOTCM
-consumeCommand env = liftIO $ do
-  (iotcm, callback) <- Throttler.take (envCmdThrottler env)
-  -- store the callback, so that we can signal when we are done
-  writeIORef (envCmdDoneCallback env) (Just callback)
-  return iotcm
+consumeCommand env = liftIO $ Throttler.take (envCmdThrottler env)
 
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
-  -- env <- ask
-  -- foreman <- asks envResponseController
-  -- writeLog "[Foreman] Goal Set"
-  -- liftIO $ Foreman.setGoal foreman $ \() -> do 
-  --   writeChan (envLogChan env) "[Foreman] Done"
-  writeLog "[Foreman] Goal Set"
   foreman <- asks envResponseController
   liftIO $ Foreman.setGoalAndWait foreman 
-  writeLog "[Foreman] Done"
 
 signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m ()
 signalCommandFinish = do
-  callbackRef <- asks envCmdDoneCallback
-  result <- liftIO $ readIORef callbackRef
-  case result of
-    Nothing -> return ()
-    Just callback -> do
-      liftIO $ callback ()
+  writeLog "[Command] Finished"
+  -- send `NtfResponseEnd`
+  env <- ask
+  liftIO $ writeChan (envResponseChan env) NtfResponseEnd
+  -- allow the next Command to be consumed
+  throttler <- asks envCmdThrottler
+  liftIO $ Throttler.move throttler
 
-sendResponse :: (Monad m, MonadIO m) => Env -> (Response, String) -> TCMT m ()
-sendResponse env (response, lispified) = do
-  liftIO $ writeChan (envResponseChan env) (response, lispified)
-
--- recvResponse :: (Monad m, MonadIO m) => ServerM' m ResponsePacket
--- recvResponse = do
---   chan <- asks envResponseChan
---   writeLog "[Response] waiting ..."
---   response <- liftIO $ readChan chan
---   writeLog "[Response] reveived"
---   return response
+sendResponse :: (Monad m, MonadIO m) => Env -> (Agda.Response, String) -> TCMT m ()
+sendResponse env (_response, lispified) = do
+  liftIO $ writeChan (envResponseChan env) (NtfResponse lispified)

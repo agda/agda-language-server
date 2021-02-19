@@ -79,11 +79,9 @@ interact = do
             writeLog ("Error " <> pack s)
             return False
           Command _ -> do
-            writeLog "Done"
+            writeLog "[Response] Finished sending, waiting for them to complete"
             waitUntilResponsesSent
-            writeLog "waitUntilResponsesSent"
             signalCommandFinish
-            writeLog "signalCommandFinish"
             return False
 
       lift Bench.print

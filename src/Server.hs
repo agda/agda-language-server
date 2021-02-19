@@ -11,6 +11,7 @@ import qualified Agda.Interaction.Base as Agda
 import qualified Agda.Interaction.Response as Agda
 import Common
 import Control.Concurrent
+import qualified Control.Concurrent.Foreman as Foreman
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
 import qualified Core
@@ -26,7 +27,6 @@ import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Lispify (responseAbbr)
 import Network.Simple.TCP (HostPreference (Host), serve)
 import Network.Socket (socketToHandle)
-import qualified Control.Concurrent.Foreman as Foreman
 
 --------------------------------------------------------------------------------
 
@@ -58,32 +58,15 @@ run devMode = do
 
     keepSendindResponse :: Env -> LanguageContextEnv () -> IO ()
     keepSendindResponse env ctxEnv = do
-      (_response, lispified) <- readChan (envResponseChan env)
+      response <- readChan (envResponseChan env)
       runLspT ctxEnv $ do
         callback <- liftIO $ Foreman.dispatch (envResponseController env)
-        
-        let value = JSON.toJSON lispified
-        sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do 
-          writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " received"
-          callback ()
-          
-        liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " sent"
-        -- liftIO $ callback ()
 
-      -- case responsePacket of
-      --   ResponsePacket _response lispified -> do
-      --     runLspT ctxEnv $ do
-      --       callback <- liftIO $ Foreman.dispatch (envResponseController env)
-            
-      --       let value = JSON.toJSON lispified
-      --       sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do 
-      --         writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " received"
-      --         callback ()
-              
-      --       liftIO $ writeChan (envLogChan env) $ "[Response] " <> responseAbbr _response <> " sent"
-      --   ResponseDone mvar -> do
-      --     liftIO $ writeChan (envLogChan env) "[Response] Done"
-      --     putMVar mvar ()
+        let value = JSON.toJSON response
+        sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do
+          writeChan (envLogChan env) $ "[Response] >>>> " <> pack (show value)
+          callback ()
+        liftIO $ writeChan (envLogChan env) $ "[Response] <<<< " <> pack (show value)
 
       keepSendindResponse env ctxEnv
 
@@ -168,7 +151,6 @@ handleRequest request = do
         Right iotcm -> do
           lift $ do
             writeLog $ "[Request] " <> pack (show cmd)
-            -- issue the command, block until it is handled
             provideCommand iotcm
             return ResCommandDone
 
@@ -190,21 +172,10 @@ instance FromJSON Request
 --------------------------------------------------------------------------------
 
 -- | Response
--- data ResKind
---   = ResInitialize
---   deriving (Generic)
 data Response
   = ResInitialize String
-  | -- | ResResponse String
-    ResCommandDone
+  | ResCommandDone
   | ResCannotDecodeRequest String
   deriving (Generic)
 
 instance ToJSON Response
-
---------------------------------------------------------------------------------
-
-data Ntf = NtfResponse String | NtfDummy
-  deriving (Generic)
-
-instance ToJSON Ntf
