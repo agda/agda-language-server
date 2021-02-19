@@ -20,18 +20,21 @@ import GHC.Generics (Generic)
 
 --------------------------------------------------------------------------------
 
-data Ntf = NtfResponse String | NtfDummy | NtfResponseEnd
+-- reaction to command (IOCTM) 
+data Reaction 
+  = Reaction String 
+  | ReactionEnd
   deriving (Generic)
 
-instance ToJSON Ntf
+instance ToJSON Reaction
 
 --------------------------------------------------------------------------------
 
 data Env = Env
   { envLogChan :: Chan Text,
     envCmdThrottler :: Throttler IOTCM,
-    envResponseChan :: Chan Ntf,
-    envResponseController :: Foreman,
+    envReactionChan :: Chan Reaction,
+    envReactionController :: Foreman,
     envDevMode :: Bool
   }
 
@@ -67,19 +70,18 @@ consumeCommand env = liftIO $ Throttler.take (envCmdThrottler env)
 
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
-  foreman <- asks envResponseController
+  foreman <- asks envReactionController
   liftIO $ Foreman.setGoalAndWait foreman 
 
 signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m ()
 signalCommandFinish = do
   writeLog "[Command] Finished"
-  -- send `NtfResponseEnd`
+  -- send `ReactionEnd`
   env <- ask
-  liftIO $ writeChan (envResponseChan env) NtfResponseEnd
+  liftIO $ writeChan (envReactionChan env) ReactionEnd
   -- allow the next Command to be consumed
-  throttler <- asks envCmdThrottler
-  liftIO $ Throttler.move throttler
+  liftIO $ Throttler.move (envCmdThrottler env)
 
 sendResponse :: (Monad m, MonadIO m) => Env -> (Agda.Response, String) -> TCMT m ()
 sendResponse env (_response, lispified) = do
-  liftIO $ writeChan (envResponseChan env) (NtfResponse lispified)
+  liftIO $ writeChan (envReactionChan env) (Reaction lispified)

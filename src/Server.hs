@@ -56,19 +56,19 @@ run devMode = do
         Text.putStrLn result
       keepPrintLog env
 
-    keepSendindResponse :: Env -> LanguageContextEnv () -> IO ()
-    keepSendindResponse env ctxEnv = do
-      response <- readChan (envResponseChan env)
+    keepSendindReaction :: Env -> LanguageContextEnv () -> IO ()
+    keepSendindReaction env ctxEnv = do
+      response <- readChan (envReactionChan env)
       runLspT ctxEnv $ do
-        callback <- liftIO $ Foreman.dispatch (envResponseController env)
+        callback <- liftIO $ Foreman.dispatch (envReactionController env)
 
         let value = JSON.toJSON response
         sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do
-          writeChan (envLogChan env) $ "[Response] >>>> " <> pack (show value)
+          writeChan (envLogChan env) $ "[Reaction] >>>> " <> pack (show value)
           callback ()
-        liftIO $ writeChan (envLogChan env) $ "[Response] <<<< " <> pack (show value)
+        liftIO $ writeChan (envLogChan env) $ "[Reaction] <<<< " <> pack (show value)
 
-      keepSendindResponse env ctxEnv
+      keepSendindReaction env ctxEnv
 
     serverDefn :: Env -> ServerDefinition ()
     serverDefn env =
@@ -78,7 +78,7 @@ run devMode = do
             putStrLn "[LSP] doInitialize"
             forkIO $ keepPrintLog env
             forkIO $ runReaderT Core.interact env
-            forkIO $ keepSendindResponse env ctxEnv
+            forkIO $ keepSendindReaction env ctxEnv
             pure $ Right ctxEnv,
           staticHandlers = handlers,
           interpretHandler = \ctxEnv -> Iso (runServerLSP env ctxEnv) liftIO,
@@ -109,18 +109,7 @@ run devMode = do
 handlers :: Handlers (LspT () ServerM)
 handlers =
   mconcat
-    [ -- notificationHandler SInitialized $ \_ -> do
-      --   env <- lift ask
-      --   _ <- liftIO $ forkIO $ do
-
-      --     envResponseChan env
-      --     return ()
-
-      --     -- lift $ writeLog "delay start"
-      --     -- liftIO $ threadDelay 10000000
-      --     -- lift $ writeLog "delay end"
-      --   return (),
-      -- custom methods, not part of LSP
+    [ -- custom methods, not part of LSP
       requestHandler (SCustomMethod "agda") $ \req responder -> do
         let RequestMessage _ i _ params = req
         -- JSON Value => Request => Response
@@ -131,7 +120,6 @@ handlers =
         responder $ Right $ JSON.toJSON response
     ]
 
--- keepReadingResponse :: Env -> IO ()
 --------------------------------------------------------------------------------
 
 handleRequest :: Request -> LspT () ServerM Response
@@ -156,14 +144,6 @@ handleRequest request = do
 
 --------------------------------------------------------------------------------
 
--- | Request
--- data ReqKind
---   = ReqInitialize
---   deriving (Generic)
-
--- instance FromJSON ReqKind
-
--- data Request = Req FilePath ReqKind
 data Request = ReqInitialize | ReqCommand String
   deriving (Generic)
 
