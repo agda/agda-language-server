@@ -12,6 +12,7 @@ import qualified Agda.Interaction.Response as Agda
 import Common
 import Control.Concurrent
 import qualified Control.Concurrent.Foreman as Foreman
+import qualified Control.Exception as Exception
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
 import qualified Core
@@ -25,11 +26,27 @@ import GHC.IO.IOMode (IOMode (ReadWriteMode))
 import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Lispify (responseAbbr)
-import Network.Simple.TCP (HostPreference (Host), serve)
+import qualified Network.Simple.TCP as TCP
 import Network.Socket (socketToHandle)
 import qualified Switchboard
 
 --------------------------------------------------------------------------------
+
+-- | Start a TCP server that accepts incoming connections and handles them
+-- concurrently in different threads.
+serveOnce ::
+  MonadIO m =>
+  -- | Host to bind.
+  TCP.HostPreference ->
+  -- | Server service port name or number to bind.
+  TCP.ServiceName ->
+  -- | Computation to run in a different thread once an incoming connection is
+  -- accepted. Takes the connection socket and remote end address.
+  ((TCP.Socket, TCP.SockAddr) -> IO ()) ->
+  m (Either Exception.SomeException ThreadId)
+serveOnce hp port k = liftIO $ do
+  TCP.listen hp port $ \(lsock, _) -> do
+    Exception.try (TCP.acceptFork lsock k)
 
 run :: Bool -> IO Int
 run devMode = do
@@ -40,18 +57,23 @@ run devMode = do
   if devMode
     then do
       let port = "4000"
-      --
-
-      putStrLn $ "== opening a dev server at port " ++ port ++ " =="
-      serve (Host "localhost") port $ \(sock, _remoteAddr) -> do
-        putStrLn "== connection established =="
+      -- expecting to be probed by the client first 
+      serveOnce (TCP.Host "localhost") port $ \(_sock, _remoteAddr) -> return ()
+      -- here establishes the real connection 
+      result <- serveOnce (TCP.Host "localhost") port $ \(sock, _remoteAddr) -> do
         handle <- socketToHandle sock ReadWriteMode
         _ <- runServerWithHandles handle handle (serverDefn env)
-        putStrLn "== connection closed =="
+        return ()
+
+      case result of 
+        Left e -> do 
+          print e 
+          return 1 
+        Right _ -> return 0
+
     else do
       runServer (serverDefn env)
   where
-
     keepSendindReaction :: Env -> LanguageContextEnv () -> IO ()
     keepSendindReaction env ctxEnv = do
       response <- readChan (envReactionChan env)
@@ -60,9 +82,9 @@ run devMode = do
 
         let value = JSON.toJSON response
         sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do
-          writeChan (envLogChan env) $ "[Reaction] >>>> " <> pack (show value)
+          -- writeChan (envLogChan env) $ "[Reaction] >>>> " <> pack (show value)
           callback ()
-        liftIO $ writeChan (envLogChan env) $ "[Reaction] <<<< " <> pack (show value)
+        -- liftIO $ writeChan (envLogChan env) $ "[Reaction] <<<< " <> pack (show value)
 
       keepSendindReaction env ctxEnv
 
