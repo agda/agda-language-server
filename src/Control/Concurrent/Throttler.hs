@@ -1,4 +1,4 @@
-module Control.Throttler
+module Control.Concurrent.Throttler
   ( Throttler,
     new,
     take,

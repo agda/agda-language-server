@@ -10,8 +10,8 @@ import Control.Concurrent
 import Control.Monad.Reader
 import Control.Concurrent.Foreman (Foreman)
 import qualified Control.Concurrent.Foreman as Foreman
-import Control.Throttler (Throttler)
-import qualified Control.Throttler as Throttler
+import Control.Concurrent.Throttler (Throttler)
+import qualified Control.Concurrent.Throttler as Throttler
 import Data.IORef
 import Data.Text (Text)
 import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)

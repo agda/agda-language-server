@@ -1,9 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lispify where
+module Agda.Lispify where
 
-import Agda.Interaction.AgdaTop
+import Agda.Interaction.AgdaTop 
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand hiding (putResponse)

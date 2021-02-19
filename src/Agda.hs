@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 
-module Core where
+module Agda where
 
 import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandM, CommandState (optionsOnReload), IOTCM, Interaction (..), initCommandState)
 import qualified Agda.Interaction.Imports as Imp
@@ -27,19 +27,16 @@ import Control.Monad.Except (catchError)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
 import Control.Monad.State
-import qualified Control.Throttler as Throttler
+import qualified Control.Concurrent.Throttler as Throttler
 import Data.IORef (readIORef, writeIORef)
 import Data.Maybe (listToMaybe)
 import Data.Text (pack)
 import GHC.IO.Handle (hFlush)
-import Lispify (lispifyResponse)
+import Agda.Lispify (lispifyResponse)
 import System.IO (stdout)
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
-
--- instance Show Response where
--- instance Show CommandState where
 
 interact :: ServerM ()
 interact = do

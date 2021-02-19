@@ -5,27 +5,20 @@ module Server (run) where
 
 -- entry point of the LSP server
 
--- import Language.LSP.Types (TextDocumentSyncOptions(..), SaveOptions(..))
-
 import qualified Agda.Interaction.Base as Agda
 import qualified Agda.Interaction.Response as Agda
 import Common
-import Control.Concurrent
-import qualified Control.Concurrent.Foreman as Foreman
+import Control.Concurrent (ThreadId)
 import qualified Control.Exception as Exception
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
-import qualified Core
+import qualified Agda
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.Aeson as JSON
 import Data.Text (Text, pack)
-import qualified Data.Text as Text
-import qualified Data.Text.IO as Text
 import GHC.Generics (Generic)
 import GHC.IO.IOMode (IOMode (ReadWriteMode))
 import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
-import Lispify (responseAbbr)
 import qualified Network.Simple.TCP as TCP
 import Network.Socket (socketToHandle)
 import qualified Switchboard
@@ -52,49 +45,31 @@ run :: Bool -> IO Int
 run devMode = do
   env <- createInitEnv devMode
 
-  Switchboard.run env
-
   if devMode
     then do
       let port = "4000"
-      -- expecting to be probed by the client first 
+      -- expecting to be probed by the client first
       serveOnce (TCP.Host "localhost") port $ \(_sock, _remoteAddr) -> return ()
-      -- here establishes the real connection 
-      result <- serveOnce (TCP.Host "localhost") port $ \(sock, _remoteAddr) -> do
+      -- here establishes the real connection
+      connectionResult <- serveOnce (TCP.Host "localhost") port $ \(sock, _remoteAddr) -> do
         handle <- socketToHandle sock ReadWriteMode
         _ <- runServerWithHandles handle handle (serverDefn env)
         return ()
 
-      case result of 
-        Left e -> do 
-          print e 
-          return 1 
+      case connectionResult of
+        Left e -> do
+          print e
+          return 1
         Right _ -> return 0
-
     else do
       runServer (serverDefn env)
   where
-    keepSendindReaction :: Env -> LanguageContextEnv () -> IO ()
-    keepSendindReaction env ctxEnv = do
-      response <- readChan (envReactionChan env)
-      runLspT ctxEnv $ do
-        callback <- liftIO $ Foreman.dispatch (envReactionController env)
-
-        let value = JSON.toJSON response
-        sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do
-          -- writeChan (envLogChan env) $ "[Reaction] >>>> " <> pack (show value)
-          callback ()
-        -- liftIO $ writeChan (envLogChan env) $ "[Reaction] <<<< " <> pack (show value)
-
-      keepSendindReaction env ctxEnv
-
     serverDefn :: Env -> ServerDefinition ()
     serverDefn env =
       ServerDefinition
         { onConfigurationChange = const $ pure $ Right (),
           doInitialize = \ctxEnv _req -> do
-            putStrLn "[LSP] doInitialize"
-            forkIO $ keepSendindReaction env ctxEnv
+            Switchboard.run env ctxEnv
             pure $ Right ctxEnv,
           staticHandlers = handlers,
           interpretHandler = \ctxEnv -> Iso (runServerLSP env ctxEnv) liftIO,
@@ -146,21 +121,23 @@ handleRequest request = do
   toResponse request
   where
     toResponse :: Request -> LspT () ServerM Response
-    toResponse ReqInitialize = return $ ResInitialize Core.getAgdaVersion
+    toResponse ReqInitialize = return $ ResInitialize Agda.getAgdaVersion
     toResponse (ReqCommand cmd) = do
-      case Core.parseIOTCM cmd of
+      case Agda.parseIOTCM cmd of
         Left error -> do
           lift $ writeLog $ "Error: parseIOTCM" <> pack error
-          return ResCommandDone
+          return ResCommand
         Right iotcm -> do
           lift $ do
             writeLog $ "[Request] " <> pack (show cmd)
             provideCommand iotcm
-            return ResCommandDone
+            return ResCommand
 
 --------------------------------------------------------------------------------
 
-data Request = ReqInitialize | ReqCommand String
+data Request 
+  = ReqInitialize -- ^ This Request comes before anything else
+  | ReqCommand String
   deriving (Generic)
 
 instance FromJSON Request
@@ -169,8 +146,9 @@ instance FromJSON Request
 
 -- | Response
 data Response
-  = ResInitialize String
-  | ResCommandDone
+  = ResInitialize -- ^ The response for 'ReqInitialize'
+      String      -- ^ Version number of Agda
+  | ResCommand
   | ResCannotDecodeRequest String
   deriving (Generic)
 
