@@ -27,12 +27,15 @@ import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Lispify (responseAbbr)
 import Network.Simple.TCP (HostPreference (Host), serve)
 import Network.Socket (socketToHandle)
+import qualified Switchboard
 
 --------------------------------------------------------------------------------
 
 run :: Bool -> IO Int
 run devMode = do
   env <- createInitEnv devMode
+
+  Switchboard.run env
 
   if devMode
     then do
@@ -48,13 +51,6 @@ run devMode = do
     else do
       runServer (serverDefn env)
   where
-    -- keeps reading and printing from `envLogChan`
-    keepPrintLog :: Env -> IO ()
-    keepPrintLog env = do
-      result <- readChan (envLogChan env)
-      when (envDevMode env) $ do
-        Text.putStrLn result
-      keepPrintLog env
 
     keepSendindReaction :: Env -> LanguageContextEnv () -> IO ()
     keepSendindReaction env ctxEnv = do
@@ -76,8 +72,6 @@ run devMode = do
         { onConfigurationChange = const $ pure $ Right (),
           doInitialize = \ctxEnv _req -> do
             putStrLn "[LSP] doInitialize"
-            forkIO $ keepPrintLog env
-            forkIO $ runReaderT Core.interact env
             forkIO $ keepSendindReaction env ctxEnv
             pure $ Right ctxEnv,
           staticHandlers = handlers,

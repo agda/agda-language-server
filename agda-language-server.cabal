@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e92117555c29ba3bdb349cc106a23be4cd60bac7196a7d03573118a531c8912c
+-- hash: 2b519e470358cc706de657faeafa9bae5dec83a9b5f844c8b87a1300200b65a1
 
 name:           agda-language-server
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
       Core
       Lispify
       Server
+      Switchboard
   other-modules:
       Paths_agda_language_server
   hs-source-dirs:
