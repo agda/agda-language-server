@@ -55,47 +55,44 @@ responseAbbr response = case response of
 ----------------------------------
 
 -- | Convert Response to an elisp value for the interactive emacs frontend.
-lispifyResponse :: Response -> TCM [Lisp String]
+lispifyResponse :: Response -> TCM (Lisp String)
 lispifyResponse (Resp_HighlightingInfo info remove method modFile) =
-  (: []) <$> liftIO (lispifyHighlightingInfo info remove method modFile)
+  liftIO (lispifyHighlightingInfo info remove method modFile)
 lispifyResponse (Resp_DisplayInfo info) = lispifyDisplayInfo info
 lispifyResponse (Resp_ClearHighlighting tokenBased) =
-  return
-    [ L $
+  return $
+    L $
         A "agda2-highlight-clear" :
         case tokenBased of
           NotOnlyTokenBased -> []
           TokenBased ->
             [Q (lispifyTokenBased tokenBased)]
-    ]
-lispifyResponse Resp_DoneAborting = return [L [A "agda2-abort-done"]]
-lispifyResponse Resp_DoneExiting = return [L [A "agda2-exit-done"]]
-lispifyResponse Resp_ClearRunningInfo = return [clearRunningInfo]
+    
+lispifyResponse Resp_DoneAborting = return $ L [A "agda2-abort-done"]
+lispifyResponse Resp_DoneExiting = return $ L [A "agda2-exit-done"]
+lispifyResponse Resp_ClearRunningInfo = return clearRunningInfo
 lispifyResponse (Resp_RunningInfo n s)
-  | n <= 1 = return [displayRunningInfo s]
-  | otherwise = return [L [A "agda2-verbose", A (quote s)]]
+  | n <= 1 = return $ displayRunningInfo s
+  | otherwise = return $ L [A "agda2-verbose", A (quote s)]
 lispifyResponse (Resp_Status s) =
   return
-    [ L
+    $ L
         [ A "agda2-status-action",
           A (quote $ List.intercalate "," $ catMaybes [checked, showImpl])
         ]
-    ]
   where
     checked = boolToMaybe (sChecked s) "Checked"
     showImpl = boolToMaybe (sShowImplicitArguments s) "ShowImplicit"
 lispifyResponse (Resp_JumpToError f p) =
   return
-    [ lastTag 3 $
+    $ lastTag 3 $
         L [A "agda2-maybe-goto", Q $ L [A (quote f), A ".", A (show p)]]
-    ]
 lispifyResponse (Resp_InteractionPoints is) =
   return
-    [ lastTag 1 $
+    $ lastTag 1 $
         L [A "agda2-goals-action", Q $ L $ map showNumIId is]
-    ]
 lispifyResponse (Resp_GiveAction ii s) =
-  return [L [A "agda2-give-action", showNumIId ii, A s']]
+  return $ L [A "agda2-give-action", showNumIId ii, A s']
   where
     s' = case s of
       Give_String str -> quote str
@@ -103,20 +100,19 @@ lispifyResponse (Resp_GiveAction ii s) =
       Give_NoParen -> "'no-paren"
 lispifyResponse (Resp_MakeCase ii variant pcs) =
   return
-    [lastTag 2 $ L [A cmd, Q $ L $ map (A . quote) pcs]]
+    $ lastTag 2 $ L [A cmd, Q $ L $ map (A . quote) pcs]
   where
     cmd = case variant of
       R.Function -> "agda2-make-case-action"
       R.ExtendedLambda -> "agda2-make-case-action-extendlam"
 lispifyResponse (Resp_SolveAll ps) =
   return
-    [ lastTag 2 $
+    $ lastTag 2 $
         L [A "agda2-solveAll-action", Q . L $ concatMap prn ps]
-    ]
   where
     prn (ii, e) = [showNumIId ii, A $ quote $ prettyShow e]
 
-lispifyDisplayInfo :: DisplayInfo -> TCM [Lisp String]
+lispifyDisplayInfo :: DisplayInfo -> TCM (Lisp String)
 lispifyDisplayInfo info = case info of
   Info_CompilationOk ws -> do
     warnings <- prettyTCWarnings (tcWarnings ws)
@@ -204,20 +200,19 @@ lispifyDisplayInfo info = case info of
   Info_Version -> format ("Agda version " ++ versionWithCommitInfo) "*Agda Version*"
   Info_GoalSpecific ii kind -> lispifyGoalSpecificDisplayInfo ii kind
 
-lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM [Lisp String]
+lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM (Lisp String)
 lispifyGoalSpecificDisplayInfo ii kind = localTCState $
   B.withInteractionId ii $
     case kind of
       Goal_HelperFunction helperType -> do
         doc <- inTopContext $ prettyATop helperType
-        return
-          [ L
+        return $
+          L
               [ A "agda2-info-action-and-copy",
                 A $ quote "*Helper function*",
                 A $ quote (render doc ++ "\n"),
                 A "nil"
               ]
-          ]
       Goal_NormalForm cmode expr -> do
         doc <- showComputed cmode expr
         format (render doc) "*Normal Form*" -- show?
@@ -263,8 +258,8 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
         format (render doc) "*Inferred Type*"
 
 -- | Format responses of DisplayInfo
-format :: String -> String -> TCM [Lisp String]
-format content bufname = return [display_info' False bufname content]
+format :: String -> String -> TCM (Lisp String)
+format content bufname = return (display_info' False bufname content)
 
 -- | Adds a \"last\" tag to a response.
 lastTag :: Integer -> Lisp String -> Lisp String
