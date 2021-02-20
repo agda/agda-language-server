@@ -59,6 +59,7 @@ data Reaction
   -- priority: 2
   | ReactionMakeCaseFunction [String]
   | ReactionMakeCaseExtendedLambda [String]
+  | ReactionSolveAll [(Int, String)]
   -- priority: 3
   | ReactionJumpToError FilePath Int
   | ReactionEnd

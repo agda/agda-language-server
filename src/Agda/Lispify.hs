@@ -75,12 +75,9 @@ responseToReaction (Resp_GiveAction i giveAction) =
   return $ ReactionGiveAction (fromAgda i) (fromAgda giveAction)
 responseToReaction (Resp_MakeCase _ Function pcs) = return $ ReactionMakeCaseFunction pcs
 responseToReaction (Resp_MakeCase _ ExtendedLambda pcs) = return $ ReactionMakeCaseExtendedLambda pcs
-responseToReaction (Resp_SolveAll ps) =
-  return $
-    ReactionLast 2 $
-      serialize $ L [A "agda2-solveAll-action", Q . L $ concatMap prn ps]
+responseToReaction (Resp_SolveAll ps) = return $ ReactionSolveAll (map prn ps)
   where
-    prn (ii, e) = [showNumIId ii, A $ quote $ prettyShow e]
+    prn (i, e) = (fromAgda i, prettyShow e)
 
 lispifyDisplayInfo :: DisplayInfo -> TCM (Lisp String)
 lispifyDisplayInfo info = case info of
@@ -230,14 +227,6 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 -- | Format responses of DisplayInfo
 format :: String -> String -> TCM (Lisp String)
 format content bufname = return (display_info' False bufname content)
-
--- | Adds a \"last\" tag to a response.
-lastTag :: Integer -> Lisp String -> Lisp String
-lastTag n = Cons (Cons (A "last") (A $ show n))
-
--- | Show an iteraction point identifier as an elisp expression.
-showNumIId :: InteractionId -> Lisp String
-showNumIId = A . show . interactionId
 
 --------------------------------------------------------------------------------
 
