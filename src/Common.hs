@@ -41,7 +41,7 @@ instance FromAgda Agda.GiveResult GiveResult where
 instance ToJSON GiveResult
 
 data DisplayInfo 
-  = DisplayInfoTempGeneric String
+  = DisplayInfoGeneric String String
   | DisplayInfoCompilationOk String
   | DisplayInfoAuto String
   | DisplayInfoError String

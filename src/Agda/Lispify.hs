@@ -222,13 +222,7 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 
 -- | Format responses of DisplayInfo
 formatPrim :: Bool -> String -> String -> TCM IR.DisplayInfo
-formatPrim copy content header = return $ IR.DisplayInfoTempGeneric . serialize $
-  L
-    [ A $ if copy then "agda2-info-action-and-copy" else "agda2-info-action",
-      A (quote header),
-      A (quote content),
-      A "nil"
-    ]
+formatPrim copy content header = return $ IR.DisplayInfoGeneric header content 
 
 -- | Format responses of DisplayInfo ("agda2-info-action")
 format :: String -> String -> TCM IR.DisplayInfo
