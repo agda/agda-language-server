@@ -56,6 +56,9 @@ data Reaction
   | ReactionLast Int String
   -- priority: 1
   | ReactionInteractionPoints [Int]
+  -- priority: 2
+  | ReactionMakeCaseFunction [String]
+  | ReactionMakeCaseExtendedLambda [String]
   -- priority: 3
   | ReactionJumpToError FilePath Int
   | ReactionEnd

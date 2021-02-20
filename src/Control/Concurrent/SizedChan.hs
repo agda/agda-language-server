@@ -20,7 +20,7 @@ newSizedChan =
 
 -- | Write a value to a 'SizedChan'.
 writeSizedChan :: SizedChan a -> a -> IO ()
-writeSizedChan (SizedChan chan sizeIORef peeked) val = do
+writeSizedChan (SizedChan chan sizeIORef _) val = do
   writeChan chan val
   modifyIORef' sizeIORef succ
 
@@ -62,7 +62,7 @@ tryReadSizedChan (SizedChan chan sizeIORef peekedIORef) = do
 
 -- | Peek the next value from the 'SizedChan' without removing it. Blocks when the channel is empty.
 peekSizedChan :: SizedChan a -> IO a
-peekSizedChan (SizedChan chan sizeIORef peekedIORef) = do
+peekSizedChan (SizedChan chan _ peekedIORef) = do
   peeked <- readIORef peekedIORef
   case peeked of
     -- return the peeked value

@@ -18,7 +18,7 @@ import Agda.Syntax.Concrete as C
 import Agda.Syntax.Position
 import Agda.Syntax.Scope.Base
 import Agda.TypeChecking.Errors (prettyError)
-import Agda.TypeChecking.Monad
+import Agda.TypeChecking.Monad hiding (Function)
 import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
 import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings')
@@ -73,14 +73,8 @@ responseToReaction (Resp_InteractionPoints is) =
   return $ ReactionInteractionPoints (map interactionId is)
 responseToReaction (Resp_GiveAction i giveAction) =
   return $ ReactionGiveAction (fromAgda i) (fromAgda giveAction)
-responseToReaction (Resp_MakeCase ii variant pcs) =
-  return $
-    ReactionLast 2 $
-      serialize $ L [A cmd, Q $ L $ map (A . quote) pcs]
-  where
-    cmd = case variant of
-      R.Function -> "agda2-make-case-action"
-      R.ExtendedLambda -> "agda2-make-case-action-extendlam"
+responseToReaction (Resp_MakeCase _ Function pcs) = return $ ReactionMakeCaseFunction pcs
+responseToReaction (Resp_MakeCase _ ExtendedLambda pcs) = return $ ReactionMakeCaseExtendedLambda pcs
 responseToReaction (Resp_SolveAll ps) =
   return $
     ReactionLast 2 $
