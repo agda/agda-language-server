@@ -63,16 +63,8 @@ responseToReaction :: Response -> TCM Reaction
 responseToReaction (Resp_HighlightingInfo info remove method modFile) =
   ReactionNonLast . serialize <$> liftIO (lispifyHighlightingInfo info remove method modFile)
 responseToReaction (Resp_DisplayInfo info) = ReactionNonLast . serialize <$> lispifyDisplayInfo info
-responseToReaction (Resp_ClearHighlighting tokenBased) =
-  return $
-    ReactionNonLast $
-      serialize $
-        L $
-          A "agda2-highlight-clear" :
-          case tokenBased of
-            NotOnlyTokenBased -> []
-            TokenBased ->
-              [Q (lispifyTokenBased tokenBased)]
+responseToReaction (Resp_ClearHighlighting TokenBased) = return ReactionClearHighlightingTokenBased 
+responseToReaction (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionClearHighlightingNotOnlyTokenBased 
 responseToReaction Resp_DoneAborting = return ReactionDoneAborting 
 responseToReaction Resp_DoneExiting = return ReactionDoneExiting
 responseToReaction Resp_ClearRunningInfo = return ReactionClearRunningInfo

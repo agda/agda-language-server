@@ -45,6 +45,8 @@ instance ToJSON GiveResult
 data Reaction
   = ReactionNonLast String
   -- non-last responses
+  | ReactionClearHighlightingTokenBased
+  | ReactionClearHighlightingNotOnlyTokenBased
   | ReactionClearRunningInfo
   | ReactionDoneAborting
   | ReactionDoneExiting
