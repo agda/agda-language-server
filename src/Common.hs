@@ -24,6 +24,7 @@ import GHC.Generics (Generic)
 data Reaction 
   = ReactionNonLast String 
   | ReactionLast Int String 
+  | ReactionInteractionPoints [Int] 
   | ReactionEnd
   deriving (Generic)
 

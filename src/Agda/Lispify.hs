@@ -96,10 +96,7 @@ responseToReaction (Resp_JumpToError f p) =
       serialize $
         L [A "agda2-maybe-goto", Q $ L [A (quote f), A ".", A (show p)]]
 responseToReaction (Resp_InteractionPoints is) =
-  return $
-    ReactionLast 1 $
-      serialize $
-        L [A "agda2-goals-action", Q $ L $ map showNumIId is]
+  return $ ReactionInteractionPoints (map interactionId is)
 responseToReaction (Resp_GiveAction ii s) =
   return $
     ReactionNonLast $
