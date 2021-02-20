@@ -31,6 +31,7 @@ import Agda.Utils.String
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit
 import Common (Reaction (..), FromAgda(..))
+import qualified Common as IR
 import Control.Monad.State hiding (state)
 import qualified Data.List as List
 import Data.String (IsString)
@@ -60,7 +61,7 @@ serialize = show . pretty
 responseToReaction :: Response -> TCM Reaction
 responseToReaction (Resp_HighlightingInfo info remove method modFile) =
   ReactionHighlightingInfo . serialize <$> liftIO (lispifyHighlightingInfo info remove method modFile)
-responseToReaction (Resp_DisplayInfo info) = ReactionDisplayInfo . serialize <$> lispifyDisplayInfo info
+responseToReaction (Resp_DisplayInfo info) = ReactionDisplayInfo <$> fromDisplayInfo info
 responseToReaction (Resp_ClearHighlighting TokenBased) = return ReactionClearHighlightingTokenBased 
 responseToReaction (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionClearHighlightingNotOnlyTokenBased 
 responseToReaction Resp_DoneAborting = return ReactionDoneAborting 
@@ -79,8 +80,8 @@ responseToReaction (Resp_SolveAll ps) = return $ ReactionSolveAll (map prn ps)
   where
     prn (i, e) = (fromAgda i, prettyShow e)
 
-lispifyDisplayInfo :: DisplayInfo -> TCM (Lisp String)
-lispifyDisplayInfo info = case info of
+fromDisplayInfo :: DisplayInfo -> TCM IR.DisplayInfo
+fromDisplayInfo info = case info of
   Info_CompilationOk ws -> do
     warnings <- prettyTCWarnings (tcWarnings ws)
     errors <- prettyTCWarnings (nonFatalErrors ws)
@@ -167,13 +168,13 @@ lispifyDisplayInfo info = case info of
   Info_Version -> format ("Agda version " ++ versionWithCommitInfo) "*Agda Version*"
   Info_GoalSpecific ii kind -> lispifyGoalSpecificDisplayInfo ii kind
 
-lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM (Lisp String)
+lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM IR.DisplayInfo 
 lispifyGoalSpecificDisplayInfo ii kind = localTCState $
   B.withInteractionId ii $
     case kind of
       Goal_HelperFunction helperType -> do
         doc <- inTopContext $ prettyATop helperType
-        return $
+        return $ IR.DisplayInfoTempGeneric . serialize $
           L
             [ A "agda2-info-action-and-copy",
               A $ quote "*Helper function*",
@@ -225,8 +226,8 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
         format (render doc) "*Inferred Type*"
 
 -- | Format responses of DisplayInfo
-format :: String -> String -> TCM (Lisp String)
-format content bufname = return (display_info' False bufname content)
+format :: String -> String -> TCM IR.DisplayInfo 
+format content bufname = return (IR.DisplayInfoTempGeneric . serialize $ display_info' False bufname content)
 
 --------------------------------------------------------------------------------
 

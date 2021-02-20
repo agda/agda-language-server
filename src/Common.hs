@@ -40,11 +40,19 @@ instance FromAgda Agda.GiveResult GiveResult where
 
 instance ToJSON GiveResult
 
+data DisplayInfo 
+  = DisplayInfoTempGeneric String
+  | DisplayInfoOthers1 String 
+  | DisplayInfoOthers2
+  deriving (Generic)
+
+instance ToJSON DisplayInfo
+
 -- reaction to command (IOCTM)
 data Reaction
   -- non-last responses
   = ReactionHighlightingInfo String
-  | ReactionDisplayInfo String
+  | ReactionDisplayInfo DisplayInfo
   | ReactionStatus Bool Bool
   | ReactionClearHighlightingTokenBased
   | ReactionClearHighlightingNotOnlyTokenBased
@@ -61,7 +69,7 @@ data Reaction
   | ReactionSolveAll [(Int, String)]
   | -- priority: 3
     ReactionJumpToError FilePath Int
-    
+
   | ReactionEnd
   deriving (Generic)
 
