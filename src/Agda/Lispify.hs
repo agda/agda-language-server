@@ -73,9 +73,9 @@ responseToReaction (Resp_ClearHighlighting tokenBased) =
             NotOnlyTokenBased -> []
             TokenBased ->
               [Q (lispifyTokenBased tokenBased)]
-responseToReaction Resp_DoneAborting = return $ ReactionNonLast $ serialize $ L [A "agda2-abort-done"]
-responseToReaction Resp_DoneExiting = return $ ReactionNonLast $ serialize $ L [A "agda2-exit-done"]
-responseToReaction Resp_ClearRunningInfo = return $ ReactionNonLast $ serialize clearRunningInfo
+responseToReaction Resp_DoneAborting = return ReactionDoneAborting 
+responseToReaction Resp_DoneExiting = return ReactionDoneExiting
+responseToReaction Resp_ClearRunningInfo = return ReactionClearRunningInfo
 responseToReaction (Resp_RunningInfo n s)
   | n <= 1 = return $ ReactionNonLast $ serialize $ displayRunningInfo s
   | otherwise = return $ ReactionNonLast $ serialize $ L [A "agda2-verbose", A (quote s)]

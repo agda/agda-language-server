@@ -44,9 +44,15 @@ instance ToJSON GiveResult
 -- reaction to command (IOCTM) 
 data Reaction
   = ReactionNonLast String
-  | ReactionLast Int String
-  | ReactionInteractionPoints [Int]
+  -- non-last responses
+  | ReactionClearRunningInfo
+  | ReactionDoneAborting
+  | ReactionDoneExiting
   | ReactionGiveAction Int GiveResult
+  -- last responses
+  | ReactionLast Int String
+  -- priority: 1
+  | ReactionInteractionPoints [Int]
   | ReactionEnd
   deriving (Generic)
 

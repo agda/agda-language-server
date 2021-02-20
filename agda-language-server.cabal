@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: cf21d7944ec0f45d75e22de0a5f62d8d9e14eb5dd3afac7d49a72149abb46ad3
+-- hash: b4fad3567195dbb1ddab2bd6a9a978339b7afb3f259896b6b312a056e5f113f8
 
 name:           agda-language-server
 version:        0.1.0.0
@@ -57,7 +57,7 @@ executable als
       Paths_agda_language_server
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       Agda
     , aeson
