@@ -99,7 +99,7 @@ fromDisplayInfo info = case info of
     errors <- prettyTCWarnings (nonFatalErrors ws)
     let (body, title) = formatWarningsAndErrors goals warnings errors
     format body ("*All" ++ title ++ "*")
-  Info_Auto s -> format s "*Auto*"
+  Info_Auto s -> return $ IR.DisplayInfoAuto s
   Info_Error err -> do
     s <- showInfoError err
     format s "*Error*"

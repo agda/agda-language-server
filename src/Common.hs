@@ -43,8 +43,7 @@ instance ToJSON GiveResult
 data DisplayInfo 
   = DisplayInfoTempGeneric String
   | DisplayInfoCompilationOk String
-  | DisplayInfoOthers1 String 
-  | DisplayInfoOthers2
+  | DisplayInfoAuto String
   deriving (Generic)
 
 instance ToJSON DisplayInfo
