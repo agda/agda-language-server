@@ -67,17 +67,7 @@ responseToReaction Resp_DoneAborting = return ReactionDoneAborting
 responseToReaction Resp_DoneExiting = return ReactionDoneExiting
 responseToReaction Resp_ClearRunningInfo = return ReactionClearRunningInfo
 responseToReaction (Resp_RunningInfo n s) = return $ ReactionRunningInfo n s
-responseToReaction (Resp_Status s) =
-  return $
-    ReactionNonLast $
-      serialize $
-        L
-          [ A "agda2-status-action",
-            A (quote $ List.intercalate "," $ catMaybes [checked, showImpl])
-          ]
-  where
-    checked = boolToMaybe (sChecked s) "Checked"
-    showImpl = boolToMaybe (sShowImplicitArguments s) "ShowImplicit"
+responseToReaction (Resp_Status s) = return $ ReactionStatus (sChecked s) (sShowImplicitArguments s)
 responseToReaction (Resp_JumpToError f p) = return $ ReactionJumpToError f (fromIntegral p)
 responseToReaction (Resp_InteractionPoints is) =
   return $ ReactionInteractionPoints (map interactionId is)
