@@ -4,14 +4,11 @@ module Control.Concurrent.SizedChan (SizedChan, newSizedChan, writeSizedChan, re
 import Control.Concurrent.Chan
 import Data.IORef
 
-data SizedChan a = SizedChan
-  { -- | The channel
-    chan :: Chan a,
-    -- | Its size
-    size :: IORef Int,
-    -- | Peeked payload
-    peeked :: IORef (Maybe a)
-  }
+data SizedChan a = 
+  SizedChan 
+    (Chan a) -- ^ The channel
+    (IORef Int) -- ^ Its size
+    (IORef (Maybe a)) -- ^ Peeked payload
 
 -- | Build and returns a new instance of 'SizedChan'.
 newSizedChan :: IO (SizedChan a)

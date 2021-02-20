@@ -5,7 +5,6 @@ module Switchboard (run) where
 import Common
 import Control.Concurrent
 import qualified Control.Concurrent.Foreman as Foreman
-import Control.Monad (when)
 import Control.Monad.Reader
 import qualified Agda
 import qualified Data.Aeson as JSON
@@ -16,9 +15,9 @@ import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 -- | All channels go in and out from here
 run :: Env -> LanguageContextEnv () -> IO ()
 run env ctxEnv = do
-  forkIO (keepPrintingLog env)
-  forkIO (keepSendindReaction env ctxEnv)
-  forkIO (runReaderT Agda.interact env)
+  _ <- forkIO (keepPrintingLog env)
+  _ <- forkIO (keepSendindReaction env ctxEnv)
+  _ <- forkIO (runReaderT Agda.interact env)
   return ()
 
 -- | Keep printing log
@@ -38,6 +37,6 @@ keepSendindReaction env ctxEnv = forever $ do
     callback <- liftIO $ Foreman.dispatch (envReactionController env)
 
     let value = JSON.toJSON response
-    sendRequest (SCustomMethod "agda") value $ \result -> liftIO $ do
+    sendRequest (SCustomMethod "agda") value $ \_result -> liftIO $ do
       -- writeChan (envLogChan env) $ "[Reaction] >>>> " <> pack (show value)
       callback ()

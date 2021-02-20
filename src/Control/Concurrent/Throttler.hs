@@ -8,15 +8,11 @@ module Control.Concurrent.Throttler
 where
 
 import Control.Concurrent
-import Control.Monad (when, forM_)
-import Data.IORef
-import Prelude hiding (take)
 import Control.Concurrent.SizedChan
+import Control.Monad (forM_)
+import Prelude hiding (take)
 
-data Throttler a = Throttler
-  { queue :: SizedChan a,
-    front :: MVar a
-  }
+data Throttler a = Throttler (SizedChan a) (MVar a)
 
 new :: IO (Throttler a)
 new = Throttler <$> newSizedChan <*> newEmptyMVar
@@ -25,10 +21,10 @@ new = Throttler <$> newSizedChan <*> newEmptyMVar
 take :: Throttler a -> IO a
 take (Throttler _ front) = takeMVar front
 
--- | Move the payload from the queue to the front 
+-- | Move the payload from the queue to the front
 -- Does not block if the front or the queue is empty
 move :: Throttler a -> IO ()
-move (Throttler queue front) = do 
+move (Throttler queue front) = do
   result <- tryReadSizedChan queue
   forM_ result (tryPutMVar front)
 

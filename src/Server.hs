@@ -5,8 +5,6 @@ module Server (run) where
 
 -- entry point of the LSP server
 
-import qualified Agda.Interaction.Base as Agda
-import qualified Agda.Interaction.Response as Agda
 import Common
 import Control.Concurrent (ThreadId)
 import qualified Control.Exception as Exception
@@ -14,7 +12,7 @@ import Control.Monad.Reader
 import qualified Agda
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.Aeson as JSON
-import Data.Text (Text, pack)
+import Data.Text (pack)
 import GHC.Generics (Generic)
 import GHC.IO.IOMode (IOMode (ReadWriteMode))
 import Language.LSP.Server
@@ -50,7 +48,7 @@ run devMode = do
       let port = "4000"
       putStrLn $ "[Server] Start accepting connections from port " <> port
       -- expecting to be probed by the client first
-      serveOnce (TCP.Host "localhost") port $ \(_sock, _remoteAddr) -> return ()
+      _ <- serveOnce (TCP.Host "localhost") port $ \(_sock, _remoteAddr) -> return ()
       putStrLn "[Server] Probed" 
       -- here establishes the real connection
       connectionResult <- serveOnce (TCP.Host "localhost") port $ \(sock, _remoteAddr) -> do
@@ -104,7 +102,7 @@ handlers =
   mconcat
     [ -- custom methods, not part of LSP
       requestHandler (SCustomMethod "agda") $ \req responder -> do
-        let RequestMessage _ i _ params = req
+        let RequestMessage _ _i _ params = req
         -- JSON Value => Request => Response
         response <- case JSON.fromJSON params of
           JSON.Error msg -> return $ ResCannotDecodeRequest $ show msg ++ "\n" ++ show params
@@ -126,8 +124,8 @@ handleRequest request = do
     toResponse ReqInitialize = return $ ResInitialize Agda.getAgdaVersion
     toResponse (ReqCommand cmd) = do
       case Agda.parseIOTCM cmd of
-        Left error -> do
-          lift $ writeLog $ "Error: parseIOTCM" <> pack error
+        Left err -> do
+          lift $ writeLog $ "Error: parseIOTCM" <> pack err
           return ResCommand
         Right iotcm -> do
           lift $ do

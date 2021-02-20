@@ -3,7 +3,6 @@
 
 module Agda.Lispify where
 
-import Agda.Interaction.AgdaTop
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand hiding (putResponse)
@@ -25,7 +24,6 @@ import qualified Agda.TypeChecking.Pretty as TCP
 import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings')
 import Agda.TypeChecking.Warnings (WarningsAndNonFatalErrors (..))
 import Agda.Utils.Function (applyWhen)
-import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Agda.Utils.Maybe
 import Agda.Utils.Null (empty)
 import Agda.Utils.Pretty
@@ -38,7 +36,7 @@ import qualified Data.List as List
 import Data.String (IsString)
 
 responseAbbr :: IsString a => Response -> a
-responseAbbr response = case response of
+responseAbbr res = case res of
   Resp_HighlightingInfo {} -> "Resp_HighlightingInfo"
   Resp_Status {} -> "Resp_Status"
   Resp_JumpToError {} -> "Resp_JumpToError"
@@ -68,9 +66,7 @@ responseToReaction (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionC
 responseToReaction Resp_DoneAborting = return ReactionDoneAborting 
 responseToReaction Resp_DoneExiting = return ReactionDoneExiting
 responseToReaction Resp_ClearRunningInfo = return ReactionClearRunningInfo
-responseToReaction (Resp_RunningInfo n s)
-  | n <= 1 = return $ ReactionNonLast $ serialize $ displayRunningInfo s
-  | otherwise = return $ ReactionNonLast $ serialize $ L [A "agda2-verbose", A (quote s)]
+responseToReaction (Resp_RunningInfo n s) = return $ ReactionRunningInfo n s
 responseToReaction (Resp_Status s) =
   return $
     ReactionNonLast $
@@ -82,11 +78,7 @@ responseToReaction (Resp_Status s) =
   where
     checked = boolToMaybe (sChecked s) "Checked"
     showImpl = boolToMaybe (sShowImplicitArguments s) "ShowImplicit"
-responseToReaction (Resp_JumpToError f p) =
-  return $
-    ReactionLast 3 $
-      serialize $
-        L [A "agda2-maybe-goto", Q $ L [A (quote f), A ".", A (show p)]]
+responseToReaction (Resp_JumpToError f p) = return $ ReactionJumpToError f (fromIntegral p)
 responseToReaction (Resp_InteractionPoints is) =
   return $ ReactionInteractionPoints (map interactionId is)
 responseToReaction (Resp_GiveAction i giveAction) =
@@ -415,7 +407,7 @@ prettyResponseContext ::
   [ResponseContextEntry] ->
   TCM Doc
 prettyResponseContext ii rev ctx = withInteractionId ii $ do
-  mod <- asksTC getModality
+  modality <- asksTC getModality
   align 10 . concat . applyWhen rev reverse <$> do
     forM ctx $ \(ResponseContextEntry n x (Arg ai expr) letv nis) -> do
       let prettyCtxName :: String
@@ -436,9 +428,9 @@ prettyResponseContext ii rev ctx = withInteractionId ii $ do
             concat
               [ ["not in scope" | isInScope nis == C.NotInScope],
                 -- Print erased if hypothesis is erased by goal is non-erased.
-                ["erased" | not $ getQuantity ai `moreQuantity` getQuantity mod],
+                ["erased" | not $ getQuantity ai `moreQuantity` getQuantity modality],
                 -- Print irrelevant if hypothesis is strictly less relevant than goal.
-                ["irrelevant" | not $ getRelevance ai `moreRelevant` getRelevance mod],
+                ["irrelevant" | not $ getRelevance ai `moreRelevant` getRelevance modality],
                 -- Print instance if variable is considered by instance search
                 ["instance" | isInstance ai]
               ]

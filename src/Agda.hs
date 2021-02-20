@@ -3,11 +3,10 @@
 
 module Agda where
 
-import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandM, CommandState (optionsOnReload), IOTCM, Interaction (..), initCommandState)
+import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandM, CommandState (optionsOnReload), IOTCM, initCommandState)
 import qualified Agda.Interaction.Imports as Imp
-import Agda.Interaction.InteractionTop (handleCommand_, initialiseCommandQueue, maybeAbort, runInteraction)
+import Agda.Interaction.InteractionTop (initialiseCommandQueue, maybeAbort, runInteraction)
 import Agda.Interaction.Options (CommandLineOptions (optAbsoluteIncludePaths))
-import Agda.Interaction.Response (Response (..))
 import Agda.TypeChecking.Errors (prettyError, prettyTCWarnings')
 import Agda.TypeChecking.Monad
   ( TCErr,
@@ -18,22 +17,15 @@ import Agda.TypeChecking.Monad.Base (TCM)
 import qualified Agda.TypeChecking.Monad.Benchmark as Bench
 import Agda.TypeChecking.Monad.State (setInteractionOutputCallback)
 import Agda.Utils.Impossible (CatchImpossible (catchImpossible), Impossible)
-import Agda.Utils.Pretty (pretty, render)
 import Agda.VersionCommit (versionWithCommitInfo)
 import Common
-import Control.Concurrent
 import Control.Exception
 import Control.Monad.Except (catchError)
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader
 import Control.Monad.State
-import qualified Control.Concurrent.Throttler as Throttler
-import Data.IORef (readIORef, writeIORef)
 import Data.Maybe (listToMaybe)
 import Data.Text (pack)
-import GHC.IO.Handle (hFlush)
 import Agda.Lispify (responseToReaction)
-import System.IO (stdout)
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
@@ -57,7 +49,8 @@ interact = do
     -- start the loop
     opts <- commandLineOptions
     let commandState = (initCommandState commands) {optionsOnReload = opts {optAbsoluteIncludePaths = []}}
-    mapReaderT (`runStateT` commandState) (loop env)
+
+    _ <- mapReaderT (`runStateT` commandState) (loop env)
 
     return ""
 
@@ -91,17 +84,17 @@ interact = do
 parseIOTCM :: String -> Either String IOTCM
 parseIOTCM raw = case listToMaybe $ reads raw of
   Just (x, "") -> Right x
-  Just (_, rem) -> Left $ "not consumed: " ++ rem
+  Just (_, remnent) -> Left $ "not consumed: " ++ remnent
   _ -> Left $ "cannot read: " ++ raw
 
 -- TODO: handle the caught errors
 
 -- | Run a TCM action in IO and throw away all of the errors
 runTCMPrettyErrors :: ServerM' TCM String -> ServerM' IO (Either String String)
-runTCMPrettyErrors program = mapReaderT f program
+runTCMPrettyErrors = mapReaderT f
   where
     f :: TCM String -> IO (Either String String)
-    f program = runTCMTop' ((Right <$> program) `catchError` handleTCErr `catchImpossible` handleImpossible) `catch` catchException
+    f p = runTCMTop' ((Right <$> p) `catchError` handleTCErr `catchImpossible` handleImpossible) `catch` catchException
 
     handleTCErr :: TCErr -> TCM (Either String String)
     handleTCErr err = do

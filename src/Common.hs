@@ -14,7 +14,6 @@ import Control.Concurrent.Foreman (Foreman)
 import qualified Control.Concurrent.Foreman as Foreman
 import Control.Concurrent.Throttler (Throttler)
 import qualified Control.Concurrent.Throttler as Throttler
-import Data.IORef
 import Data.Text (Text)
 import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 import Data.Aeson (ToJSON)
@@ -47,6 +46,7 @@ data Reaction
   -- non-last responses
   | ReactionClearHighlightingTokenBased
   | ReactionClearHighlightingNotOnlyTokenBased
+  | ReactionRunningInfo Int String 
   | ReactionClearRunningInfo
   | ReactionDoneAborting
   | ReactionDoneExiting
@@ -55,6 +55,8 @@ data Reaction
   | ReactionLast Int String
   -- priority: 1
   | ReactionInteractionPoints [Int]
+  -- priority: 3
+  | ReactionJumpToError FilePath Int
   | ReactionEnd
   deriving (Generic)
 
