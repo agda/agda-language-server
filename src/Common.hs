@@ -44,6 +44,9 @@ data DisplayInfo
   = DisplayInfoTempGeneric String
   | DisplayInfoCompilationOk String
   | DisplayInfoAuto String
+  | DisplayInfoError String
+  | DisplayInfoTime String
+  | DisplayInfoNormalForm String
   deriving (Generic)
 
 instance ToJSON DisplayInfo

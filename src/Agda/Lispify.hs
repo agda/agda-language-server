@@ -102,12 +102,13 @@ fromDisplayInfo info = case info of
   Info_Auto s -> return $ IR.DisplayInfoAuto s
   Info_Error err -> do
     s <- showInfoError err
-    format s "*Error*"
-  Info_Time s -> format (render $ prettyTimed s) "*Time*"
+    return $ IR.DisplayInfoError s
+  Info_Time s -> do 
+    return $ IR.DisplayInfoTime (render (prettyTimed s))
   Info_NormalForm state cmode time expr -> do
     exprDoc <- evalStateT prettyExpr state
     let doc = maybe empty prettyTimed time $$ exprDoc
-    format (render doc) "*Normal Form*"
+    return $ IR.DisplayInfoNormalForm (render doc)
     where
       prettyExpr =
         localStateCommandM $
