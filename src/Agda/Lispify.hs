@@ -59,7 +59,7 @@ serialize = show . pretty
 -- | Convert Response to an Reaction for the LSP client
 responseToReaction :: Response -> TCM Reaction
 responseToReaction (Resp_HighlightingInfo info remove method modFile) =
-  ReactionNonLast . serialize <$> liftIO (lispifyHighlightingInfo info remove method modFile)
+  ReactionHighlightingInfo . serialize <$> liftIO (lispifyHighlightingInfo info remove method modFile)
 responseToReaction (Resp_DisplayInfo info) = ReactionDisplayInfo . serialize <$> lispifyDisplayInfo info
 responseToReaction (Resp_ClearHighlighting TokenBased) = return ReactionClearHighlightingTokenBased 
 responseToReaction (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionClearHighlightingNotOnlyTokenBased 

@@ -42,8 +42,8 @@ instance ToJSON GiveResult
 
 -- reaction to command (IOCTM)
 data Reaction
-  = ReactionNonLast String
   -- non-last responses
+  = ReactionHighlightingInfo String
   | ReactionDisplayInfo String
   | ReactionStatus Bool Bool
   | ReactionClearHighlightingTokenBased
@@ -61,6 +61,7 @@ data Reaction
   | ReactionSolveAll [(Int, String)]
   | -- priority: 3
     ReactionJumpToError FilePath Int
+    
   | ReactionEnd
   deriving (Generic)
 
