@@ -30,7 +30,7 @@ import Agda.Utils.Pretty
 import Agda.Utils.String
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit
-import Common (Reaction (..), FromAgda(..))
+import Common (FromAgda (..), Reaction (..))
 import qualified Common as IR
 import Control.Monad.State hiding (state)
 import qualified Data.List as List
@@ -62,9 +62,9 @@ responseToReaction :: Response -> TCM Reaction
 responseToReaction (Resp_HighlightingInfo info remove method modFile) =
   ReactionHighlightingInfo . serialize <$> liftIO (lispifyHighlightingInfo info remove method modFile)
 responseToReaction (Resp_DisplayInfo info) = ReactionDisplayInfo <$> fromDisplayInfo info
-responseToReaction (Resp_ClearHighlighting TokenBased) = return ReactionClearHighlightingTokenBased 
-responseToReaction (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionClearHighlightingNotOnlyTokenBased 
-responseToReaction Resp_DoneAborting = return ReactionDoneAborting 
+responseToReaction (Resp_ClearHighlighting TokenBased) = return ReactionClearHighlightingTokenBased
+responseToReaction (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionClearHighlightingNotOnlyTokenBased
+responseToReaction Resp_DoneAborting = return ReactionDoneAborting
 responseToReaction Resp_DoneExiting = return ReactionDoneExiting
 responseToReaction Resp_ClearRunningInfo = return ReactionClearRunningInfo
 responseToReaction (Resp_RunningInfo n s) = return $ ReactionRunningInfo n s
@@ -91,7 +91,7 @@ fromDisplayInfo info = case info of
             "The module was successfully compiled.\n"
             warnings
             errors
-    format body "*Compilation result*"
+    return $ IR.DisplayInfoCompilationOk body
   Info_Constraints s -> format (show $ vcat $ map pretty s) "*Constraints*"
   Info_AllGoalsWarnings ms ws -> do
     goals <- showGoals ms
@@ -168,19 +168,13 @@ fromDisplayInfo info = case info of
   Info_Version -> format ("Agda version " ++ versionWithCommitInfo) "*Agda Version*"
   Info_GoalSpecific ii kind -> lispifyGoalSpecificDisplayInfo ii kind
 
-lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM IR.DisplayInfo 
+lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM IR.DisplayInfo
 lispifyGoalSpecificDisplayInfo ii kind = localTCState $
   B.withInteractionId ii $
     case kind of
       Goal_HelperFunction helperType -> do
         doc <- inTopContext $ prettyATop helperType
-        return $ IR.DisplayInfoTempGeneric . serialize $
-          L
-            [ A "agda2-info-action-and-copy",
-              A $ quote "*Helper function*",
-              A $ quote (render doc ++ "\n"),
-              A "nil"
-            ]
+        formatAndCopy (render doc ++ "\n") "*Helper function*" 
       Goal_NormalForm cmode expr -> do
         doc <- showComputed cmode expr
         format (render doc) "*Normal Form*" -- show?
@@ -226,8 +220,22 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
         format (render doc) "*Inferred Type*"
 
 -- | Format responses of DisplayInfo
-format :: String -> String -> TCM IR.DisplayInfo 
-format content bufname = return (IR.DisplayInfoTempGeneric . serialize $ display_info' False bufname content)
+formatPrim :: Bool -> String -> String -> TCM IR.DisplayInfo
+formatPrim copy content header = return $ IR.DisplayInfoTempGeneric . serialize $
+  L
+    [ A $ if copy then "agda2-info-action-and-copy" else "agda2-info-action",
+      A (quote header),
+      A (quote content),
+      A "nil"
+    ]
+
+-- | Format responses of DisplayInfo ("agda2-info-action")
+format :: String -> String -> TCM IR.DisplayInfo
+format = formatPrim False
+
+-- | Format responses of DisplayInfo ("agda2-info-action-copy")
+formatAndCopy :: String -> String -> TCM IR.DisplayInfo
+formatAndCopy = formatPrim True
 
 --------------------------------------------------------------------------------
 
