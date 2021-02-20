@@ -1,23 +1,23 @@
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Common where
 
+import Agda.Interaction.Base (IOTCM)
 import qualified Agda.Interaction.Response as Agda
 import qualified Agda.Syntax.Common as Agda
-import Agda.Interaction.Base (IOTCM)
 import Agda.TypeChecking.Monad (TCMT)
 import Control.Concurrent
-import Control.Monad.Reader
 import Control.Concurrent.Foreman (Foreman)
 import qualified Control.Concurrent.Foreman as Foreman
 import Control.Concurrent.Throttler (Throttler)
 import qualified Control.Concurrent.Throttler as Throttler
-import Data.Text (Text)
-import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
+import Control.Monad.Reader
 import Data.Aeson (ToJSON)
+import Data.Text (Text)
 import GHC.Generics (Generic)
+import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 
 --------------------------------------------------------------------------------
 
@@ -40,28 +40,27 @@ instance FromAgda Agda.GiveResult GiveResult where
 
 instance ToJSON GiveResult
 
--- reaction to command (IOCTM) 
+-- reaction to command (IOCTM)
 data Reaction
   = ReactionNonLast String
   -- non-last responses
+  | ReactionDisplayInfo String
   | ReactionStatus Bool Bool
   | ReactionClearHighlightingTokenBased
   | ReactionClearHighlightingNotOnlyTokenBased
-  | ReactionRunningInfo Int String 
+  | ReactionRunningInfo Int String
   | ReactionClearRunningInfo
   | ReactionDoneAborting
   | ReactionDoneExiting
   | ReactionGiveAction Int GiveResult
-  -- last responses
-  | ReactionLast Int String
-  -- priority: 1
-  | ReactionInteractionPoints [Int]
-  -- priority: 2
-  | ReactionMakeCaseFunction [String]
+  | -- priority: 1
+    ReactionInteractionPoints [Int]
+  | -- priority: 2
+    ReactionMakeCaseFunction [String]
   | ReactionMakeCaseExtendedLambda [String]
   | ReactionSolveAll [(Int, String)]
-  -- priority: 3
-  | ReactionJumpToError FilePath Int
+  | -- priority: 3
+    ReactionJumpToError FilePath Int
   | ReactionEnd
   deriving (Generic)
 
