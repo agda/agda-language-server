@@ -32,7 +32,7 @@ import Agda.Utils.Pretty
 import Agda.Utils.String
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit
-import Common (Reaction (..))
+import Common (Reaction (..), FromAgda(..))
 import Control.Monad.State hiding (state)
 import qualified Data.List as List
 import Data.String (IsString)
@@ -97,15 +97,8 @@ responseToReaction (Resp_JumpToError f p) =
         L [A "agda2-maybe-goto", Q $ L [A (quote f), A ".", A (show p)]]
 responseToReaction (Resp_InteractionPoints is) =
   return $ ReactionInteractionPoints (map interactionId is)
-responseToReaction (Resp_GiveAction ii s) =
-  return $
-    ReactionNonLast $
-      serialize $ L [A "agda2-give-action", showNumIId ii, A s']
-  where
-    s' = case s of
-      Give_String str -> quote str
-      Give_Paren -> "'paren"
-      Give_NoParen -> "'no-paren"
+responseToReaction (Resp_GiveAction i giveAction) =
+  return $ ReactionGiveAction (fromAgda i) (fromAgda giveAction)
 responseToReaction (Resp_MakeCase ii variant pcs) =
   return $
     ReactionLast 2 $

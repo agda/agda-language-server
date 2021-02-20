@@ -48,8 +48,10 @@ run devMode = do
   if devMode
     then do
       let port = "4000"
+      putStrLn $ "[Server] Start accepting connections from port " <> port
       -- expecting to be probed by the client first
       serveOnce (TCP.Host "localhost") port $ \(_sock, _remoteAddr) -> return ()
+      putStrLn "[Server] Probed" 
       -- here establishes the real connection
       connectionResult <- serveOnce (TCP.Host "localhost") port $ \(sock, _remoteAddr) -> do
         handle <- socketToHandle sock ReadWriteMode

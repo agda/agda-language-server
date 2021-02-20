@@ -1,9 +1,11 @@
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Common where
 
 import qualified Agda.Interaction.Response as Agda
+import qualified Agda.Syntax.Common as Agda
 import Agda.Interaction.Base (IOTCM)
 import Agda.TypeChecking.Monad (TCMT)
 import Control.Concurrent
@@ -20,11 +22,31 @@ import GHC.Generics (Generic)
 
 --------------------------------------------------------------------------------
 
+class FromAgda a b | a -> b where
+  fromAgda :: a -> b
+
+instance FromAgda Agda.InteractionId Int where
+  fromAgda = Agda.interactionId
+
+data GiveResult
+  = GiveString String
+  | GiveParen
+  | GiveNoParen
+  deriving (Generic)
+
+instance FromAgda Agda.GiveResult GiveResult where
+  fromAgda (Agda.Give_String s) = GiveString s
+  fromAgda Agda.Give_Paren = GiveParen
+  fromAgda Agda.Give_NoParen = GiveNoParen
+
+instance ToJSON GiveResult
+
 -- reaction to command (IOCTM) 
-data Reaction 
-  = ReactionNonLast String 
-  | ReactionLast Int String 
-  | ReactionInteractionPoints [Int] 
+data Reaction
+  = ReactionNonLast String
+  | ReactionLast Int String
+  | ReactionInteractionPoints [Int]
+  | ReactionGiveAction Int GiveResult
   | ReactionEnd
   deriving (Generic)
 
@@ -73,7 +95,7 @@ consumeCommand env = liftIO $ Throttler.take (envCmdThrottler env)
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
   foreman <- asks envReactionController
-  liftIO $ Foreman.setGoalAndWait foreman 
+  liftIO $ Foreman.setGoalAndWait foreman
 
 signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m ()
 signalCommandFinish = do
