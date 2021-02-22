@@ -54,7 +54,8 @@ instance ToJSON DisplayInfo
 -- reaction to command (IOCTM)
 data Reaction
   -- non-last responses
-  = ReactionHighlightingInfo String
+  = ReactionHighlightingInfoDirect Bool [String]
+  | ReactionHighlightingInfoIndirect FilePath
   | ReactionDisplayInfo DisplayInfo
   | ReactionStatus Bool Bool
   | ReactionClearHighlightingTokenBased

@@ -7,7 +7,7 @@ import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand hiding (putResponse)
 import Agda.Interaction.Highlighting.Emacs
-import Agda.Interaction.Highlighting.Precise (TokenBased (..))
+import Agda.Interaction.Highlighting.Precise (TokenBased (..), HighlightingInfo, Aspects (..), DefinitionSite(..), CompressedFile (ranges))
 import Agda.Interaction.Imports (getAllWarningsOfTCErr)
 import Agda.Interaction.InteractionTop (localStateCommandM)
 import Agda.Interaction.Response as R
@@ -15,7 +15,7 @@ import Agda.Syntax.Abstract as A
 import Agda.Syntax.Abstract.Pretty (prettyATop)
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete as C
-import Agda.Syntax.Position
+-- import Agda.Syntax.Position 
 import Agda.Syntax.Scope.Base
 import Agda.TypeChecking.Errors (prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
@@ -29,12 +29,20 @@ import Agda.Utils.Null (empty)
 import Agda.Utils.Pretty
 import Agda.Utils.String
 import Agda.Utils.Time (CPUTime)
-import Agda.VersionCommit
+import Agda.VersionCommit ( versionWithCommitInfo )
 import Common (FromAgda (..), Reaction (..))
 import qualified Common as IR
 import Control.Monad.State hiding (state)
 import qualified Data.List as List
 import Data.String (IsString)
+import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
+
+import qualified Data.Map as Map
+import qualified Agda.Interaction.Highlighting.Range as Highlighting
+import Agda.Utils.FileName (filePath)
+import Agda.Utils.Impossible (__IMPOSSIBLE__)
+import Agda.Utils.IO.TempFile (writeToTempFile)
+import Agda.Syntax.Position
 
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
@@ -58,27 +66,81 @@ serialize :: Lisp String -> String
 serialize = show . pretty
 
 -- | Convert Response to an Reaction for the LSP client
-responseToReaction :: Response -> TCM Reaction
-responseToReaction (Resp_HighlightingInfo info remove method modFile) =
-  ReactionHighlightingInfo . serialize <$> liftIO (lispifyHighlightingInfo info remove method modFile)
-responseToReaction (Resp_DisplayInfo info) = ReactionDisplayInfo <$> fromDisplayInfo info
-responseToReaction (Resp_ClearHighlighting TokenBased) = return ReactionClearHighlightingTokenBased
-responseToReaction (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionClearHighlightingNotOnlyTokenBased
-responseToReaction Resp_DoneAborting = return ReactionDoneAborting
-responseToReaction Resp_DoneExiting = return ReactionDoneExiting
-responseToReaction Resp_ClearRunningInfo = return ReactionClearRunningInfo
-responseToReaction (Resp_RunningInfo n s) = return $ ReactionRunningInfo n s
-responseToReaction (Resp_Status s) = return $ ReactionStatus (sChecked s) (sShowImplicitArguments s)
-responseToReaction (Resp_JumpToError f p) = return $ ReactionJumpToError f (fromIntegral p)
-responseToReaction (Resp_InteractionPoints is) =
+fromResponse :: Response -> TCM Reaction
+fromResponse (Resp_HighlightingInfo info remove method modFile) =
+  fromHighlightingInfo info remove method modFile
+fromResponse (Resp_DisplayInfo info) = ReactionDisplayInfo <$> fromDisplayInfo info
+fromResponse (Resp_ClearHighlighting TokenBased) = return ReactionClearHighlightingTokenBased
+fromResponse (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionClearHighlightingNotOnlyTokenBased
+fromResponse Resp_DoneAborting = return ReactionDoneAborting
+fromResponse Resp_DoneExiting = return ReactionDoneExiting
+fromResponse Resp_ClearRunningInfo = return ReactionClearRunningInfo
+fromResponse (Resp_RunningInfo n s) = return $ ReactionRunningInfo n s
+fromResponse (Resp_Status s) = return $ ReactionStatus (sChecked s) (sShowImplicitArguments s)
+fromResponse (Resp_JumpToError f p) = return $ ReactionJumpToError f (fromIntegral p)
+fromResponse (Resp_InteractionPoints is) =
   return $ ReactionInteractionPoints (map interactionId is)
-responseToReaction (Resp_GiveAction i giveAction) =
+fromResponse (Resp_GiveAction i giveAction) =
   return $ ReactionGiveAction (fromAgda i) (fromAgda giveAction)
-responseToReaction (Resp_MakeCase _ Function pcs) = return $ ReactionMakeCaseFunction pcs
-responseToReaction (Resp_MakeCase _ ExtendedLambda pcs) = return $ ReactionMakeCaseExtendedLambda pcs
-responseToReaction (Resp_SolveAll ps) = return $ ReactionSolveAll (map prn ps)
+fromResponse (Resp_MakeCase _ Function pcs) = return $ ReactionMakeCaseFunction pcs
+fromResponse (Resp_MakeCase _ ExtendedLambda pcs) = return $ ReactionMakeCaseExtendedLambda pcs
+fromResponse (Resp_SolveAll ps) = return $ ReactionSolveAll (map prn ps)
   where
     prn (i, e) = (fromAgda i, prettyShow e)
+
+fromHighlightingInfo
+  :: HighlightingInfo
+  -> RemoveTokenBasedHighlighting
+  -> HighlightingMethod
+  -> ModuleToSource
+  -> TCM Reaction
+fromHighlightingInfo h remove method modFile =
+  case chooseHighlightingMethod h method of
+    Direct   -> return $ ReactionHighlightingInfoDirect keepHighlighting infos
+    Indirect -> ReactionHighlightingInfoIndirect <$> indirect
+  where
+
+  showAspects
+    :: ModuleToSource
+      -- ^ Must contain a mapping for the definition site's module, if any.
+    -> (Highlighting.Range, Aspects) -> Lisp String
+  showAspects modFile (r, m) = L $
+      map (A . show) [Highlighting.from r, Highlighting.to r]
+        ++
+      [L $ map A $ toAtoms m]
+        ++
+      dropNils (
+        [lispifyTokenBased (tokenBased m)]
+          ++
+        [A $ maybe "nil" quote $ note m]
+          ++
+        maybeToList (defSite <$> definitionSite m))
+    where
+    defSite (DefinitionSite m p _ _) =
+      Cons (A $ quote $ filePath f) (A $ show p)
+      where f = Map.findWithDefault __IMPOSSIBLE__ m modFile
+
+    dropNils = List.dropWhileEnd (== A "nil")
+
+
+  info :: [Lisp String]
+  info = (case remove of
+                RemoveHighlighting -> A "remove"
+                KeepHighlighting   -> A "nil") :
+             map (showAspects modFile) (ranges h)
+
+  infos :: [String] 
+  infos = map serialize info
+
+  keepHighlighting :: Bool 
+  keepHighlighting = 
+    case remove of 
+      RemoveHighlighting -> False 
+      KeepHighlighting -> True
+
+  indirect :: TCM FilePath
+  indirect = liftIO $ writeToTempFile (show $ L info)
+
 
 fromDisplayInfo :: DisplayInfo -> TCM IR.DisplayInfo
 fromDisplayInfo info = case info of
@@ -103,7 +165,7 @@ fromDisplayInfo info = case info of
   Info_Error err -> do
     s <- showInfoError err
     return $ IR.DisplayInfoError s
-  Info_Time s -> do 
+  Info_Time s -> do
     return $ IR.DisplayInfoTime (render (prettyTimed s))
   Info_NormalForm state cmode time expr -> do
     exprDoc <- evalStateT prettyExpr state
@@ -175,7 +237,7 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
     case kind of
       Goal_HelperFunction helperType -> do
         doc <- inTopContext $ prettyATop helperType
-        formatAndCopy (render doc ++ "\n") "*Helper function*" 
+        formatAndCopy (render doc ++ "\n") "*Helper function*"
       Goal_NormalForm cmode expr -> do
         doc <- showComputed cmode expr
         format (render doc) "*Normal Form*" -- show?
@@ -222,7 +284,7 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 
 -- | Format responses of DisplayInfo
 formatPrim :: Bool -> String -> String -> TCM IR.DisplayInfo
-formatPrim copy content header = return $ IR.DisplayInfoGeneric header content 
+formatPrim copy content header = return $ IR.DisplayInfoGeneric header content
 
 -- | Format responses of DisplayInfo ("agda2-info-action")
 format :: String -> String -> TCM IR.DisplayInfo

@@ -11,8 +11,7 @@ import qualified Data.Aeson as JSON
 import qualified Data.Text.IO as Text
 import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
-import Data.IORef (IORef)
-import GHC.IORef
+import Data.IORef
 
 data Switchboard = Switchboard 
   { sbPrintLog :: ThreadId
@@ -37,11 +36,11 @@ setupLanguageContextEnv switchboard ctxEnv = do
   writeIORef (sbLanguageContextEnv switchboard) (Just ctxEnv)
 
 destroy :: Switchboard -> IO ()
-destroy (Switchboard printLog sendReaction runAgda ctxEnvIORef) = do
-  killThread printLog
-  killThread sendReaction
-  killThread runAgda
-  writeIORef ctxEnvIORef Nothing
+destroy switchboard = do
+  killThread (sbPrintLog switchboard)
+  killThread (sbSendReaction switchboard)
+  killThread (sbRunAgda switchboard)
+  writeIORef (sbLanguageContextEnv switchboard) Nothing
 
 -- | Keep printing log
 -- Consumer of `envLogChan`

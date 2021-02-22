@@ -25,7 +25,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Data.Maybe (listToMaybe)
 import Data.Text (pack)
-import Agda.Lispify (responseToReaction)
+import Agda.Lispify (fromResponse)
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
@@ -40,7 +40,7 @@ interact = do
     -- decides how to output Response
     lift $
       setInteractionOutputCallback $ \response -> do
-        reaction <- responseToReaction response
+        reaction <- fromResponse response
         sendReaction env reaction
 
     -- keep reading command
