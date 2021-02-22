@@ -21,12 +21,14 @@ import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 
 --------------------------------------------------------------------------------
 
+-- | Typeclass for converting Agda values into IR
 class FromAgda a b | a -> b where
   fromAgda :: a -> b
 
 instance FromAgda Agda.InteractionId Int where
   fromAgda = Agda.interactionId
 
+-- | IR for GiveResult
 data GiveResult
   = GiveString String
   | GiveParen
@@ -40,6 +42,7 @@ instance FromAgda Agda.GiveResult GiveResult where
 
 instance ToJSON GiveResult
 
+-- | IR for DisplayInfo
 data DisplayInfo 
   = DisplayInfoGeneric String String
   | DisplayInfoCompilationOk String
@@ -51,10 +54,30 @@ data DisplayInfo
 
 instance ToJSON DisplayInfo
 
+
+
+-- | IR for HighlightingInfo
+data HighlightingInfo = 
+  HighlightingInfo 
+    Int -- starting offset
+    Int -- ending offset 
+    [String] -- list of names of aspects
+    Bool -- is token based?
+    (Maybe String) -- note 
+    (Maybe (FilePath, Int)) -- the defining module of the token and its position in that module
+  deriving (Generic)
+
+instance ToJSON HighlightingInfo
+
+data HighlightingInfos = HighlightingInfos Bool [HighlightingInfo]
+  deriving (Generic)
+
+instance ToJSON HighlightingInfos
+
 -- reaction to command (IOCTM)
 data Reaction
   -- non-last responses
-  = ReactionHighlightingInfoDirect Bool [String]
+  = ReactionHighlightingInfoDirect HighlightingInfos
   | ReactionHighlightingInfoIndirect FilePath
   | ReactionDisplayInfo DisplayInfo
   | ReactionStatus Bool Bool

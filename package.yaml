@@ -23,6 +23,7 @@ dependencies:
   - base >= 4.7 && < 5
   - Agda
   - aeson
+  - bytestring
   - containers
   - lsp
   - mtl

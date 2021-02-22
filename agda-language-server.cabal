@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1712575e799bf21efabe90e73208c726065f206ba8847d6101ead5ba00ebd920
+-- hash: c24f18a601710fe0706557ecc4467690104266942892d0b9ad19a1272ce14ba4
 
 name:           agda-language-server
 version:        0.1.0.0
@@ -43,6 +43,7 @@ library
       Agda
     , aeson
     , base >=4.7 && <5
+    , bytestring
     , containers
     , lsp
     , mtl
@@ -64,6 +65,7 @@ executable als
     , aeson
     , agda-language-server
     , base >=4.7 && <5
+    , bytestring
     , containers
     , lsp
     , mtl
@@ -86,6 +88,7 @@ test-suite als-test
     , aeson
     , agda-language-server
     , base >=4.7 && <5
+    , bytestring
     , containers
     , lsp
     , mtl

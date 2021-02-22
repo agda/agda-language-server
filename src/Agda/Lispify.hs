@@ -6,8 +6,12 @@ module Agda.Lispify where
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand hiding (putResponse)
+-- import Agda.Syntax.Position
+
+import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
 import Agda.Interaction.Highlighting.Emacs
-import Agda.Interaction.Highlighting.Precise (TokenBased (..), HighlightingInfo, Aspects (..), DefinitionSite(..), CompressedFile (ranges))
+import Agda.Interaction.Highlighting.Precise (Aspects (..), CompressedFile (ranges), DefinitionSite (..), HighlightingInfo, TokenBased (..))
+import qualified Agda.Interaction.Highlighting.Range as Highlighting
 import Agda.Interaction.Imports (getAllWarningsOfTCErr)
 import Agda.Interaction.InteractionTop (localStateCommandM)
 import Agda.Interaction.Response as R
@@ -15,7 +19,7 @@ import Agda.Syntax.Abstract as A
 import Agda.Syntax.Abstract.Pretty (prettyATop)
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete as C
--- import Agda.Syntax.Position 
+import Agda.Syntax.Position
 import Agda.Syntax.Scope.Base
 import Agda.TypeChecking.Errors (prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
@@ -23,26 +27,24 @@ import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
 import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings')
 import Agda.TypeChecking.Warnings (WarningsAndNonFatalErrors (..))
+import Agda.Utils.FileName (filePath)
 import Agda.Utils.Function (applyWhen)
+import Agda.Utils.IO.TempFile (writeToTempFile)
+import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Agda.Utils.Maybe
 import Agda.Utils.Null (empty)
 import Agda.Utils.Pretty
 import Agda.Utils.String
 import Agda.Utils.Time (CPUTime)
-import Agda.VersionCommit ( versionWithCommitInfo )
+import Agda.VersionCommit (versionWithCommitInfo)
 import Common (FromAgda (..), Reaction (..))
 import qualified Common as IR
 import Control.Monad.State hiding (state)
+import qualified Data.Aeson as JSON
+import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
-import Data.String (IsString)
-import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
-
 import qualified Data.Map as Map
-import qualified Agda.Interaction.Highlighting.Range as Highlighting
-import Agda.Utils.FileName (filePath)
-import Agda.Utils.Impossible (__IMPOSSIBLE__)
-import Agda.Utils.IO.TempFile (writeToTempFile)
-import Agda.Syntax.Position
+import Data.String (IsString)
 
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
@@ -88,59 +90,45 @@ fromResponse (Resp_SolveAll ps) = return $ ReactionSolveAll (map prn ps)
   where
     prn (i, e) = (fromAgda i, prettyShow e)
 
-fromHighlightingInfo
-  :: HighlightingInfo
-  -> RemoveTokenBasedHighlighting
-  -> HighlightingMethod
-  -> ModuleToSource
-  -> TCM Reaction
+fromHighlightingInfo ::
+  HighlightingInfo ->
+  RemoveTokenBasedHighlighting ->
+  HighlightingMethod ->
+  ModuleToSource ->
+  TCM Reaction
 fromHighlightingInfo h remove method modFile =
   case chooseHighlightingMethod h method of
-    Direct   -> return $ ReactionHighlightingInfoDirect keepHighlighting infos
+    Direct -> return $ ReactionHighlightingInfoDirect info
     Indirect -> ReactionHighlightingInfoIndirect <$> indirect
   where
+    fromAspects :: (Highlighting.Range, Aspects) ->
+      IR.HighlightingInfo
+    fromAspects (range, aspects) =
+      IR.HighlightingInfo
+        (Highlighting.from range)
+        (Highlighting.to range)
+        (toAtoms aspects)
+        (tokenBased aspects == TokenBased)
+        (note aspects)
+        (defSite <$> definitionSite aspects)
+      where
+        defSite (DefinitionSite moduleName offset _ _) =
+          (filePath (Map.findWithDefault __IMPOSSIBLE__ moduleName modFile), offset)
 
-  showAspects
-    :: ModuleToSource
-      -- ^ Must contain a mapping for the definition site's module, if any.
-    -> (Highlighting.Range, Aspects) -> Lisp String
-  showAspects modFile (r, m) = L $
-      map (A . show) [Highlighting.from r, Highlighting.to r]
-        ++
-      [L $ map A $ toAtoms m]
-        ++
-      dropNils (
-        [lispifyTokenBased (tokenBased m)]
-          ++
-        [A $ maybe "nil" quote $ note m]
-          ++
-        maybeToList (defSite <$> definitionSite m))
-    where
-    defSite (DefinitionSite m p _ _) =
-      Cons (A $ quote $ filePath f) (A $ show p)
-      where f = Map.findWithDefault __IMPOSSIBLE__ m modFile
+    infos :: [IR.HighlightingInfo]
+    infos = map fromAspects (ranges h)
 
-    dropNils = List.dropWhileEnd (== A "nil")
+    keepHighlighting :: Bool
+    keepHighlighting =
+      case remove of
+        RemoveHighlighting -> False
+        KeepHighlighting -> True
 
+    info :: IR.HighlightingInfos
+    info = IR.HighlightingInfos keepHighlighting infos
 
-  info :: [Lisp String]
-  info = (case remove of
-                RemoveHighlighting -> A "remove"
-                KeepHighlighting   -> A "nil") :
-             map (showAspects modFile) (ranges h)
-
-  infos :: [String] 
-  infos = map serialize info
-
-  keepHighlighting :: Bool 
-  keepHighlighting = 
-    case remove of 
-      RemoveHighlighting -> False 
-      KeepHighlighting -> True
-
-  indirect :: TCM FilePath
-  indirect = liftIO $ writeToTempFile (show $ L info)
-
+    indirect :: TCM FilePath
+    indirect = liftIO $ writeToTempFile (BS8.unpack (JSON.encode info))
 
 fromDisplayInfo :: DisplayInfo -> TCM IR.DisplayInfo
 fromDisplayInfo info = case info of
