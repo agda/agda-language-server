@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Switchboard (run) where
+module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy) where
 
 import Common
 import Control.Concurrent
@@ -11,14 +11,37 @@ import qualified Data.Aeson as JSON
 import qualified Data.Text.IO as Text
 import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
+import Data.IORef (IORef)
+import GHC.IORef
+
+data Switchboard = Switchboard 
+  { sbPrintLog :: ThreadId
+  , sbSendReaction :: ThreadId
+  , sbRunAgda :: ThreadId
+  , sbLanguageContextEnv :: IORef (Maybe (LanguageContextEnv ()))
+  }
 
 -- | All channels go in and out from here
-run :: Env -> LanguageContextEnv () -> IO ()
-run env ctxEnv = do
-  _ <- forkIO (keepPrintingLog env)
-  _ <- forkIO (keepSendindReaction env ctxEnv)
-  _ <- forkIO (runReaderT Agda.interact env)
-  return ()
+new :: Env -> IO Switchboard
+new env = do 
+  ctxEnvIORef <- newIORef Nothing
+  Switchboard
+    <$> forkIO (keepPrintingLog env)
+    <*> forkIO (keepSendindReaction env ctxEnvIORef)
+    <*> forkIO (runReaderT Agda.interact env)
+    <*> pure ctxEnvIORef
+
+-- | For sending reactions to the client 
+setupLanguageContextEnv :: Switchboard -> LanguageContextEnv () -> IO ()
+setupLanguageContextEnv switchboard ctxEnv = do 
+  writeIORef (sbLanguageContextEnv switchboard) (Just ctxEnv)
+
+destroy :: Switchboard -> IO ()
+destroy (Switchboard printLog sendReaction runAgda ctxEnvIORef) = do
+  killThread printLog
+  killThread sendReaction
+  killThread runAgda
+  writeIORef ctxEnvIORef Nothing
 
 -- | Keep printing log
 -- Consumer of `envLogChan`
@@ -30,13 +53,16 @@ keepPrintingLog env = forever $ do
 
 -- | Keep sending reactions
 -- Consumer of `envReactionChan`
-keepSendindReaction :: Env -> LanguageContextEnv () -> IO ()
-keepSendindReaction env ctxEnv = forever $ do
+keepSendindReaction :: Env -> IORef (Maybe (LanguageContextEnv ())) -> IO ()
+keepSendindReaction env ctxEnvIORef = forever $ do
   response <- readChan (envReactionChan env)
-  runLspT ctxEnv $ do
-    callback <- liftIO $ Foreman.dispatch (envReactionController env)
 
-    let value = JSON.toJSON response
-    sendRequest (SCustomMethod "agda") value $ \_result -> liftIO $ do
-      -- writeChan (envLogChan env) $ "[Reaction] >>>> " <> pack (show value)
-      callback ()
+  result <- readIORef ctxEnvIORef
+  forM_ result $ \ctxEnv -> do 
+    runLspT ctxEnv $ do
+      callback <- liftIO $ Foreman.dispatch (envReactionController env)
+
+      let value = JSON.toJSON response
+      sendRequest (SCustomMethod "agda") value $ \_result -> liftIO $ do
+        -- writeChan (envLogChan env) $ "[Reaction] >>>> " <> pack (show value)
+        callback ()

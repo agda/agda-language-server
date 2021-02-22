@@ -6,8 +6,6 @@ module Server (run) where
 -- entry point of the LSP server
 
 import Common
-import Control.Concurrent (ThreadId)
-import qualified Control.Exception as Exception
 import Control.Monad.Reader
 import qualified Agda
 import Data.Aeson (FromJSON, ToJSON)
@@ -20,56 +18,35 @@ import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import qualified Network.Simple.TCP as TCP
 import Network.Socket (socketToHandle)
 import qualified Switchboard
+import Switchboard (Switchboard)
 
 --------------------------------------------------------------------------------
-
--- | Start a TCP server that accepts incoming connections and handles them
--- concurrently in different threads.
-serveOnce ::
-  MonadIO m =>
-  -- | Host to bind.
-  TCP.HostPreference ->
-  -- | Server service port name or number to bind.
-  TCP.ServiceName ->
-  -- | Computation to run in a different thread once an incoming connection is
-  -- accepted. Takes the connection socket and remote end address.
-  ((TCP.Socket, TCP.SockAddr) -> IO ()) ->
-  m (Either Exception.SomeException ThreadId)
-serveOnce hp port k = liftIO $ do
-  TCP.listen hp port $ \(lsock, _) -> do
-    Exception.try (TCP.acceptFork lsock k)
 
 run :: Bool -> IO Int
 run devMode = do
   env <- createInitEnv devMode
+  switchboard <- Switchboard.new env
 
   if devMode
     then do
       let port = "4000"
-      putStrLn $ "[Server] Start accepting connections from port " <> port
-      -- expecting to be probed by the client first
-      _ <- serveOnce (TCP.Host "localhost") port $ \(_sock, _remoteAddr) -> return ()
-      putStrLn "[Server] Probed" 
-      -- here establishes the real connection
-      connectionResult <- serveOnce (TCP.Host "localhost") port $ \(sock, _remoteAddr) -> do
+
+      void $ TCP.serve (TCP.Host "localhost") port $ \(sock, _remoteAddr) -> do
         handle <- socketToHandle sock ReadWriteMode
-        _ <- runServerWithHandles handle handle (serverDefn env)
+        _ <- runServerWithHandles handle handle (serverDefn env switchboard)
         return ()
 
-      case connectionResult of
-        Left e -> do
-          print e
-          return 1
-        Right _ -> return 0
+      Switchboard.destroy switchboard
+      return 0
     else do
-      runServer (serverDefn env)
+      runServer (serverDefn env switchboard)
   where
-    serverDefn :: Env -> ServerDefinition ()
-    serverDefn env =
+    serverDefn :: Env -> Switchboard -> ServerDefinition ()
+    serverDefn env switchboard =
       ServerDefinition
         { onConfigurationChange = const $ pure $ Right (),
           doInitialize = \ctxEnv _req -> do
-            Switchboard.run env ctxEnv
+            Switchboard.setupLanguageContextEnv switchboard ctxEnv
             pure $ Right ctxEnv,
           staticHandlers = handlers,
           interpretHandler = \ctxEnv -> Iso (runServerLSP env ctxEnv) liftIO,
