@@ -1,15 +1,14 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Agda.Lispify where
 
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
-import Agda.Interaction.EmacsCommand hiding (putResponse)
--- import Agda.Syntax.Position
-
+import Agda.Interaction.EmacsCommand (Lisp)
 import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
-import Agda.Interaction.Highlighting.Emacs
 import Agda.Interaction.Highlighting.Precise (Aspects (..), CompressedFile (ranges), DefinitionSite (..), HighlightingInfo, TokenBased (..))
 import qualified Agda.Interaction.Highlighting.Range as Highlighting
 import Agda.Interaction.Imports (getAllWarningsOfTCErr)
@@ -19,7 +18,7 @@ import Agda.Syntax.Abstract as A
 import Agda.Syntax.Abstract.Pretty (prettyATop)
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete as C
-import Agda.Syntax.Position
+import Agda.Syntax.Position (HasRange (getRange), Interval' (..), Position' (..), Range, Range' (..), noRange)
 import Agda.Syntax.Scope.Base
 import Agda.TypeChecking.Errors (prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
@@ -27,14 +26,14 @@ import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
 import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings')
 import Agda.TypeChecking.Warnings (WarningsAndNonFatalErrors (..))
-import Agda.Utils.FileName (filePath)
+import Agda.Utils.FileName (AbsolutePath(..), filePath)
 import Agda.Utils.Function (applyWhen)
 import Agda.Utils.IO.TempFile (writeToTempFile)
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
-import Agda.Utils.Maybe
+import Agda.Utils.Maybe (catMaybes, maybeToList)
 import Agda.Utils.Null (empty)
 import Agda.Utils.Pretty
-import Agda.Utils.String
+import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit (versionWithCommitInfo)
 import Common (FromAgda (..), Reaction (..))
@@ -42,9 +41,13 @@ import qualified Common as IR
 import Control.Monad.State hiding (state)
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS8
+import Data.Foldable (toList)
 import qualified Data.List as List
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
+import qualified Data.Strict.Maybe as Strict
 import Data.String (IsString)
+import Data.Text (unpack)
 
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
@@ -61,6 +64,17 @@ responseAbbr res = case res of
   Resp_ClearHighlighting {} -> "Resp_ClearHighlighting"
   Resp_DoneAborting {} -> "Resp_DoneAborting"
   Resp_DoneExiting {} -> "Resp_DoneExiting"
+
+-- instance FromAgda Range [(Pos, Pos)] where
+--   fromAgda NoRange = []
+--   fromAgda (Range Strict.Nothing _) = []
+--   fromAgda (Range (Strict.Just (AbsolutePath path)) intervals) = toList $ fmap toLoc intervals
+--     where
+--       toPos :: Position' () -> Pos
+--       toPos (Pn () offset line col) = Pos (unpack path) (fromIntegral line) (fromIntegral col) (fromIntegral offset - 1)
+
+--       toLoc :: Interval' () -> (Pos, Pos)
+--       toLoc (Interval start end) = (toPos start, toPos end)
 
 ----------------------------------
 
@@ -101,7 +115,8 @@ fromHighlightingInfo h remove method modFile =
     Direct -> return $ ReactionHighlightingInfoDirect info
     Indirect -> ReactionHighlightingInfoIndirect <$> indirect
   where
-    fromAspects :: (Highlighting.Range, Aspects) ->
+    fromAspects ::
+      (Highlighting.Range, Aspects) ->
       IR.HighlightingInfo
     fromAspects (range, aspects) =
       IR.HighlightingInfo
@@ -144,16 +159,45 @@ fromDisplayInfo info = case info of
     return $ IR.DisplayInfoCompilationOk body
   Info_Constraints s -> format (show $ vcat $ map pretty s) "*Constraints*"
   Info_AllGoalsWarnings ms ws -> do
-    goals <- showGoals ms
+    (goals, metas) <- showGoals ms
     warnings <- prettyTCWarnings (tcWarnings ws)
     errors <- prettyTCWarnings (nonFatalErrors ws)
-    let (body, title) = formatWarningsAndErrors goals warnings errors
-    format body ("*All" ++ title ++ "*")
+
+    let isG = not (null goals && null metas)
+    let isW = not $ null warnings
+    let isE = not $ null errors
+    let title =
+          List.intercalate "," $
+            catMaybes
+              [ " Goals" <$ guard isG,
+                " Errors" <$ guard isE,
+                " Warnings" <$ guard isW,
+                " Done" <$ guard (not (isG || isW || isE))
+              ]
+
+    return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas warnings errors
+    where
+      showGoals :: Goals -> TCM ([String], [(String, Range)])
+      showGoals (ims, hms) = do
+        -- visible metas (goals)
+        di <- forM ims $ \i ->
+          withInteractionId (outputFormId $ OutputForm noRange [] i) $
+            prettyATop i
+        -- hidden (unsolved) metas
+        dh <- mapM showA' hms
+        return (map show di, dh)
+        where
+          showA' :: OutputConstraint A.Expr NamedMeta -> TCM (String, Range)
+          showA' m = do
+            let i = nmid $ namedMetaOf m
+            r <- getMetaRange i
+            d <- withMetaId i (prettyATop m)
+            return (show d, r)
   Info_Auto s -> return $ IR.DisplayInfoAuto s
   Info_Error err -> do
     s <- showInfoError err
     return $ IR.DisplayInfoError s
-  Info_Time s -> do
+  Info_Time s ->
     return $ IR.DisplayInfoTime (render (prettyTimed s))
   Info_NormalForm state cmode time expr -> do
     exprDoc <- evalStateT prettyExpr state

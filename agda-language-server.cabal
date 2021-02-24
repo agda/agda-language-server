@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c24f18a601710fe0706557ecc4467690104266942892d0b9ad19a1272ce14ba4
+-- hash: 47f9779b87017c6d37bf0a7ee952797bd9acaa6cc37c83dbd26b1a9143c7ce5d
 
 name:           agda-language-server
 version:        0.1.0.0
@@ -50,6 +50,7 @@ library
     , network
     , network-simple
     , process
+    , strict
     , text
   default-language: Haskell2010
 
@@ -72,6 +73,7 @@ executable als
     , network
     , network-simple
     , process
+    , strict
     , text
   default-language: Haskell2010
 
@@ -95,5 +97,6 @@ test-suite als-test
     , network
     , network-simple
     , process
+    , strict
     , text
   default-language: Haskell2010

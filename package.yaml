@@ -29,6 +29,7 @@ dependencies:
   - mtl
   - network
   - network-simple
+  - strict
   - text
   - process
 

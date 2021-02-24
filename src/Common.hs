@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -7,17 +8,23 @@ module Common where
 import Agda.Interaction.Base (IOTCM)
 import qualified Agda.Interaction.Response as Agda
 import qualified Agda.Syntax.Common as Agda
+import qualified Agda.Syntax.Position as Agda
 import Agda.TypeChecking.Monad (TCMT)
+import qualified Agda.Utils.FileName as Agda
 import Control.Concurrent
 import Control.Concurrent.Foreman (Foreman)
 import qualified Control.Concurrent.Foreman as Foreman
 import Control.Concurrent.Throttler (Throttler)
 import qualified Control.Concurrent.Throttler as Throttler
 import Control.Monad.Reader
-import Data.Aeson (ToJSON)
+import Data.Aeson
+import qualified Data.Aeson.Encoding as JSON
+import Data.Aeson.Types (Parser)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
+import qualified Data.Strict.Maybe as Strict
+
 
 --------------------------------------------------------------------------------
 
@@ -43,8 +50,9 @@ instance FromAgda Agda.GiveResult GiveResult where
 instance ToJSON GiveResult
 
 -- | IR for DisplayInfo
-data DisplayInfo 
+data DisplayInfo
   = DisplayInfoGeneric String String
+  | DisplayInfoAllGoalsWarnings String [String] [(String, Agda.Range)] String String
   | DisplayInfoCompilationOk String
   | DisplayInfoAuto String
   | DisplayInfoError String
@@ -54,17 +62,15 @@ data DisplayInfo
 
 instance ToJSON DisplayInfo
 
-
-
 -- | IR for HighlightingInfo
-data HighlightingInfo = 
-  HighlightingInfo 
-    Int -- starting offset
-    Int -- ending offset 
-    [String] -- list of names of aspects
-    Bool -- is token based?
-    (Maybe String) -- note 
-    (Maybe (FilePath, Int)) -- the defining module of the token and its position in that module
+data HighlightingInfo
+  = HighlightingInfo
+      Int -- starting offset
+      Int -- ending offset
+      [String] -- list of names of aspects
+      Bool -- is token based?
+      (Maybe String) -- note
+      (Maybe (FilePath, Int)) -- the defining module of the token and its position in that module
   deriving (Generic)
 
 instance ToJSON HighlightingInfo
@@ -76,8 +82,8 @@ instance ToJSON HighlightingInfos
 
 -- reaction to command (IOCTM)
 data Reaction
-  -- non-last responses
-  = ReactionHighlightingInfoDirect HighlightingInfos
+  = -- non-last responses
+    ReactionHighlightingInfoDirect HighlightingInfos
   | ReactionHighlightingInfoIndirect FilePath
   | ReactionDisplayInfo DisplayInfo
   | ReactionStatus Bool Bool
@@ -96,11 +102,26 @@ data Reaction
   | ReactionSolveAll [(Int, String)]
   | -- priority: 3
     ReactionJumpToError FilePath Int
-
   | ReactionEnd
   deriving (Generic)
 
 instance ToJSON Reaction
+
+--------------------------------------------------------------------------------
+
+-- | ToJSON for Agda.Syntax.Position.Range
+
+instance ToJSON Agda.Range 
+instance ToJSON (Agda.Interval' ()) where 
+  toJSON (Agda.Interval start end) = toJSON (start, end)
+instance ToJSON (Agda.Position' ()) where 
+  toJSON (Agda.Pn () pos line col) = toJSON [line, col, pos]
+
+instance ToJSON Agda.SrcFile where 
+  toJSON Strict.Nothing = Null
+  toJSON (Strict.Just path) = toJSON path
+instance ToJSON Agda.AbsolutePath where
+  toJSON (Agda.AbsolutePath path) = toJSON path
 
 --------------------------------------------------------------------------------
 
