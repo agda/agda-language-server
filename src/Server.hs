@@ -19,6 +19,7 @@ import qualified Network.Simple.TCP as TCP
 import Network.Socket (socketToHandle)
 import qualified Switchboard
 import Switchboard (Switchboard)
+import Control.Concurrent
 
 --------------------------------------------------------------------------------
 
@@ -29,9 +30,10 @@ run devMode = do
 
   if devMode
     then do
-      let port = "4000"
+      let port = "4096"
 
-      void $ TCP.serve (TCP.Host "localhost") port $ \(sock, _remoteAddr) -> do
+      void $ TCP.serve (TCP.Host "127.0.0.1") port $ \(sock, _remoteAddr) -> do
+        writeChan (envLogChan env) "[Server] connection established"
         handle <- socketToHandle sock ReadWriteMode
         _ <- runServerWithHandles handle handle (serverDefn env switchboard)
         return ()

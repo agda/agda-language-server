@@ -34,7 +34,7 @@ interact :: ServerM ()
 interact = do
   env <- ask
 
-  writeLog "[Interact] start"
+  writeLog "[Agda] interaction start"
 
   result <- runTCMPrettyErrors $ do
     -- decides how to output Response

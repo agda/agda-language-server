@@ -47,9 +47,9 @@ extra-deps:
 - geniplate-mirror-0.7.7
 - STMonadTrans-0.4.4
 # LSP
-- git: https://github.com/banacorn/lsp.git
+- github: banacorn/lsp
   commit: 81b3b1ce2012d520658e52c36b88481091fbac26
-- git: https://github.com/banacorn/lsp.git
+- github: banacorn/lsp
   commit: 81b3b1ce2012d520658e52c36b88481091fbac26
   subdirs:
     - lsp-types

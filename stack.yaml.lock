@@ -40,29 +40,29 @@ packages:
   original:
     hackage: STMonadTrans-0.4.4
 - completed:
+    size: 94032
+    url: https://github.com/banacorn/lsp/archive/81b3b1ce2012d520658e52c36b88481091fbac26.tar.gz
     name: lsp
     version: 1.0.0.1
-    git: https://github.com/banacorn/lsp.git
+    sha256: 9fb83e95738abbf2310cb23f254665f4a69bced971f9d46e7f2aefb5c7e105c0
     pantry-tree:
       size: 7223
       sha256: e39d41c9be116fe544ac88ed3d728e4806ce5a692c2e0ac64bcc91c81f48d003
-    commit: 81b3b1ce2012d520658e52c36b88481091fbac26
   original:
-    git: https://github.com/banacorn/lsp.git
-    commit: 81b3b1ce2012d520658e52c36b88481091fbac26
+    url: https://github.com/banacorn/lsp/archive/81b3b1ce2012d520658e52c36b88481091fbac26.tar.gz
 - completed:
+    size: 94032
     subdir: lsp-types
+    url: https://github.com/banacorn/lsp/archive/81b3b1ce2012d520658e52c36b88481091fbac26.tar.gz
     name: lsp-types
     version: 1.0.0.1
-    git: https://github.com/banacorn/lsp.git
+    sha256: 9fb83e95738abbf2310cb23f254665f4a69bced971f9d46e7f2aefb5c7e105c0
     pantry-tree:
       size: 4003
       sha256: de928c0be515056d9a8499775022c3268c0b752cef5f47eed9934f0e88a809b6
-    commit: 81b3b1ce2012d520658e52c36b88481091fbac26
   original:
     subdir: lsp-types
-    git: https://github.com/banacorn/lsp.git
-    commit: 81b3b1ce2012d520658e52c36b88481091fbac26
+    url: https://github.com/banacorn/lsp/archive/81b3b1ce2012d520658e52c36b88481091fbac26.tar.gz
 - completed:
     hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
     pantry-tree:
