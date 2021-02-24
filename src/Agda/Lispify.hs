@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -42,7 +43,7 @@ import Agda.Utils.Pretty
 import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit (versionWithCommitInfo)
-import Common (FromAgda (..), Reaction (..))
+import Common (FromAgda (..), Reaction (..), FromAgdaTCM(..))
 import qualified Common as IR
 import Control.Monad.State hiding (state)
 import qualified Data.Aeson as JSON
@@ -71,16 +72,67 @@ responseAbbr res = case res of
   Resp_DoneAborting {} -> "Resp_DoneAborting"
   Resp_DoneExiting {} -> "Resp_DoneExiting"
 
--- instance FromAgda Range [(Pos, Pos)] where
---   fromAgda NoRange = []
---   fromAgda (Range Strict.Nothing _) = []
---   fromAgda (Range (Strict.Just (AbsolutePath path)) intervals) = toList $ fmap toLoc intervals
---     where
---       toPos :: Position' () -> Pos
---       toPos (Pn () offset line col) = Pos (unpack path) (fromIntegral line) (fromIntegral col) (fromIntegral offset - 1)
+instance FromAgda NamedMeta IR.NMII where 
+  fromAgda (NamedMeta name (MetaId i)) = IR.NamedMeta name i
 
---       toLoc :: Interval' () -> (Pos, Pos)
---       toLoc (Interval start end) = (toPos start, toPos end)
+instance FromAgda InteractionId IR.NMII where 
+  fromAgda (InteractionId i) = IR.InteractionId i
+
+instance FromAgda Comparison Bool where 
+  fromAgda CmpEq = True
+  fromAgda _ = False
+
+-- convert A.Expr ==> C.Expr ==> String
+instance FromAgdaTCM A.Expr String where 
+  fromAgdaTCM expr = do
+    expr' <- abstractToConcreteCtx TopCtx expr :: TCM C.Expr
+    return $ show (pretty expr')
+
+instance (FromAgda b IR.NMII) => FromAgdaTCM (OutputConstraint A.Expr b) IR.OutputConstraint where 
+  fromAgdaTCM (OfType name expr) =
+    IR.OfType (fromAgda name) <$> fromAgdaTCM expr
+  fromAgdaTCM (JustType name) =
+    return $
+      IR.JustType (fromAgda name)
+  fromAgdaTCM (JustSort name) =
+    return $
+      IR.JustSort (fromAgda name)
+  fromAgdaTCM (CmpInType cmp expr name1 name2) =
+    IR.CmpInType (fromAgda cmp)
+      <$> fromAgdaTCM expr <*> pure (fromAgda name1) <*> pure (fromAgda name1)
+  fromAgdaTCM (CmpElim pols expr names1 names2) =
+    IR.CmpElim pols <$> fromAgdaTCM expr <*> pure (map fromAgda names1) <*> pure (map fromAgda names2)
+  fromAgdaTCM (CmpTypes cmp name1 name2) =
+    return $
+      IR.CmpTypes (fromAgda cmp) (fromAgda name1) (fromAgda name1)
+  fromAgdaTCM (CmpLevels cmp name1 name2) =
+    return $
+      IR.CmpLevels (fromAgda cmp) (fromAgda name1) (fromAgda name1)
+  fromAgdaTCM (CmpTeles cmp name1 name2) =
+    return $
+      IR.CmpTeles (fromAgda cmp) (fromAgda name1) (fromAgda name1)
+  fromAgdaTCM (CmpSorts cmp name1 name2) =
+    return $
+      IR.CmpSorts (fromAgda cmp) (fromAgda name1) (fromAgda name1)
+  fromAgdaTCM (Guard x (ProblemId i)) =
+    IR.Guard <$> fromAgdaTCM x <*> pure i
+  fromAgdaTCM (Assign name expr) =
+    IR.Assign (fromAgda name) <$> fromAgdaTCM expr
+  fromAgdaTCM (TypedAssign name expr1 expr2) =
+    IR.TypedAssign (fromAgda name) <$> fromAgdaTCM expr1 <*> fromAgdaTCM expr2
+  fromAgdaTCM (PostponedCheckArgs name exprs expr1 expr2) =
+    IR.PostponedCheckArgs (fromAgda name) <$> mapM fromAgdaTCM exprs <*> fromAgdaTCM expr1 <*> fromAgdaTCM expr2
+  fromAgdaTCM (IsEmptyType expr) =
+    IR.IsEmptyType <$> fromAgdaTCM expr
+  fromAgdaTCM (SizeLtSat expr) =
+    IR.SizeLtSat <$> fromAgdaTCM expr
+  fromAgdaTCM (FindInstanceOF name expr exprs) =
+    IR.FindInstanceOF (fromAgda name) <$> fromAgdaTCM expr <*> mapM (\(a, b) -> (,) <$> fromAgdaTCM a <*> fromAgdaTCM b) exprs
+  fromAgdaTCM (PTSInstance name1 name2) =
+    return $
+      IR.PTSInstance (fromAgda name1) (fromAgda name1)
+  fromAgdaTCM (PostponedCheckFunDef qname expr) =
+      IR.PostponedCheckFunDef (show (pretty qname)) <$> fromAgdaTCM expr 
 
 ----------------------------------
 
@@ -102,13 +154,13 @@ fromResponse (Resp_Status s) = return $ ReactionStatus (sChecked s) (sShowImplic
 fromResponse (Resp_JumpToError f p) = return $ ReactionJumpToError f (fromIntegral p)
 fromResponse (Resp_InteractionPoints is) =
   return $ ReactionInteractionPoints (map interactionId is)
-fromResponse (Resp_GiveAction i giveAction) =
-  return $ ReactionGiveAction (fromAgda i) (fromAgda giveAction)
+fromResponse (Resp_GiveAction (InteractionId i) giveAction) =
+  return $ ReactionGiveAction i (fromAgda giveAction)
 fromResponse (Resp_MakeCase _ Function pcs) = return $ ReactionMakeCaseFunction pcs
 fromResponse (Resp_MakeCase _ ExtendedLambda pcs) = return $ ReactionMakeCaseExtendedLambda pcs
 fromResponse (Resp_SolveAll ps) = return $ ReactionSolveAll (map prn ps)
   where
-    prn (i, e) = (fromAgda i, prettyShow e)
+    prn (InteractionId i, e) = (i, prettyShow e)
 
 fromHighlightingInfo ::
   HighlightingInfo ->
@@ -183,91 +235,36 @@ fromDisplayInfo info = case info of
 
     return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas warnings errors
     where
-      showGoals :: Goals -> TCM ([String], [(IR.OutputConstraint, Range)])
+      showGoals :: Goals -> TCM ([(IR.OutputConstraint, String)], [(IR.OutputConstraint, String, Range)])
       showGoals (ims, hms) = do
         -- visible metas (goals)
-        di <- forM ims $ \i ->
-          withInteractionId (outputFormId $ OutputForm noRange [] i) $
-            prettyATop i
+        di <- mapM convertGoals ims 
         -- hidden (unsolved) metas
-        dh <- mapM showA' hms
-        return (map show di, dh)
+        dh <- mapM convertHiddenMetas hms
+        return (di, dh)
         where
-          -- smart constructors of IR.OutputConstraint
-          -- namedMeta :: NamedMeta -> String -> IR.OutputConstraint
-          -- namedMeta (NamedMeta name (MetaId i)) s = IR.OutputConstraintWithNamedMeta s name i
-
-          -- unnamed :: String -> IR.OutputConstraint
-          -- unnamed s = IR.OutputConstraint s
-
-          namedMeta :: NamedMeta -> IR.NMII
-          namedMeta (NamedMeta name (MetaId i)) = IR.NamedMeta name i
-
-          fromCmp :: Comparison -> Bool
-          fromCmp CmpEq = True
-          fromCmp _ = False
-
-          -- convert A.Expr ==> C.Expr ==> String
-          fromExpr :: A.Expr -> TCM String
-          fromExpr expr = do
-            expr' <- abstractToConcreteCtx TopCtx expr :: TCM C.Expr
-            return $ show (pretty expr')
-
-          fromOutputConstraint :: OutputConstraint A.Expr NamedMeta -> TCM IR.OutputConstraint
-          fromOutputConstraint (OfType name expr) =
-            IR.OfType (namedMeta name) <$> fromExpr expr
-          fromOutputConstraint (JustType name) =
-            return $
-              IR.JustType (namedMeta name)
-          fromOutputConstraint (JustSort name) =
-            return $
-              IR.JustSort (namedMeta name)
-          fromOutputConstraint (CmpInType cmp expr name1 name2) =
-            IR.CmpInType (fromCmp cmp)
-              <$> fromExpr expr <*> pure (namedMeta name1) <*> pure (namedMeta name1)
-          fromOutputConstraint (CmpElim pols expr names1 names2) =
-            IR.CmpElim pols <$> fromExpr expr <*> pure (map namedMeta names1) <*> pure (map namedMeta names2)
-          fromOutputConstraint (CmpTypes cmp name1 name2) =
-            return $
-              IR.CmpTypes (fromCmp cmp) (namedMeta name1) (namedMeta name1)
-          fromOutputConstraint (CmpLevels cmp name1 name2) =
-            return $
-              IR.CmpLevels (fromCmp cmp) (namedMeta name1) (namedMeta name1)
-          fromOutputConstraint (CmpTeles cmp name1 name2) =
-            return $
-              IR.CmpTeles (fromCmp cmp) (namedMeta name1) (namedMeta name1)
-          fromOutputConstraint (CmpSorts cmp name1 name2) =
-            return $
-              IR.CmpSorts (fromCmp cmp) (namedMeta name1) (namedMeta name1)
-          fromOutputConstraint (Guard x (ProblemId i)) =
-            IR.Guard <$> fromOutputConstraint x <*> pure i
-          fromOutputConstraint (Assign name expr) =
-            IR.Assign (namedMeta name) <$> fromExpr expr
-          fromOutputConstraint (TypedAssign name expr1 expr2) =
-            IR.TypedAssign (namedMeta name) <$> fromExpr expr1 <*> fromExpr expr2
-          fromOutputConstraint (PostponedCheckArgs name exprs expr1 expr2) =
-            IR.PostponedCheckArgs (namedMeta name) <$> mapM fromExpr exprs <*> fromExpr expr1 <*> fromExpr expr2
-          fromOutputConstraint (IsEmptyType expr) =
-            IR.IsEmptyType <$> fromExpr expr
-          fromOutputConstraint (SizeLtSat expr) =
-            IR.SizeLtSat <$> fromExpr expr
-          fromOutputConstraint (FindInstanceOF name expr exprs) =
-            IR.FindInstanceOF (namedMeta name) <$> fromExpr expr <*> mapM (\(a, b) -> (,) <$> fromExpr a <*> fromExpr b) exprs
-          fromOutputConstraint (PTSInstance name1 name2) =
-            return $
-              IR.PTSInstance (namedMeta name1) (namedMeta name1)
-          fromOutputConstraint (PostponedCheckFunDef qname expr) =
-              IR.PostponedCheckFunDef (show (pretty qname)) <$> fromExpr expr 
-
-          showA' :: OutputConstraint A.Expr NamedMeta -> TCM (IR.OutputConstraint, Range)
-          showA' m = do
+          convertHiddenMetas :: OutputConstraint A.Expr NamedMeta -> TCM (IR.OutputConstraint, String, Range)
+          convertHiddenMetas m = do
             let i = nmid $ namedMetaOf m
             -- output constrain
-            outputConstraint <- withMetaId i (fromOutputConstraint m)
+            outputConstraint <- withMetaId i (fromAgdaTCM m)
+            outputConstraint' <- show <$> withMetaId i (prettyATop m)
             -- range
             range <- getMetaRange i
 
-            return (outputConstraint, range)
+            return (outputConstraint, outputConstraint', range)
+
+          convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (IR.OutputConstraint, String)
+          convertGoals i = do 
+            -- output constrain
+            goal <- withInteractionId (outputFormId $ OutputForm noRange [] i) $ 
+              fromAgdaTCM i
+            
+            serialized <- withInteractionId (outputFormId $ OutputForm noRange [] i) $
+              prettyATop i
+
+            return (goal, show serialized)
+
   Info_Auto s -> return $ IR.DisplayInfoAuto s
   Info_Error err -> do
     s <- showInfoError err
