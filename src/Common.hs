@@ -9,6 +9,7 @@ import Agda.Interaction.Base (IOTCM)
 import qualified Agda.Interaction.Response as Agda
 import qualified Agda.Syntax.Common as Agda
 import qualified Agda.Syntax.Position as Agda
+import qualified Agda.TypeChecking.Monad.Base as Agda
 import Agda.TypeChecking.Monad (TCMT)
 import qualified Agda.Utils.FileName as Agda
 import Control.Concurrent
@@ -52,7 +53,7 @@ instance ToJSON GiveResult
 -- | IR for DisplayInfo
 data DisplayInfo
   = DisplayInfoGeneric String String
-  | DisplayInfoAllGoalsWarnings String [String] [(String, Agda.Range)] String String
+  | DisplayInfoAllGoalsWarnings String [String] [(OutputConstraint, Agda.Range)] String String
   | DisplayInfoCompilationOk String
   | DisplayInfoAuto String
   | DisplayInfoError String
@@ -61,6 +62,38 @@ data DisplayInfo
   deriving (Generic)
 
 instance ToJSON DisplayInfo
+
+-- | NamedMeta or InteractionId
+data NMII = NamedMeta String Int 
+          | InteractionId Int 
+  deriving (Generic)
+
+instance ToJSON NMII
+
+-- | IR for OutputConstraint
+type Comparison = Bool -- True for CmpEq
+data OutputConstraint
+  = OfType NMII String 
+  | JustType NMII
+  | JustSort NMII
+  | CmpInType Comparison String NMII NMII
+  | CmpElim [Agda.Polarity] String [NMII] [NMII]
+  | CmpTypes Comparison NMII NMII
+  | CmpLevels Comparison NMII NMII
+  | CmpTeles Comparison NMII NMII
+  | CmpSorts Comparison NMII NMII
+  | Guard OutputConstraint Int
+  | Assign NMII String 
+  | TypedAssign NMII String String
+  | PostponedCheckArgs NMII [String] String String
+  | IsEmptyType String 
+  | SizeLtSat String 
+  | FindInstanceOF NMII String [(String, String )]
+  | PTSInstance NMII NMII
+  | PostponedCheckFunDef String String 
+  deriving (Generic)
+
+instance ToJSON OutputConstraint
 
 -- | IR for HighlightingInfo
 data HighlightingInfo
@@ -122,6 +155,14 @@ instance ToJSON Agda.SrcFile where
   toJSON (Strict.Just path) = toJSON path
 instance ToJSON Agda.AbsolutePath where
   toJSON (Agda.AbsolutePath path) = toJSON path
+
+
+-- | ToJSON for Agda.TypeChecking.Monad.Base.Polarity
+instance ToJSON Agda.Polarity where 
+  toJSON Agda.Covariant = String "Covariant"
+  toJSON Agda.Contravariant = String "Contravariant"
+  toJSON Agda.Invariant = String "Invariant"
+  toJSON Agda.Nonvariant = String "Nonvariant"
 
 --------------------------------------------------------------------------------
 

@@ -18,15 +18,21 @@ import Agda.Syntax.Abstract as A
 import Agda.Syntax.Abstract.Pretty (prettyATop)
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete as C
+import Agda.Syntax.Fixity (Precedence (TopCtx))
 import Agda.Syntax.Position (HasRange (getRange), Interval' (..), Position' (..), Range, Range' (..), noRange)
 import Agda.Syntax.Scope.Base
+import Agda.Syntax.Translation.AbstractToConcrete
+  ( abstractToConcreteCtx,
+    toConcrete,
+  )
 import Agda.TypeChecking.Errors (prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
+import Agda.TypeChecking.Monad.Base (Polarity (..))
 import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
 import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings')
 import Agda.TypeChecking.Warnings (WarningsAndNonFatalErrors (..))
-import Agda.Utils.FileName (AbsolutePath(..), filePath)
+import Agda.Utils.FileName (AbsolutePath (..), filePath)
 import Agda.Utils.Function (applyWhen)
 import Agda.Utils.IO.TempFile (writeToTempFile)
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
@@ -177,7 +183,7 @@ fromDisplayInfo info = case info of
 
     return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas warnings errors
     where
-      showGoals :: Goals -> TCM ([String], [(String, Range)])
+      showGoals :: Goals -> TCM ([String], [(IR.OutputConstraint, Range)])
       showGoals (ims, hms) = do
         -- visible metas (goals)
         di <- forM ims $ \i ->
@@ -187,12 +193,81 @@ fromDisplayInfo info = case info of
         dh <- mapM showA' hms
         return (map show di, dh)
         where
-          showA' :: OutputConstraint A.Expr NamedMeta -> TCM (String, Range)
+          -- smart constructors of IR.OutputConstraint
+          -- namedMeta :: NamedMeta -> String -> IR.OutputConstraint
+          -- namedMeta (NamedMeta name (MetaId i)) s = IR.OutputConstraintWithNamedMeta s name i
+
+          -- unnamed :: String -> IR.OutputConstraint
+          -- unnamed s = IR.OutputConstraint s
+
+          namedMeta :: NamedMeta -> IR.NMII
+          namedMeta (NamedMeta name (MetaId i)) = IR.NamedMeta name i
+
+          fromCmp :: Comparison -> Bool
+          fromCmp CmpEq = True
+          fromCmp _ = False
+
+          -- convert A.Expr ==> C.Expr ==> String
+          fromExpr :: A.Expr -> TCM String
+          fromExpr expr = do
+            expr' <- abstractToConcreteCtx TopCtx expr :: TCM C.Expr
+            return $ show (pretty expr')
+
+          fromOutputConstraint :: OutputConstraint A.Expr NamedMeta -> TCM IR.OutputConstraint
+          fromOutputConstraint (OfType name expr) =
+            IR.OfType (namedMeta name) <$> fromExpr expr
+          fromOutputConstraint (JustType name) =
+            return $
+              IR.JustType (namedMeta name)
+          fromOutputConstraint (JustSort name) =
+            return $
+              IR.JustSort (namedMeta name)
+          fromOutputConstraint (CmpInType cmp expr name1 name2) =
+            IR.CmpInType (fromCmp cmp)
+              <$> fromExpr expr <*> pure (namedMeta name1) <*> pure (namedMeta name1)
+          fromOutputConstraint (CmpElim pols expr names1 names2) =
+            IR.CmpElim pols <$> fromExpr expr <*> pure (map namedMeta names1) <*> pure (map namedMeta names2)
+          fromOutputConstraint (CmpTypes cmp name1 name2) =
+            return $
+              IR.CmpTypes (fromCmp cmp) (namedMeta name1) (namedMeta name1)
+          fromOutputConstraint (CmpLevels cmp name1 name2) =
+            return $
+              IR.CmpLevels (fromCmp cmp) (namedMeta name1) (namedMeta name1)
+          fromOutputConstraint (CmpTeles cmp name1 name2) =
+            return $
+              IR.CmpTeles (fromCmp cmp) (namedMeta name1) (namedMeta name1)
+          fromOutputConstraint (CmpSorts cmp name1 name2) =
+            return $
+              IR.CmpSorts (fromCmp cmp) (namedMeta name1) (namedMeta name1)
+          fromOutputConstraint (Guard x (ProblemId i)) =
+            IR.Guard <$> fromOutputConstraint x <*> pure i
+          fromOutputConstraint (Assign name expr) =
+            IR.Assign (namedMeta name) <$> fromExpr expr
+          fromOutputConstraint (TypedAssign name expr1 expr2) =
+            IR.TypedAssign (namedMeta name) <$> fromExpr expr1 <*> fromExpr expr2
+          fromOutputConstraint (PostponedCheckArgs name exprs expr1 expr2) =
+            IR.PostponedCheckArgs (namedMeta name) <$> mapM fromExpr exprs <*> fromExpr expr1 <*> fromExpr expr2
+          fromOutputConstraint (IsEmptyType expr) =
+            IR.IsEmptyType <$> fromExpr expr
+          fromOutputConstraint (SizeLtSat expr) =
+            IR.SizeLtSat <$> fromExpr expr
+          fromOutputConstraint (FindInstanceOF name expr exprs) =
+            IR.FindInstanceOF (namedMeta name) <$> fromExpr expr <*> mapM (\(a, b) -> (,) <$> fromExpr a <*> fromExpr b) exprs
+          fromOutputConstraint (PTSInstance name1 name2) =
+            return $
+              IR.PTSInstance (namedMeta name1) (namedMeta name1)
+          fromOutputConstraint (PostponedCheckFunDef qname expr) =
+              IR.PostponedCheckFunDef (show (pretty qname)) <$> fromExpr expr 
+
+          showA' :: OutputConstraint A.Expr NamedMeta -> TCM (IR.OutputConstraint, Range)
           showA' m = do
             let i = nmid $ namedMetaOf m
-            r <- getMetaRange i
-            d <- withMetaId i (prettyATop m)
-            return (show d, r)
+            -- output constrain
+            outputConstraint <- withMetaId i (fromOutputConstraint m)
+            -- range
+            range <- getMetaRange i
+
+            return (outputConstraint, range)
   Info_Auto s -> return $ IR.DisplayInfoAuto s
   Info_Error err -> do
     s <- showInfoError err
