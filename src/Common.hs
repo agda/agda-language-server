@@ -98,7 +98,7 @@ instance ToJSON GiveResult
 -- | IR for DisplayInfo
 data DisplayInfo
   = DisplayInfoGeneric String String
-  | DisplayInfoAllGoalsWarnings String [(OutputConstraint, String)] [(OutputConstraint, String, Agda.Range)] String String
+  | DisplayInfoAllGoalsWarnings String [(OutputConstraint, String)] [(OutputConstraint, String, Agda.Range)] [String] [String]
   | DisplayInfoCompilationOk String
   | DisplayInfoAuto String
   | DisplayInfoError String

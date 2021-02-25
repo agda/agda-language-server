@@ -31,7 +31,7 @@ import Agda.TypeChecking.Monad hiding (Function)
 import Agda.TypeChecking.Monad.Base (Polarity (..))
 import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
-import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings')
+import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings', filterTCWarnings)
 import Agda.TypeChecking.Warnings (WarningsAndNonFatalErrors (..))
 import Agda.Utils.FileName (AbsolutePath (..), filePath)
 import Agda.Utils.Function (applyWhen)
@@ -218,8 +218,12 @@ fromDisplayInfo info = case info of
   Info_Constraints s -> format (show $ vcat $ map pretty s) "*Constraints*"
   Info_AllGoalsWarnings ms ws -> do
     (goals, metas) <- showGoals ms
-    warnings <- prettyTCWarnings (tcWarnings ws)
-    errors <- prettyTCWarnings (nonFatalErrors ws)
+    -- 
+    let filteredWarnings = filterTCWarnings (tcWarnings ws)
+    let filteredErrors = filterTCWarnings (nonFatalErrors ws)
+
+    warnings <- mapM prettyTCM filteredWarnings
+    errors <- mapM prettyTCM filteredErrors
 
     let isG = not (null goals && null metas)
     let isW = not $ null warnings
@@ -233,7 +237,7 @@ fromDisplayInfo info = case info of
                 " Done" <$ guard (not (isG || isW || isE))
               ]
 
-    return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas warnings errors
+    return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas (map show warnings) (map show errors)
     where
       showGoals :: Goals -> TCM ([(IR.OutputConstraint, String)], [(IR.OutputConstraint, String, Range)])
       showGoals (ims, hms) = do
