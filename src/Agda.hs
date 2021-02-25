@@ -25,7 +25,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Data.Maybe (listToMaybe)
 import Data.Text (pack)
-import Agda.Lispify (fromResponse)
+import Agda.Convert (fromResponse)
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo

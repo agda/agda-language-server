@@ -4,7 +4,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Agda.Lispify where
+module Agda.Convert where
+
+import Agda.IR (FromAgda(..), FromAgdaTCM(..), Reaction(..))
+import qualified Agda.IR as IR
+
+import qualified Common as IR
 
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
@@ -20,20 +25,18 @@ import Agda.Syntax.Abstract.Pretty (prettyATop)
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete as C
 import Agda.Syntax.Fixity (Precedence (TopCtx))
-import Agda.Syntax.Position (HasRange (getRange), Interval' (..), Position' (..), Range, Range' (..), noRange)
+import Agda.Syntax.Position (HasRange (getRange), Range, noRange)
 import Agda.Syntax.Scope.Base
 import Agda.Syntax.Translation.AbstractToConcrete
   ( abstractToConcreteCtx,
-    toConcrete,
   )
 import Agda.TypeChecking.Errors (prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
-import Agda.TypeChecking.Monad.Base (Polarity (..))
 import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
 import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings', filterTCWarnings)
 import Agda.TypeChecking.Warnings (WarningsAndNonFatalErrors (..))
-import Agda.Utils.FileName (AbsolutePath (..), filePath)
+import Agda.Utils.FileName (filePath)
 import Agda.Utils.Function (applyWhen)
 import Agda.Utils.IO.TempFile (writeToTempFile)
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
@@ -43,18 +46,12 @@ import Agda.Utils.Pretty
 import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit (versionWithCommitInfo)
-import Common (FromAgda (..), Reaction (..), FromAgdaTCM(..))
-import qualified Common as IR
 import Control.Monad.State hiding (state)
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS8
-import Data.Foldable (toList)
 import qualified Data.List as List
 import qualified Data.Map as Map
-import qualified Data.Sequence as Seq
-import qualified Data.Strict.Maybe as Strict
 import Data.String (IsString)
-import Data.Text (unpack)
 
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
@@ -72,67 +69,7 @@ responseAbbr res = case res of
   Resp_DoneAborting {} -> "Resp_DoneAborting"
   Resp_DoneExiting {} -> "Resp_DoneExiting"
 
-instance FromAgda NamedMeta IR.NMII where 
-  fromAgda (NamedMeta name (MetaId i)) = IR.NamedMeta name i
 
-instance FromAgda InteractionId IR.NMII where 
-  fromAgda (InteractionId i) = IR.InteractionId i
-
-instance FromAgda Comparison Bool where 
-  fromAgda CmpEq = True
-  fromAgda _ = False
-
--- convert A.Expr ==> C.Expr ==> String
-instance FromAgdaTCM A.Expr String where 
-  fromAgdaTCM expr = do
-    expr' <- abstractToConcreteCtx TopCtx expr :: TCM C.Expr
-    return $ show (pretty expr')
-
-instance (FromAgda b IR.NMII) => FromAgdaTCM (OutputConstraint A.Expr b) IR.OutputConstraint where 
-  fromAgdaTCM (OfType name expr) =
-    IR.OfType (fromAgda name) <$> fromAgdaTCM expr
-  fromAgdaTCM (JustType name) =
-    return $
-      IR.JustType (fromAgda name)
-  fromAgdaTCM (JustSort name) =
-    return $
-      IR.JustSort (fromAgda name)
-  fromAgdaTCM (CmpInType cmp expr name1 name2) =
-    IR.CmpInType (fromAgda cmp)
-      <$> fromAgdaTCM expr <*> pure (fromAgda name1) <*> pure (fromAgda name1)
-  fromAgdaTCM (CmpElim pols expr names1 names2) =
-    IR.CmpElim pols <$> fromAgdaTCM expr <*> pure (map fromAgda names1) <*> pure (map fromAgda names2)
-  fromAgdaTCM (CmpTypes cmp name1 name2) =
-    return $
-      IR.CmpTypes (fromAgda cmp) (fromAgda name1) (fromAgda name1)
-  fromAgdaTCM (CmpLevels cmp name1 name2) =
-    return $
-      IR.CmpLevels (fromAgda cmp) (fromAgda name1) (fromAgda name1)
-  fromAgdaTCM (CmpTeles cmp name1 name2) =
-    return $
-      IR.CmpTeles (fromAgda cmp) (fromAgda name1) (fromAgda name1)
-  fromAgdaTCM (CmpSorts cmp name1 name2) =
-    return $
-      IR.CmpSorts (fromAgda cmp) (fromAgda name1) (fromAgda name1)
-  fromAgdaTCM (Guard x (ProblemId i)) =
-    IR.Guard <$> fromAgdaTCM x <*> pure i
-  fromAgdaTCM (Assign name expr) =
-    IR.Assign (fromAgda name) <$> fromAgdaTCM expr
-  fromAgdaTCM (TypedAssign name expr1 expr2) =
-    IR.TypedAssign (fromAgda name) <$> fromAgdaTCM expr1 <*> fromAgdaTCM expr2
-  fromAgdaTCM (PostponedCheckArgs name exprs expr1 expr2) =
-    IR.PostponedCheckArgs (fromAgda name) <$> mapM fromAgdaTCM exprs <*> fromAgdaTCM expr1 <*> fromAgdaTCM expr2
-  fromAgdaTCM (IsEmptyType expr) =
-    IR.IsEmptyType <$> fromAgdaTCM expr
-  fromAgdaTCM (SizeLtSat expr) =
-    IR.SizeLtSat <$> fromAgdaTCM expr
-  fromAgdaTCM (FindInstanceOF name expr exprs) =
-    IR.FindInstanceOF (fromAgda name) <$> fromAgdaTCM expr <*> mapM (\(a, b) -> (,) <$> fromAgdaTCM a <*> fromAgdaTCM b) exprs
-  fromAgdaTCM (PTSInstance name1 name2) =
-    return $
-      IR.PTSInstance (fromAgda name1) (fromAgda name1)
-  fromAgdaTCM (PostponedCheckFunDef qname expr) =
-      IR.PostponedCheckFunDef (show (pretty qname)) <$> fromAgdaTCM expr 
 
 ----------------------------------
 
@@ -140,7 +77,7 @@ serialize :: Lisp String -> String
 serialize = show . pretty
 
 -- | Convert Response to an Reaction for the LSP client
-fromResponse :: Response -> TCM Reaction
+fromResponse :: Response -> TCM IR.Reaction
 fromResponse (Resp_HighlightingInfo info remove method modFile) =
   fromHighlightingInfo info remove method modFile
 fromResponse (Resp_DisplayInfo info) = ReactionDisplayInfo <$> fromDisplayInfo info
@@ -167,7 +104,7 @@ fromHighlightingInfo ::
   RemoveTokenBasedHighlighting ->
   HighlightingMethod ->
   ModuleToSource ->
-  TCM Reaction
+  TCM IR.Reaction
 fromHighlightingInfo h remove method modFile =
   case chooseHighlightingMethod h method of
     Direct -> return $ ReactionHighlightingInfoDirect info
@@ -214,12 +151,17 @@ fromDisplayInfo info = case info of
     errors <- mapM prettyTCM filteredErrors
     return $ IR.DisplayInfoCompilationOk (map show warnings) (map show errors)
   Info_Constraints s -> format (show $ vcat $ map pretty s) "*Constraints*"
-  Info_AllGoalsWarnings ms ws -> do
-    (goals, metas) <- showGoals ms
-    -- 
+  Info_AllGoalsWarnings (ims, hms) ws -> do
+    -- visible metas (goals)
+    goals <- mapM convertGoals ims 
+    -- hidden (unsolved) metas
+    metas <- mapM convertHiddenMetas hms
+
+    -- errors / warnings
+    -- filter 
     let filteredWarnings = filterTCWarnings (tcWarnings ws)
     let filteredErrors = filterTCWarnings (nonFatalErrors ws)
-
+    -- serializes
     warnings <- mapM prettyTCM filteredWarnings
     errors <- mapM prettyTCM filteredErrors
 
@@ -237,35 +179,27 @@ fromDisplayInfo info = case info of
 
     return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas (map show warnings) (map show errors)
     where
-      showGoals :: Goals -> TCM ([(IR.OutputConstraint, String)], [(IR.OutputConstraint, String, Range)])
-      showGoals (ims, hms) = do
-        -- visible metas (goals)
-        di <- mapM convertGoals ims 
-        -- hidden (unsolved) metas
-        dh <- mapM convertHiddenMetas hms
-        return (di, dh)
-        where
-          convertHiddenMetas :: OutputConstraint A.Expr NamedMeta -> TCM (IR.OutputConstraint, String, Range)
-          convertHiddenMetas m = do
-            let i = nmid $ namedMetaOf m
-            -- output constrain
-            outputConstraint <- withMetaId i (fromAgdaTCM m)
-            outputConstraint' <- show <$> withMetaId i (prettyATop m)
-            -- range
-            range <- getMetaRange i
+      convertHiddenMetas :: OutputConstraint A.Expr NamedMeta -> TCM (IR.OutputConstraint, String, Range)
+      convertHiddenMetas m = do
+        let i = nmid $ namedMetaOf m
+        -- output constrain
+        outputConstraint <- withMetaId i (fromAgdaTCM m)
+        outputConstraint' <- show <$> withMetaId i (prettyATop m)
+        -- range
+        range <- getMetaRange i
 
-            return (outputConstraint, outputConstraint', range)
+        return (outputConstraint, outputConstraint', range)
 
-          convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (IR.OutputConstraint, String)
-          convertGoals i = do 
-            -- output constrain
-            goal <- withInteractionId (outputFormId $ OutputForm noRange [] i) $ 
-              fromAgdaTCM i
-            
-            serialized <- withInteractionId (outputFormId $ OutputForm noRange [] i) $
-              prettyATop i
+      convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (IR.OutputConstraint, String)
+      convertGoals i = do 
+        -- output constrain
+        goal <- withInteractionId (outputFormId $ OutputForm noRange [] i) $ 
+          fromAgdaTCM i
+        
+        serialized <- withInteractionId (outputFormId $ OutputForm noRange [] i) $
+          prettyATop i
 
-            return (goal, show serialized)
+        return (goal, show serialized)
 
   Info_Auto s -> return $ IR.DisplayInfoAuto s
   Info_Error err -> do
@@ -390,7 +324,7 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 
 -- | Format responses of DisplayInfo
 formatPrim :: Bool -> String -> String -> TCM IR.DisplayInfo
-formatPrim copy content header = return $ IR.DisplayInfoGeneric header content
+formatPrim _copy content header = return $ IR.DisplayInfoGeneric header content
 
 -- | Format responses of DisplayInfo ("agda2-info-action")
 format :: String -> String -> TCM IR.DisplayInfo
@@ -401,33 +335,6 @@ formatAndCopy :: String -> String -> TCM IR.DisplayInfo
 formatAndCopy = formatPrim True
 
 --------------------------------------------------------------------------------
-
--- | Given strings of goals, warnings and errors, return a pair of the
---   body and the title for the info buffer
-formatWarningsAndErrors :: String -> String -> String -> (String, String)
-formatWarningsAndErrors g w e = (body, title)
-  where
-    isG = not $ null g
-    isW = not $ null w
-    isE = not $ null e
-    title =
-      List.intercalate "," $
-        catMaybes
-          [ " Goals" <$ guard isG,
-            " Errors" <$ guard isE,
-            " Warnings" <$ guard isW,
-            " Done" <$ guard (not (isG || isW || isE))
-          ]
-
-    body =
-      List.intercalate "\n" $
-        catMaybes
-          [ g <$ guard isG,
-            delimiter "Errors" <$ guard (isE && (isG || isW)),
-            e <$ guard isE,
-            delimiter "Warnings" <$ guard (isW && (isG || isE)),
-            w <$ guard isW
-          ]
 
 -- | Serializing Info_Error
 showInfoError :: Info_Error -> TCM String
