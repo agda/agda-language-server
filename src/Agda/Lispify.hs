@@ -206,15 +206,13 @@ fromHighlightingInfo h remove method modFile =
 fromDisplayInfo :: DisplayInfo -> TCM IR.DisplayInfo
 fromDisplayInfo info = case info of
   Info_CompilationOk ws -> do
-    warnings <- prettyTCWarnings (tcWarnings ws)
-    errors <- prettyTCWarnings (nonFatalErrors ws)
-    -- abusing the goals field since we ignore the title
-    let (body, _) =
-          formatWarningsAndErrors
-            "The module was successfully compiled.\n"
-            warnings
-            errors
-    return $ IR.DisplayInfoCompilationOk body
+    -- filter 
+    let filteredWarnings = filterTCWarnings (tcWarnings ws)
+    let filteredErrors = filterTCWarnings (nonFatalErrors ws)
+    -- serializes
+    warnings <- mapM prettyTCM filteredWarnings
+    errors <- mapM prettyTCM filteredErrors
+    return $ IR.DisplayInfoCompilationOk (map show warnings) (map show errors)
   Info_Constraints s -> format (show $ vcat $ map pretty s) "*Constraints*"
   Info_AllGoalsWarnings ms ws -> do
     (goals, metas) <- showGoals ms
