@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Intermediate Representation for Agda's types
 module Agda.IR where
@@ -33,29 +34,47 @@ class FromAgdaTCM a b | a -> b where
   fromAgdaTCM :: a -> TCM b
 
 --------------------------------------------------------------------------------
+-- IR for IOCTM
+data Reaction
+  = -- non-last responses
+    ReactionHighlightingInfoDirect HighlightingInfos
+  | ReactionHighlightingInfoIndirect FilePath
+  | ReactionDisplayInfo DisplayInfo
+  | ReactionStatus Bool Bool
+  | ReactionClearHighlightingTokenBased
+  | ReactionClearHighlightingNotOnlyTokenBased
+  | ReactionRunningInfo Int String
+  | ReactionClearRunningInfo
+  | ReactionDoneAborting
+  | ReactionDoneExiting
+  | ReactionGiveAction Int GiveResult
+  | -- priority: 1
+    ReactionInteractionPoints [Int]
+  | -- priority: 2
+    ReactionMakeCaseFunction [String]
+  | ReactionMakeCaseExtendedLambda [String]
+  | ReactionSolveAll [(Int, String)]
+  | -- priority: 3
+    ReactionJumpToError FilePath Int
+  | ReactionEnd
+  deriving (Generic)
 
--- | ToJSON instances for Agda types
-instance ToJSON Agda.Range
+instance ToJSON Reaction
 
-instance ToJSON (Agda.Interval' ()) where
-  toJSON (Agda.Interval start end) = toJSON (start, end)
+--------------------------------------------------------------------------------
 
-instance ToJSON (Agda.Position' ()) where
-  toJSON (Agda.Pn () pos line col) = toJSON [line, col, pos]
+-- | IR for DisplayInfo
+data DisplayInfo
+  = DisplayInfoGeneric String String
+  | DisplayInfoAllGoalsWarnings String [(OutputConstraint InteractionId, String)] [(OutputConstraint NamedMeta, String, Agda.Range)] [String] [String]
+  | DisplayInfoCompilationOk [String] [String]
+  | DisplayInfoAuto String
+  | DisplayInfoError String
+  | DisplayInfoTime String
+  | DisplayInfoNormalForm String
+  deriving (Generic)
 
-instance ToJSON Agda.SrcFile where
-  toJSON Strict.Nothing = Null
-  toJSON (Strict.Just path) = toJSON path
-
-instance ToJSON Agda.AbsolutePath where
-  toJSON (Agda.AbsolutePath path) = toJSON path
-
--- | ToJSON for Agda.TypeChecking.Monad.Base.Polarity
-instance ToJSON Agda.Polarity where
-  toJSON Agda.Covariant = String "Covariant"
-  toJSON Agda.Contravariant = String "Contravariant"
-  toJSON Agda.Invariant = String "Invariant"
-  toJSON Agda.Nonvariant = String "Nonvariant"
+instance ToJSON DisplayInfo
 
 --------------------------------------------------------------------------------
 
@@ -75,18 +94,25 @@ instance ToJSON GiveResult
 
 --------------------------------------------------------------------------------
 
--- | NamedMeta or InteractionId
-data NMII
+-- | NamedMeta
+data NamedMeta
   = NamedMeta String Int
-  | InteractionId Int
   deriving (Generic)
 
-instance ToJSON NMII
+instance ToJSON NamedMeta
 
-instance FromAgda Agda.NamedMeta NMII where
+instance FromAgda Agda.NamedMeta NamedMeta where
   fromAgda (Agda.NamedMeta name (Agda.MetaId i)) = NamedMeta name i
 
-instance FromAgda Agda.InteractionId NMII where
+--------------------------------------------------------------------------------
+
+newtype InteractionId
+  = InteractionId Int
+  deriving (Generic)
+
+instance ToJSON InteractionId
+
+instance FromAgda Agda.InteractionId InteractionId where
   fromAgda (Agda.InteractionId i) = InteractionId i
 
 --------------------------------------------------------------------------------
@@ -131,30 +157,30 @@ instance FromAgda Agda.Comparison Bool where
 --------------------------------------------------------------------------------
 
 -- | IR for OutputConstraint
-data OutputConstraint
-  = OfType NMII String
-  | JustType NMII
-  | JustSort NMII
-  | CmpInType Comparison String NMII NMII
-  | CmpElim [Agda.Polarity] String [NMII] [NMII]
-  | CmpTypes Comparison NMII NMII
-  | CmpLevels Comparison NMII NMII
-  | CmpTeles Comparison NMII NMII
-  | CmpSorts Comparison NMII NMII
-  | Guard OutputConstraint Int
-  | Assign NMII String
-  | TypedAssign NMII String String
-  | PostponedCheckArgs NMII [String] String String
+data OutputConstraint b
+  = OfType b String
+  | JustType b
+  | JustSort b
+  | CmpInType Comparison String b b
+  | CmpElim [Agda.Polarity] String [b] [b]
+  | CmpTypes Comparison b b
+  | CmpLevels Comparison b b
+  | CmpTeles Comparison b b
+  | CmpSorts Comparison b b
+  | Guard (OutputConstraint b) Int
+  | Assign b String
+  | TypedAssign b String String
+  | PostponedCheckArgs b [String] String String
   | IsEmptyType String
   | SizeLtSat String
-  | FindInstanceOF NMII String [(String, String)]
-  | PTSInstance NMII NMII
+  | FindInstanceOF b String [(String, String)]
+  | PTSInstance b b
   | PostponedCheckFunDef String String
   deriving (Generic)
 
-instance ToJSON OutputConstraint
+instance ToJSON b => ToJSON (OutputConstraint b)
 
-instance (FromAgda b NMII) => FromAgdaTCM (Agda.OutputConstraint A.Expr b) OutputConstraint where
+instance (FromAgda c d) => FromAgdaTCM (Agda.OutputConstraint A.Expr c) (OutputConstraint d) where
   fromAgdaTCM (Agda.OfType name expr) =
     OfType (fromAgda name) <$> fromAgdaTCM expr
   fromAgdaTCM (Agda.JustType name) =
@@ -202,43 +228,25 @@ instance (FromAgda b NMII) => FromAgdaTCM (Agda.OutputConstraint A.Expr b) Outpu
 
 --------------------------------------------------------------------------------
 
--- | IR for DisplayInfo
-data DisplayInfo
-  = DisplayInfoGeneric String String
-  | DisplayInfoAllGoalsWarnings String [(OutputConstraint, String)] [(OutputConstraint, String, Agda.Range)] [String] [String]
-  | DisplayInfoCompilationOk [String] [String]
-  | DisplayInfoAuto String
-  | DisplayInfoError String
-  | DisplayInfoTime String
-  | DisplayInfoNormalForm String
-  deriving (Generic)
+-- | ToJSON instances for Agda types
+instance ToJSON Agda.Range
 
-instance ToJSON DisplayInfo
+instance ToJSON (Agda.Interval' ()) where
+  toJSON (Agda.Interval start end) = toJSON (start, end)
 
---------------------------------------------------------------------------------
--- IR for IOCTM
-data Reaction
-  = -- non-last responses
-    ReactionHighlightingInfoDirect HighlightingInfos
-  | ReactionHighlightingInfoIndirect FilePath
-  | ReactionDisplayInfo DisplayInfo
-  | ReactionStatus Bool Bool
-  | ReactionClearHighlightingTokenBased
-  | ReactionClearHighlightingNotOnlyTokenBased
-  | ReactionRunningInfo Int String
-  | ReactionClearRunningInfo
-  | ReactionDoneAborting
-  | ReactionDoneExiting
-  | ReactionGiveAction Int GiveResult
-  | -- priority: 1
-    ReactionInteractionPoints [Int]
-  | -- priority: 2
-    ReactionMakeCaseFunction [String]
-  | ReactionMakeCaseExtendedLambda [String]
-  | ReactionSolveAll [(Int, String)]
-  | -- priority: 3
-    ReactionJumpToError FilePath Int
-  | ReactionEnd
-  deriving (Generic)
+instance ToJSON (Agda.Position' ()) where
+  toJSON (Agda.Pn () pos line col) = toJSON [line, col, pos]
 
-instance ToJSON Reaction
+instance ToJSON Agda.SrcFile where
+  toJSON Strict.Nothing = Null
+  toJSON (Strict.Just path) = toJSON path
+
+instance ToJSON Agda.AbsolutePath where
+  toJSON (Agda.AbsolutePath path) = toJSON path
+
+-- | ToJSON for Agda.TypeChecking.Monad.Base.Polarity
+instance ToJSON Agda.Polarity where
+  toJSON Agda.Covariant = String "Covariant"
+  toJSON Agda.Contravariant = String "Contravariant"
+  toJSON Agda.Invariant = String "Invariant"
+  toJSON Agda.Nonvariant = String "Nonvariant"

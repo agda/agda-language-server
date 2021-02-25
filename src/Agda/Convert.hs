@@ -179,7 +179,7 @@ fromDisplayInfo info = case info of
 
     return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas (map show warnings) (map show errors)
     where
-      convertHiddenMetas :: OutputConstraint A.Expr NamedMeta -> TCM (IR.OutputConstraint, String, Range)
+      convertHiddenMetas :: OutputConstraint A.Expr NamedMeta -> TCM (IR.OutputConstraint IR.NamedMeta, String, Range)
       convertHiddenMetas m = do
         let i = nmid $ namedMetaOf m
         -- output constrain
@@ -190,7 +190,7 @@ fromDisplayInfo info = case info of
 
         return (outputConstraint, outputConstraint', range)
 
-      convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (IR.OutputConstraint, String)
+      convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (IR.OutputConstraint IR.InteractionId, String)
       convertGoals i = do 
         -- output constrain
         goal <- withInteractionId (outputFormId $ OutputForm noRange [] i) $ 
