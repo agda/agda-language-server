@@ -148,12 +148,6 @@ instance FromAgdaTCM A.Expr String where
 --------------------------------------------------------------------------------
 
 -- | Comparison
-type Comparison = Bool -- True for CmpEq
-
-instance FromAgda Agda.Comparison Bool where
-  fromAgda Agda.CmpEq = True
-  fromAgda _ = False
-
 --------------------------------------------------------------------------------
 
 -- | IR for OutputConstraint
@@ -161,12 +155,12 @@ data OutputConstraint b
   = OfType b String
   | JustType b
   | JustSort b
-  | CmpInType Comparison String b b
+  | CmpInType Agda.Comparison String b b
   | CmpElim [Agda.Polarity] String [b] [b]
-  | CmpTypes Comparison b b
-  | CmpLevels Comparison b b
-  | CmpTeles Comparison b b
-  | CmpSorts Comparison b b
+  | CmpTypes Agda.Comparison b b
+  | CmpLevels Agda.Comparison b b
+  | CmpTeles Agda.Comparison b b
+  | CmpSorts Agda.Comparison b b
   | Guard (OutputConstraint b) Int
   | Assign b String
   | TypedAssign b String String
@@ -190,22 +184,22 @@ instance (FromAgda c d) => FromAgdaTCM (Agda.OutputConstraint A.Expr c) (OutputC
     return $
       JustSort (fromAgda name)
   fromAgdaTCM (Agda.CmpInType cmp expr name1 name2) =
-    CmpInType (fromAgda cmp)
+    CmpInType cmp
       <$> fromAgdaTCM expr <*> pure (fromAgda name1) <*> pure (fromAgda name2)
   fromAgdaTCM (Agda.CmpElim pols expr names1 names2) =
     CmpElim pols <$> fromAgdaTCM expr <*> pure (map fromAgda names1) <*> pure (map fromAgda names2)
   fromAgdaTCM (Agda.CmpTypes cmp name1 name2) =
     return $
-      CmpTypes (fromAgda cmp) (fromAgda name1) (fromAgda name2)
+      CmpTypes cmp (fromAgda name1) (fromAgda name2)
   fromAgdaTCM (Agda.CmpLevels cmp name1 name2) =
     return $
-      CmpLevels (fromAgda cmp) (fromAgda name1) (fromAgda name2)
+      CmpLevels cmp (fromAgda name1) (fromAgda name2)
   fromAgdaTCM (Agda.CmpTeles cmp name1 name2) =
     return $
-      CmpTeles (fromAgda cmp) (fromAgda name1) (fromAgda name2)
+      CmpTeles cmp (fromAgda name1) (fromAgda name2)
   fromAgdaTCM (Agda.CmpSorts cmp name1 name2) =
     return $
-      CmpSorts (fromAgda cmp) (fromAgda name1) (fromAgda name2)
+      CmpSorts cmp (fromAgda name1) (fromAgda name2)
   fromAgdaTCM (Agda.Guard x (Agda.ProblemId i)) =
     Guard <$> fromAgdaTCM x <*> pure i
   fromAgdaTCM (Agda.Assign name expr) =
@@ -250,3 +244,8 @@ instance ToJSON Agda.Polarity where
   toJSON Agda.Contravariant = String "Contravariant"
   toJSON Agda.Invariant = String "Invariant"
   toJSON Agda.Nonvariant = String "Nonvariant"
+
+-- | ToJSON for Agda.TypeChecking.Monad.Base.Comparison
+instance ToJSON Agda.Comparison where
+  toJSON Agda.CmpEq = String "Covariant"
+  toJSON Agda.CmpLeq = String "Contravariant"
