@@ -42,7 +42,7 @@ import Agda.Utils.IO.TempFile (writeToTempFile)
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Agda.Utils.Maybe (catMaybes, maybeToList)
 import Agda.Utils.Null (empty)
-import Agda.Utils.Pretty
+import Agda.Utils.Pretty hiding (render)
 import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit (versionWithCommitInfo)
@@ -52,6 +52,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
+import RichText (Render(..), string)
 
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
@@ -68,8 +69,6 @@ responseAbbr res = case res of
   Resp_ClearHighlighting {} -> "Resp_ClearHighlighting"
   Resp_DoneAborting {} -> "Resp_DoneAborting"
   Resp_DoneExiting {} -> "Resp_DoneExiting"
-
-
 
 ----------------------------------
 
@@ -206,11 +205,11 @@ fromDisplayInfo info = case info of
     s <- showInfoError err
     return $ IR.DisplayInfoError s
   Info_Time s ->
-    return $ IR.DisplayInfoTime (render (prettyTimed s))
+    return $ IR.DisplayInfoTime (show (prettyTimed s))
   Info_NormalForm state cmode time expr -> do
     exprDoc <- evalStateT prettyExpr state
     let doc = maybe empty prettyTimed time $$ exprDoc
-    return $ IR.DisplayInfoNormalForm (render doc)
+    return $ IR.DisplayInfoNormalForm (show doc)
     where
       prettyExpr =
         localStateCommandM $
@@ -222,7 +221,7 @@ fromDisplayInfo info = case info of
   Info_InferredType state time expr -> do
     exprDoc <- evalStateT prettyExpr state
     let doc = maybe empty prettyTimed time $$ exprDoc
-    format (render doc) "*Inferred Type*"
+    format (show doc) "*Inferred Type*"
     where
       prettyExpr =
         localStateCommandM $
@@ -242,7 +241,7 @@ fromDisplayInfo info = case info of
             "Names",
             nest 2 $ align 10 typeDocs
           ]
-    format (render doc) "*Module contents*"
+    format (show doc) "*Module contents*"
   Info_SearchAbout hits names -> do
     hitDocs <- forM hits $ \(x, t) -> do
       doc <- prettyTCM t
@@ -250,13 +249,13 @@ fromDisplayInfo info = case info of
     let doc =
           "Definitions about"
             <+> text (List.intercalate ", " $ words names) $$ nest 2 (align 10 hitDocs)
-    format (render doc) "*Search About*"
+    format (show doc) "*Search About*"
   Info_WhyInScope s cwd v xs ms -> do
     doc <- explainWhyInScope s cwd v xs ms
-    format (render doc) "*Scope Info*"
+    format (show doc) "*Scope Info*"
   Info_Context ii ctx -> do
     doc <- localTCState (prettyResponseContext ii False ctx)
-    format (render doc) "*Context*"
+    format (show doc) "*Context*"
   Info_Intro_NotFound -> format "No introduction forms found." "*Intro*"
   Info_Intro_ConstructorUnknown ss -> do
     let doc =
@@ -267,7 +266,7 @@ fromDisplayInfo info = case info of
                   mkOr (x : xs) = text x : mkOr xs
                in nest 2 $ fsep $ punctuate comma (mkOr ss)
             ]
-    format (render doc) "*Intro*"
+    format (show doc) "*Intro*"
   Info_Version -> format ("Agda version " ++ versionWithCommitInfo) "*Agda Version*"
   Info_GoalSpecific ii kind -> lispifyGoalSpecificDisplayInfo ii kind
 
@@ -277,10 +276,10 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
     case kind of
       Goal_HelperFunction helperType -> do
         doc <- inTopContext $ prettyATop helperType
-        formatAndCopy (render doc ++ "\n") "*Helper function*"
+        formatAndCopy (show doc ++ "\n") "*Helper function*"
       Goal_NormalForm cmode expr -> do
         doc <- showComputed cmode expr
-        format (render doc) "*Normal Form*" -- show?
+        format (show doc) "*Normal Form*" -- show?
       Goal_GoalType norm aux ctx bndry constraints -> do
         ctxDoc <- prettyResponseContext ii True ctx
         goalDoc <- prettyTypeOfMeta norm ii
@@ -314,13 +313,13 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
                   ctxDoc
                 ]
                   ++ constraintsDoc
-        format (render doc) "*Goal type etc.*"
+        format (show doc) "*Goal type etc.*"
       Goal_CurrentGoal norm -> do
         doc <- prettyTypeOfMeta norm ii
-        format (render doc) "*Current Goal*"
+        format (show doc) "*Current Goal*"
       Goal_InferredType expr -> do
         doc <- prettyATop expr
-        format (render doc) "*Inferred Type*"
+        format (show doc) "*Inferred Type*"
 
 -- | Format responses of DisplayInfo
 formatPrim :: Bool -> String -> String -> TCM IR.DisplayInfo

@@ -23,6 +23,7 @@ import qualified Agda.Utils.Pretty as Agda
 import Data.Aeson
 import qualified Data.Strict.Maybe as Strict
 import GHC.Generics (Generic)
+import RichText
 
 --------------------------------------------------------------------------------
 
@@ -104,6 +105,11 @@ instance ToJSON NamedMeta
 instance FromAgda Agda.NamedMeta NamedMeta where
   fromAgda (Agda.NamedMeta name (Agda.MetaId i)) = NamedMeta name i
 
+instance Render NamedMeta where
+  render (NamedMeta "" x) = render x
+  render (NamedMeta "_" x) = render x
+  render (NamedMeta s x) = "_" <> string s <> render x
+
 --------------------------------------------------------------------------------
 
 newtype InteractionId
@@ -114,6 +120,9 @@ instance ToJSON InteractionId
 
 instance FromAgda Agda.InteractionId InteractionId where
   fromAgda (Agda.InteractionId i) = InteractionId i
+
+instance Render InteractionId where
+  render (InteractionId i) = link (Hole i) ("?" <> render i)  
 
 --------------------------------------------------------------------------------
 
@@ -145,6 +154,12 @@ instance FromAgdaTCM A.Expr String where
     expr' <- Agda.abstractToConcreteCtx Agda.TopCtx expr :: TCM C.Expr
     return $ show (Agda.pretty expr')
 
+-- convert A.Expr ==> C.Expr ==> RichText
+instance RenderTCM A.Expr where
+  renderTCM expr = do
+    expr' <- Agda.abstractToConcreteCtx Agda.TopCtx expr :: TCM C.Expr
+    return $ string $ show (Agda.pretty expr')
+
 --------------------------------------------------------------------------------
 
 -- | Comparison
@@ -152,7 +167,7 @@ instance FromAgdaTCM A.Expr String where
 
 -- | IR for OutputConstraint
 data OutputConstraint b
-  = OfType b String
+  = OfType RichText
   | JustType b
   | JustSort b
   | CmpInType Agda.Comparison String b b
@@ -174,9 +189,10 @@ data OutputConstraint b
 
 instance ToJSON b => ToJSON (OutputConstraint b)
 
-instance (FromAgda c d) => FromAgdaTCM (Agda.OutputConstraint A.Expr c) (OutputConstraint d) where
-  fromAgdaTCM (Agda.OfType name expr) =
-    OfType (fromAgda name) <$> fromAgdaTCM expr
+instance (Render d, FromAgda c d) => FromAgdaTCM (Agda.OutputConstraint A.Expr c) (OutputConstraint d) where
+  fromAgdaTCM (Agda.OfType name expr) = do 
+    expr' <- renderTCM expr
+    return $ OfType $ render (fromAgda name) <> " : " <> expr'
   fromAgdaTCM (Agda.JustType name) =
     return $
       JustType (fromAgda name)
@@ -221,22 +237,6 @@ instance (FromAgda c d) => FromAgdaTCM (Agda.OutputConstraint A.Expr c) (OutputC
     PostponedCheckFunDef (show (Agda.pretty name)) <$> fromAgdaTCM expr
 
 --------------------------------------------------------------------------------
-
--- | ToJSON instances for Agda types
-instance ToJSON Agda.Range
-
-instance ToJSON (Agda.Interval' ()) where
-  toJSON (Agda.Interval start end) = toJSON (start, end)
-
-instance ToJSON (Agda.Position' ()) where
-  toJSON (Agda.Pn () pos line col) = toJSON [line, col, pos]
-
-instance ToJSON Agda.SrcFile where
-  toJSON Strict.Nothing = Null
-  toJSON (Strict.Just path) = toJSON path
-
-instance ToJSON Agda.AbsolutePath where
-  toJSON (Agda.AbsolutePath path) = toJSON path
 
 -- | ToJSON for Agda.TypeChecking.Monad.Base.Polarity
 instance ToJSON Agda.Polarity where
