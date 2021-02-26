@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0a9a0193e3a450e33fbcb887a043315632935de2a7af130abd5fc3df6a2db188
+-- hash: 76cc8b646068ff3e816b566352b093832b59b68723e70a03df29ecac0d9fad69
 
 name:           agda-language-server
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
       Control.Concurrent.Foreman
       Control.Concurrent.SizedChan
       Control.Concurrent.Throttler
+      RichText
       Server
       Switchboard
   other-modules:
