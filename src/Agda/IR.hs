@@ -98,7 +98,7 @@ instance ToJSON GiveResult
 -- | NamedMeta
 data NamedMeta
   = NamedMeta String Int
-  deriving (Generic)
+  deriving (Generic, Show)
 
 instance ToJSON NamedMeta
 
@@ -110,11 +110,16 @@ instance Render NamedMeta where
   render (NamedMeta "_" x) = render x
   render (NamedMeta s x) = "_" <> string s <> render x
 
+instance Render Agda.NamedMeta where
+  render (Agda.NamedMeta "" (Agda.MetaId x)) = render x
+  render (Agda.NamedMeta "_" (Agda.MetaId x)) = render x
+  render (Agda.NamedMeta s (Agda.MetaId x)) = "_" <> string s <> render x
+
 --------------------------------------------------------------------------------
 
 newtype InteractionId
   = InteractionId Int
-  deriving (Generic)
+  deriving (Generic, Show)
 
 instance ToJSON InteractionId
 
@@ -122,7 +127,10 @@ instance FromAgda Agda.InteractionId InteractionId where
   fromAgda (Agda.InteractionId i) = InteractionId i
 
 instance Render InteractionId where
-  render (InteractionId i) = link (Hole i) ("?" <> render i)  
+  render (InteractionId i) = link (Hole i) ("?" <> render i)
+
+instance Render Agda.InteractionId where
+  render (Agda.InteractionId i) = link (Hole i) ("?" <> render i)
 
 --------------------------------------------------------------------------------
 
@@ -135,12 +143,12 @@ data HighlightingInfo
       Bool -- is token based?
       (Maybe String) -- note
       (Maybe (FilePath, Int)) -- the defining module of the token and its position in that module
-  deriving (Generic)
+  deriving (Generic, Show)
 
 instance ToJSON HighlightingInfo
 
 data HighlightingInfos = HighlightingInfos Bool [HighlightingInfo]
-  deriving (Generic)
+  deriving (Generic, Show)
 
 instance ToJSON HighlightingInfos
 
@@ -163,19 +171,23 @@ instance RenderTCM A.Expr where
 --------------------------------------------------------------------------------
 
 -- | Comparison
+-- instance Render Agda.Comparison where
+--   render Agda.CmpEq = "="
+--   render Agda.CmpLeq = "=<"
+
 --------------------------------------------------------------------------------
 
 -- | IR for OutputConstraint
 data OutputConstraint b
   = OfType RichText
-  | JustType b
-  | JustSort b
-  | CmpInType Agda.Comparison String b b
-  | CmpElim [Agda.Polarity] String [b] [b]
-  | CmpTypes Agda.Comparison b b
-  | CmpLevels Agda.Comparison b b
-  | CmpTeles Agda.Comparison b b
-  | CmpSorts Agda.Comparison b b
+  | JustType RichText
+  | JustSort RichText
+  | CmpInType RichText
+  | CmpElim RichText
+  | CmpTypes RichText
+  | CmpLevels RichText
+  | CmpTeles RichText
+  | CmpSorts RichText
   | Guard (OutputConstraint b) Int
   | Assign b String
   | TypedAssign b String String
@@ -185,37 +197,63 @@ data OutputConstraint b
   | FindInstanceOF b String [(String, String)]
   | PTSInstance b b
   | PostponedCheckFunDef String String
-  deriving (Generic)
+  deriving (Generic, Show)
 
 instance ToJSON b => ToJSON (OutputConstraint b)
 
-instance (Render d, FromAgda c d) => FromAgdaTCM (Agda.OutputConstraint A.Expr c) (OutputConstraint d) where
-  fromAgdaTCM (Agda.OfType name expr) = do 
-    expr' <- renderTCM expr
-    return $ OfType $ render (fromAgda name) <> " : " <> expr'
+instance (Show d, Render c, Agda.Pretty c, Render d, FromAgda c d) => FromAgdaTCM (Agda.OutputConstraint A.Expr c) (OutputConstraint d) where
+  fromAgdaTCM (Agda.OfType name expr) =
+    OfType <$> renderA name <> " : " <> renderTCM expr
   fromAgdaTCM (Agda.JustType name) =
-    return $
-      JustType (fromAgda name)
+    JustType <$> "Type " <> renderA name
   fromAgdaTCM (Agda.JustSort name) =
-    return $
-      JustSort (fromAgda name)
+    JustSort <$> "Sort " <> renderA name
   fromAgdaTCM (Agda.CmpInType cmp expr name1 name2) =
-    CmpInType cmp
-      <$> fromAgdaTCM expr <*> pure (fromAgda name1) <*> pure (fromAgda name2)
+    CmpInType
+      <$> renderA name1
+      <> " "
+      <> renderP cmp
+      <> " "
+      <> renderA name2
+      <> " : "
+      <> renderTCM expr
   fromAgdaTCM (Agda.CmpElim pols expr names1 names2) =
-    CmpElim pols <$> fromAgdaTCM expr <*> pure (map fromAgda names1) <*> pure (map fromAgda names2)
+    CmpElim 
+      <$> renderA names1
+      <> " "
+      <> renderP pols
+      <> " "
+      <> renderA names2
+      <> " : "
+      <> renderTCM expr
   fromAgdaTCM (Agda.CmpTypes cmp name1 name2) =
-    return $
-      CmpTypes cmp (fromAgda name1) (fromAgda name2)
+    CmpTypes
+      <$> renderA name1
+      <> " "
+      <> renderP cmp
+      <> " "
+      <> renderA name2
   fromAgdaTCM (Agda.CmpLevels cmp name1 name2) =
-    return $
-      CmpLevels cmp (fromAgda name1) (fromAgda name2)
+    CmpLevels
+      <$> renderA name1
+      <> " "
+      <> renderP cmp
+      <> " "
+      <> renderA name2
   fromAgdaTCM (Agda.CmpTeles cmp name1 name2) =
-    return $
-      CmpTeles cmp (fromAgda name1) (fromAgda name2)
+    CmpTeles
+      <$> renderA name1
+      <> " "
+      <> renderP cmp
+      <> " "
+      <> renderA name2
   fromAgdaTCM (Agda.CmpSorts cmp name1 name2) =
-    return $
-      CmpSorts cmp (fromAgda name1) (fromAgda name2)
+    CmpSorts
+      <$> renderA name1
+      <> " "
+      <> renderP cmp
+      <> " "
+      <> renderA name2
   fromAgdaTCM (Agda.Guard x (Agda.ProblemId i)) =
     Guard <$> fromAgdaTCM x <*> pure i
   fromAgdaTCM (Agda.Assign name expr) =

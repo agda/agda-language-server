@@ -1,8 +1,20 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
 
-module RichText (RichText (..), LinkTarget (..), Render (..), RenderTCM (..), space, string, link, icon) where
+module RichText
+  ( RichText (..),
+    LinkTarget (..),
+    Render (..),
+    RenderTCM (..),
+    renderA,
+    renderP,
+    space,
+    string,
+    link,
+    icon,
+  )
+where
 
 import qualified Agda.Syntax.Position as Agda
 import qualified Agda.TypeChecking.Monad.Base as Agda
@@ -13,10 +25,13 @@ import qualified Data.Sequence as Seq
 import qualified Data.Strict.Maybe as Strict
 import Data.String (IsString (..))
 import GHC.Generics (Generic)
+import Agda.Utils.Pretty (Doc)
+import qualified Agda.Utils.Pretty as Doc
+import qualified Data.List as List
 
 --------------------------------------------------------------------------------
 
-newtype RichText = RichText (Seq Element)
+newtype RichText = RichText (Seq Element) deriving (Show)
 
 merge :: Seq Element -> Seq Element -> Seq Element
 merge xs Seq.Empty = xs
@@ -38,7 +53,9 @@ instance Monoid RichText where
   mempty = RichText mempty
 
 instance ToJSON RichText where
-  toJSON (RichText xs) = toJSON (merge Empty xs)
+  toJSON (RichText xs) = toJSON xs
+
+-- toJSON (merge Empty xs)
 
 -- | Whitespace
 space :: RichText
@@ -60,7 +77,7 @@ data LinkTarget
     Hole Int
   | -- | Pointing to some places in a file
     SrcLoc Agda.Range
-  deriving (Generic, Eq)
+  deriving (Generic, Eq, Show)
 
 instance ToJSON LinkTarget
 
@@ -70,7 +87,7 @@ data Attributes = Attributes
   { attrLink :: Maybe LinkTarget,
     attrIcon :: Maybe String
   }
-  deriving (Generic, Eq)
+  deriving (Generic, Eq, Show)
 
 instance ToJSON Attributes
 
@@ -93,7 +110,7 @@ overwriteLink target (Elem s attr) = Elem s (attr {attrLink = Just target})
 
 -- | Internal type, to be converted to JSON values
 data Element = Elem String Attributes
-  deriving (Generic)
+  deriving (Generic, Show)
 
 instance ToJSON Element
 
@@ -103,11 +120,31 @@ instance ToJSON Element
 class Render a where
   render :: a -> RichText
 
-instance Render Int where 
-  render = string . show 
-  
+-- | Rendering undersome context
 class RenderTCM a where
   renderTCM :: a -> Agda.TCM RichText
+
+-- | Simply "pure . render"
+renderA :: (Applicative m, Render a) => a -> m RichText
+renderA = pure . render
+
+-- | Render instances of Pretty 
+renderP :: (Applicative m, Doc.Pretty a) => a -> m RichText
+renderP = pure . string . Doc.render . Doc.pretty 
+
+-- | Other instances of Render
+instance Render Int where
+  render = string . show
+
+instance Render Doc where
+  render = string . Doc.render
+
+instance Render a => Render [a] where
+  render = sepBy ", " . map render 
+    where 
+      sepBy :: RichText -> [RichText] -> RichText
+      sepBy delim [] = mempty 
+      sepBy delim (x:xs) = x <> delim <> sepBy delim xs
 
 --------------------------------------------------------------------------------
 
