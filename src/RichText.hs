@@ -13,6 +13,11 @@ module RichText
     string,
     link,
     icon,
+    parens,
+    indent,
+    vsep,
+    sepBy',
+    sepBy
   )
 where
 
@@ -69,6 +74,26 @@ link l (RichText xs) = RichText $ fmap (overwriteLink l) xs
 
 icon :: String -> RichText
 icon s = RichText $ Seq.singleton $ Elem mempty (mempty {attrIcon = Just s})
+
+-- TODO: change how Element works
+parens :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
+parens x = pure "(" <> x <> pure ")"
+
+-- TODO: implement this
+indent :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
+indent x = pure " " <> x
+
+sepBy' :: RichText -> [RichText] -> RichText
+sepBy' delim [] = mempty 
+sepBy' delim (x:xs) = x <> delim <> sepBy' delim xs
+
+sepBy :: Applicative f => RichText -> [RichText] -> f RichText
+sepBy d = pure . sepBy' d 
+
+-- TODO: implement this
+vsep :: Applicative f => [RichText] -> f RichText
+vsep = sepBy " "
+
 
 --------------------------------------------------------------------------------
 
@@ -140,11 +165,7 @@ instance Render Doc where
   render = string . Doc.render
 
 instance Render a => Render [a] where
-  render = sepBy ", " . map render 
-    where 
-      sepBy :: RichText -> [RichText] -> RichText
-      sepBy delim [] = mempty 
-      sepBy delim (x:xs) = x <> delim <> sepBy delim xs
+  render xs = "[" <> sepBy' ", " (map render xs) <> "]"
 
 --------------------------------------------------------------------------------
 

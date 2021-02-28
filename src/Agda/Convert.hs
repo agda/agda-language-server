@@ -52,7 +52,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
-import RichText (Render(..), string)
+import RichText (Render(..), string, renderTCM,RichText (RichText))
 
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
@@ -178,22 +178,22 @@ fromDisplayInfo info = case info of
 
     return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas (map show warnings) (map show errors)
     where
-      convertHiddenMetas :: OutputConstraint A.Expr NamedMeta -> TCM (IR.OutputConstraint IR.NamedMeta, String, Range)
+      convertHiddenMetas :: OutputConstraint A.Expr NamedMeta -> TCM (RichText, String, Range)
       convertHiddenMetas m = do
         let i = nmid $ namedMetaOf m
         -- output constrain
-        outputConstraint <- withMetaId i (fromAgdaTCM m)
+        outputConstraint <- withMetaId i (renderTCM m)
         outputConstraint' <- show <$> withMetaId i (prettyATop m)
         -- range
         range <- getMetaRange i
 
         return (outputConstraint, outputConstraint', range)
 
-      convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (IR.OutputConstraint IR.InteractionId, String)
+      convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (RichText, String)
       convertGoals i = do 
         -- output constrain
         goal <- withInteractionId (outputFormId $ OutputForm noRange [] i) $ 
-          fromAgdaTCM i
+          renderTCM i
         
         serialized <- withInteractionId (outputFormId $ OutputForm noRange [] i) $
           prettyATop i

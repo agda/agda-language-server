@@ -67,7 +67,7 @@ instance ToJSON Reaction
 -- | IR for DisplayInfo
 data DisplayInfo
   = DisplayInfoGeneric String String
-  | DisplayInfoAllGoalsWarnings String [(OutputConstraint InteractionId, String)] [(OutputConstraint NamedMeta, String, Agda.Range)] [String] [String]
+  | DisplayInfoAllGoalsWarnings String [(RichText, String)] [(RichText, String, Agda.Range)] [String] [String]
   | DisplayInfoCompilationOk [String] [String]
   | DisplayInfoAuto String
   | DisplayInfoError String
@@ -168,111 +168,110 @@ instance RenderTCM A.Expr where
     expr' <- Agda.abstractToConcreteCtx Agda.TopCtx expr :: TCM C.Expr
     return $ string $ show (Agda.pretty expr')
 
+instance Render C.NamePart where
+  render C.Hole = "_"
+  render (C.Id s) = string $ Agda.rawNameToString s
+
+instance Render C.Name where
+  render (C.Name _ _ xs) = sepBy' "." (map render xs)
+  render (C.NoName _ _) = "_"
+
+instance Render A.Name where
+  render = render . A.nameConcrete
+
+instance Render A.QName where
+  render (A.QName m x) = sepBy' "." (map render (A.mnameToList m ++ [x]))
+
 --------------------------------------------------------------------------------
 
--- | Comparison
--- instance Render Agda.Comparison where
---   render Agda.CmpEq = "="
---   render Agda.CmpLeq = "=<"
-
 --------------------------------------------------------------------------------
 
--- | IR for OutputConstraint
-data OutputConstraint b
-  = OfType RichText
-  | JustType RichText
-  | JustSort RichText
-  | CmpInType RichText
-  | CmpElim RichText
-  | CmpTypes RichText
-  | CmpLevels RichText
-  | CmpTeles RichText
-  | CmpSorts RichText
-  | Guard (OutputConstraint b) Int
-  | Assign b String
-  | TypedAssign b String String
-  | PostponedCheckArgs b [String] String String
-  | IsEmptyType String
-  | SizeLtSat String
-  | FindInstanceOF b String [(String, String)]
-  | PTSInstance b b
-  | PostponedCheckFunDef String String
-  deriving (Generic, Show)
-
-instance ToJSON b => ToJSON (OutputConstraint b)
-
-instance (Show d, Render c, Agda.Pretty c, Render d, FromAgda c d) => FromAgdaTCM (Agda.OutputConstraint A.Expr c) (OutputConstraint d) where
-  fromAgdaTCM (Agda.OfType name expr) =
-    OfType <$> renderA name <> " : " <> renderTCM expr
-  fromAgdaTCM (Agda.JustType name) =
-    JustType <$> "Type " <> renderA name
-  fromAgdaTCM (Agda.JustSort name) =
-    JustSort <$> "Sort " <> renderA name
-  fromAgdaTCM (Agda.CmpInType cmp expr name1 name2) =
-    CmpInType
-      <$> renderA name1
+instance (RenderTCM a, Render b) => RenderTCM (Agda.OutputConstraint a b) where
+  renderTCM (Agda.OfType name expr) =
+    renderA name <> " : " <> renderTCM expr
+  renderTCM (Agda.JustType name) =
+    "Type " <> renderA name
+  renderTCM (Agda.JustSort name) =
+    "Sort " <> renderA name
+  renderTCM (Agda.CmpInType cmp expr name1 name2) =
+    renderA name1
       <> " "
       <> renderP cmp
       <> " "
       <> renderA name2
       <> " : "
       <> renderTCM expr
-  fromAgdaTCM (Agda.CmpElim pols expr names1 names2) =
-    CmpElim 
-      <$> renderA names1
+  renderTCM (Agda.CmpElim pols expr names1 names2) =
+    renderA names1
       <> " "
       <> renderP pols
       <> " "
       <> renderA names2
       <> " : "
       <> renderTCM expr
-  fromAgdaTCM (Agda.CmpTypes cmp name1 name2) =
-    CmpTypes
-      <$> renderA name1
+  renderTCM (Agda.CmpTypes cmp name1 name2) =
+    renderA name1
       <> " "
       <> renderP cmp
       <> " "
       <> renderA name2
-  fromAgdaTCM (Agda.CmpLevels cmp name1 name2) =
-    CmpLevels
-      <$> renderA name1
+  renderTCM (Agda.CmpLevels cmp name1 name2) =
+    renderA name1
       <> " "
       <> renderP cmp
       <> " "
       <> renderA name2
-  fromAgdaTCM (Agda.CmpTeles cmp name1 name2) =
-    CmpTeles
-      <$> renderA name1
+  renderTCM (Agda.CmpTeles cmp name1 name2) =
+    renderA name1
       <> " "
       <> renderP cmp
       <> " "
       <> renderA name2
-  fromAgdaTCM (Agda.CmpSorts cmp name1 name2) =
-    CmpSorts
-      <$> renderA name1
+  renderTCM (Agda.CmpSorts cmp name1 name2) =
+    renderA name1
       <> " "
       <> renderP cmp
       <> " "
       <> renderA name2
-  fromAgdaTCM (Agda.Guard x (Agda.ProblemId i)) =
-    Guard <$> fromAgdaTCM x <*> pure i
-  fromAgdaTCM (Agda.Assign name expr) =
-    Assign (fromAgda name) <$> fromAgdaTCM expr
-  fromAgdaTCM (Agda.TypedAssign name expr1 expr2) =
-    TypedAssign (fromAgda name) <$> fromAgdaTCM expr1 <*> fromAgdaTCM expr2
-  fromAgdaTCM (Agda.PostponedCheckArgs name exprs expr1 expr2) =
-    PostponedCheckArgs (fromAgda name) <$> mapM fromAgdaTCM exprs <*> fromAgdaTCM expr1 <*> fromAgdaTCM expr2
-  fromAgdaTCM (Agda.IsEmptyType expr) =
-    IsEmptyType <$> fromAgdaTCM expr
-  fromAgdaTCM (Agda.SizeLtSat expr) =
-    SizeLtSat <$> fromAgdaTCM expr
-  fromAgdaTCM (Agda.FindInstanceOF name expr exprs) =
-    FindInstanceOF (fromAgda name) <$> fromAgdaTCM expr <*> mapM (\(a, b) -> (,) <$> fromAgdaTCM a <*> fromAgdaTCM b) exprs
-  fromAgdaTCM (Agda.PTSInstance name1 name2) =
-    return $
-      PTSInstance (fromAgda name1) (fromAgda name2)
-  fromAgdaTCM (Agda.PostponedCheckFunDef name expr) =
-    PostponedCheckFunDef (show (Agda.pretty name)) <$> fromAgdaTCM expr
+  renderTCM (Agda.Guard x (Agda.ProblemId pid)) =
+    renderTCM x
+      <> indent (parens ("blocked by problem " <> renderP pid))
+  renderTCM (Agda.Assign name expr) =
+    renderA name <> " := " <> renderTCM expr
+  renderTCM (Agda.TypedAssign name expr1 expr2) =
+    renderA name <> " := " <> renderTCM expr1 <> " :? " <> renderTCM expr2
+  renderTCM (Agda.PostponedCheckArgs name exprs expr1 expr2) = do
+    exprs' <- mapM (parens <$> renderTCM) exprs
+    renderA name <> " := "
+      <> parens ("_ : " <> renderTCM expr1)
+      <> " "
+      <> vsep exprs'
+      <> " : "
+      <> renderTCM expr2
+  renderTCM (Agda.IsEmptyType expr) =
+    "Is empty: " <> renderTCM expr
+  renderTCM (Agda.SizeLtSat expr) =
+    "Not empty type of sizes: " <> renderTCM expr
+  renderTCM (Agda.FindInstanceOF name expr exprs) = do
+    exprs' <- mapM (\(e, t) -> renderTCM e <> " : " <> renderTCM t) exprs
+    "Resolve instance argument "
+      <> indent (renderA name <> " : " <> renderTCM expr)
+      <> indent "Candidate:"
+      <> indent (indent (vsep exprs'))
+  renderTCM (Agda.PTSInstance name1 name2) =
+    "PTS instance for ("
+      <> renderA name1
+      <> ", "
+      <> renderA name2
+      <> ")"
+  renderTCM (Agda.PostponedCheckFunDef name expr) =
+    "Check definition of "
+      <> renderA name
+      <> " : "
+      <> renderTCM expr
+
+-- "Check definition of" <+> pretty q <+> ":" <+> pretty a
+-- PostponedCheckFunDef (show (Agda.pretty name)) <$> fromAgdaTCM expr
 
 --------------------------------------------------------------------------------
 
