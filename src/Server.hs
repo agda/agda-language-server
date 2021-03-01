@@ -84,51 +84,55 @@ handlers =
         let RequestMessage _ _i _ params = req
         -- JSON Value => Request => Response
         response <- case JSON.fromJSON params of
-          JSON.Error msg -> return $ ResCannotDecodeRequest $ show msg ++ "\n" ++ show params
-          JSON.Success request -> handleRequest request
+          JSON.Error msg -> return $ CmdRes $ Just $ CmdErrCannotDecodeJSON $ show msg ++ "\n" ++ show params
+          JSON.Success request -> handleCommandReq request
         -- respond with the Response
         responder $ Right $ JSON.toJSON response
     ]
 
 --------------------------------------------------------------------------------
 
-handleRequest :: Request -> LspT () ServerM Response
-handleRequest request = do
+handleCommandReq :: CommandReq -> LspT () ServerM CommandRes
+handleCommandReq request = do
   -- -- convert Request to LSP side effects
   -- toLSPSideEffects i request
   -- convert Request to Response
-  toResponse request
+  toCommandRes request
   where
-    toResponse :: Request -> LspT () ServerM Response
-    toResponse ReqInitialize = return $ ResInitialize Agda.getAgdaVersion
-    toResponse (ReqCommand cmd) = do
+    toCommandRes :: CommandReq -> LspT () ServerM CommandRes
+    toCommandRes CmdReqSYN = return $ CmdResACK Agda.getAgdaVersion
+    toCommandRes (CmdReq cmd) = do
       case Agda.parseIOTCM cmd of
         Left err -> do
-          lift $ writeLog $ "Error: parseIOTCM" <> pack err
-          return ResCommand
+          lift $ writeLog $ "[Error] CmdErrCannotParseCommand:\n" <> pack err
+          return $ CmdRes (Just (CmdErrCannotParseCommand err))
         Right iotcm -> do
           lift $ do
             writeLog $ "[Request] " <> pack (show cmd)
             provideCommand iotcm
-            return ResCommand
+            return $ CmdRes Nothing
 
 --------------------------------------------------------------------------------
 
-data Request 
-  = ReqInitialize -- ^ This Request comes before anything else
-  | ReqCommand String
+data CommandReq
+  = CmdReqSYN -- ^ Client initiates a 2-way handshake
+  | CmdReq String
   deriving (Generic)
 
-instance FromJSON Request
+instance FromJSON CommandReq
 
---------------------------------------------------------------------------------
-
--- | Response
-data Response
-  = ResInitialize -- ^ The response for 'ReqInitialize'
-      String      -- ^ Version number of Agda
-  | ResCommand
-  | ResCannotDecodeRequest String
+data CommandRes
+  = CmdResACK -- ^ Server complets the 2-way handshake
+      String   -- ^ Version number of Agda
+  | CmdRes -- ^ The response for 'CmdReq'
+      (Maybe CommandErr) -- ^ 'Nothing' to indicate success
   deriving (Generic)
 
-instance ToJSON Response
+instance ToJSON CommandRes
+
+data CommandErr
+  = CmdErrCannotDecodeJSON String
+  | CmdErrCannotParseCommand String
+  deriving (Generic)
+
+instance ToJSON CommandErr
