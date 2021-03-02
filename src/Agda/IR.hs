@@ -23,8 +23,8 @@ import qualified Agda.Utils.Pretty as Agda
 import Data.Aeson
 import qualified Data.Strict.Maybe as Strict
 import GHC.Generics (Generic)
-import RichText
-
+import Render
+import Render.Name
 --------------------------------------------------------------------------------
 
 -- | Typeclass for converting Agda values into IR
@@ -95,39 +95,7 @@ instance ToJSON GiveResult
 
 --------------------------------------------------------------------------------
 
--- | NamedMeta
-data NamedMeta
-  = NamedMeta String Int
-  deriving (Generic, Show)
-
-instance ToJSON NamedMeta
-
-instance FromAgda Agda.NamedMeta NamedMeta where
-  fromAgda (Agda.NamedMeta name (Agda.MetaId i)) = NamedMeta name i
-
-instance Render NamedMeta where
-  render (NamedMeta "" x) = render x
-  render (NamedMeta "_" x) = render x
-  render (NamedMeta s x) = "_" <> string s <> render x
-
-instance Render Agda.NamedMeta where
-  render (Agda.NamedMeta "" (Agda.MetaId x)) = render x
-  render (Agda.NamedMeta "_" (Agda.MetaId x)) = render x
-  render (Agda.NamedMeta s (Agda.MetaId x)) = "_" <> string s <> render x
-
 --------------------------------------------------------------------------------
-
-newtype InteractionId
-  = InteractionId Int
-  deriving (Generic, Show)
-
-instance ToJSON InteractionId
-
-instance FromAgda Agda.InteractionId InteractionId where
-  fromAgda (Agda.InteractionId i) = InteractionId i
-
-instance Render InteractionId where
-  render (InteractionId i) = link (Hole i) ("?" <> render i)
 
 instance Render Agda.InteractionId where
   render (Agda.InteractionId i) = link (Hole i) ("?" <> render i)
@@ -155,34 +123,11 @@ instance ToJSON HighlightingInfos
 --------------------------------------------------------------------------------
 
 -- | Expression
+instance Render C.Expr where
+  render expr = string $ show (Agda.pretty expr)
 
--- convert A.Expr ==> C.Expr ==> String
-instance FromAgdaTCM A.Expr String where
-  fromAgdaTCM expr = do
-    expr' <- Agda.abstractToConcreteCtx Agda.TopCtx expr :: TCM C.Expr
-    return $ show (Agda.pretty expr')
-
--- convert A.Expr ==> C.Expr ==> RichText
-instance RenderTCM A.Expr where
-  renderTCM expr = do
-    expr' <- Agda.abstractToConcreteCtx Agda.TopCtx expr :: TCM C.Expr
-    return $ string $ show (Agda.pretty expr')
-
-instance Render C.NamePart where
-  render C.Hole = "_"
-  render (C.Id s) = string $ Agda.rawNameToString s
-
-instance Render C.Name where
-  render (C.Name _ _ xs) = sepBy' "." (map render xs)
-  render (C.NoName _ _) = "_"
-
-instance Render A.Name where
-  render = render . A.nameConcrete
-
-instance Render A.QName where
-  render (A.QName m x) = sepBy' "." (map render (A.mnameToList m ++ [x]))
-
---------------------------------------------------------------------------------
+instance RenderTCM C.Expr where
+  renderTCM = return . render
 
 --------------------------------------------------------------------------------
 
@@ -269,9 +214,6 @@ instance (RenderTCM a, Render b) => RenderTCM (Agda.OutputConstraint a b) where
       <> renderA name
       <> " : "
       <> renderTCM expr
-
--- "Check definition of" <+> pretty q <+> ":" <+> pretty a
--- PostponedCheckFunDef (show (Agda.pretty name)) <$> fromAgdaTCM expr
 
 --------------------------------------------------------------------------------
 

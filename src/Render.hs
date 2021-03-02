@@ -2,13 +2,14 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module RichText
+module Render
   ( RichText (..),
     LinkTarget (..),
     Render (..),
     RenderTCM (..),
     renderA,
     renderP,
+    renderATop,
     space,
     string,
     link,
@@ -24,6 +25,7 @@ where
 import qualified Agda.Syntax.Position as Agda
 import qualified Agda.TypeChecking.Monad.Base as Agda
 import qualified Agda.Utils.FileName as Agda
+import qualified Agda.Syntax.Translation.AbstractToConcrete as Agda
 import Data.Aeson
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
@@ -33,6 +35,7 @@ import GHC.Generics (Generic)
 import Agda.Utils.Pretty (Doc)
 import qualified Agda.Utils.Pretty as Doc
 import qualified Data.List as List
+import Agda.Syntax.Fixity (Precedence(TopCtx))
 
 --------------------------------------------------------------------------------
 
@@ -93,7 +96,6 @@ sepBy d = pure . sepBy' d
 -- TODO: implement this
 vsep :: Applicative f => [RichText] -> f RichText
 vsep = sepBy " "
-
 
 --------------------------------------------------------------------------------
 
@@ -156,6 +158,10 @@ renderA = pure . render
 -- | Render instances of Pretty 
 renderP :: (Applicative m, Doc.Pretty a) => a -> m RichText
 renderP = pure . string . Doc.render . Doc.pretty 
+
+-- | like 'prettyATop'
+renderATop :: (RenderTCM c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
+renderATop x = Agda.abstractToConcreteCtx TopCtx x >>= renderTCM
 
 -- | Other instances of Render
 instance Render Int where

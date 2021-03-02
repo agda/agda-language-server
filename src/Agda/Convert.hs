@@ -6,11 +6,8 @@
 
 module Agda.Convert where
 
-import Agda.IR (FromAgda(..), FromAgdaTCM(..), Reaction(..))
+import Agda.IR (FromAgda (..), Reaction (..))
 import qualified Agda.IR as IR
-
-import qualified Common as IR
-
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand (Lisp)
@@ -24,17 +21,13 @@ import Agda.Syntax.Abstract as A
 import Agda.Syntax.Abstract.Pretty (prettyATop)
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete as C
-import Agda.Syntax.Fixity (Precedence (TopCtx))
 import Agda.Syntax.Position (HasRange (getRange), Range, noRange)
 import Agda.Syntax.Scope.Base
-import Agda.Syntax.Translation.AbstractToConcrete
-  ( abstractToConcreteCtx,
-  )
 import Agda.TypeChecking.Errors (prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
 import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
-import Agda.TypeChecking.Pretty.Warning (prettyTCWarnings, prettyTCWarnings', filterTCWarnings)
+import Agda.TypeChecking.Pretty.Warning (filterTCWarnings, prettyTCWarnings, prettyTCWarnings')
 import Agda.TypeChecking.Warnings (WarningsAndNonFatalErrors (..))
 import Agda.Utils.FileName (filePath)
 import Agda.Utils.Function (applyWhen)
@@ -52,7 +45,8 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
-import RichText (Render(..), string, renderTCM,RichText (RichText))
+import Render (RichText, renderTCM, renderATop)
+import Render.TypeChecking ()
 
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
@@ -142,7 +136,7 @@ fromHighlightingInfo h remove method modFile =
 fromDisplayInfo :: DisplayInfo -> TCM IR.DisplayInfo
 fromDisplayInfo info = case info of
   Info_CompilationOk ws -> do
-    -- filter 
+    -- filter
     let filteredWarnings = filterTCWarnings (tcWarnings ws)
     let filteredErrors = filterTCWarnings (nonFatalErrors ws)
     -- serializes
@@ -152,12 +146,12 @@ fromDisplayInfo info = case info of
   Info_Constraints s -> format (show $ vcat $ map pretty s) "*Constraints*"
   Info_AllGoalsWarnings (ims, hms) ws -> do
     -- visible metas (goals)
-    goals <- mapM convertGoals ims 
+    goals <- mapM convertGoals ims
     -- hidden (unsolved) metas
     metas <- mapM convertHiddenMetas hms
 
     -- errors / warnings
-    -- filter 
+    -- filter
     let filteredWarnings = filterTCWarnings (tcWarnings ws)
     let filteredErrors = filterTCWarnings (nonFatalErrors ws)
     -- serializes
@@ -182,7 +176,7 @@ fromDisplayInfo info = case info of
       convertHiddenMetas m = do
         let i = nmid $ namedMetaOf m
         -- output constrain
-        outputConstraint <- withMetaId i (renderTCM m)
+        outputConstraint <- withMetaId i $ renderATop m
         outputConstraint' <- show <$> withMetaId i (prettyATop m)
         -- range
         range <- getMetaRange i
@@ -190,16 +184,17 @@ fromDisplayInfo info = case info of
         return (outputConstraint, outputConstraint', range)
 
       convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (RichText, String)
-      convertGoals i = do 
+      convertGoals i = do
         -- output constrain
-        goal <- withInteractionId (outputFormId $ OutputForm noRange [] i) $ 
-          renderTCM i
-        
-        serialized <- withInteractionId (outputFormId $ OutputForm noRange [] i) $
-          prettyATop i
+        goal <-
+          withInteractionId (outputFormId $ OutputForm noRange [] i) $
+            renderATop i
+
+        serialized <-
+          withInteractionId (outputFormId $ OutputForm noRange [] i) $
+            prettyATop i
 
         return (goal, show serialized)
-
   Info_Auto s -> return $ IR.DisplayInfoAuto s
   Info_Error err -> do
     s <- showInfoError err
