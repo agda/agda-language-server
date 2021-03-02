@@ -158,17 +158,17 @@ instance (RenderTCM a, Render b) => RenderTCM (Agda.OutputConstraint a b) where
       <> renderA name2
   renderTCM (Agda.Guard x (Agda.ProblemId pid)) =
     renderTCM x
-      <> indent (parens ("blocked by problem " <> renderP pid))
+      <> indentM (parensM ("blocked by problem " <> renderP pid))
   renderTCM (Agda.Assign name expr) =
     renderA name <> " := " <> renderTCM expr
   renderTCM (Agda.TypedAssign name expr1 expr2) =
     renderA name <> " := " <> renderTCM expr1 <> " :? " <> renderTCM expr2
   renderTCM (Agda.PostponedCheckArgs name exprs expr1 expr2) = do
-    exprs' <- mapM (parens <$> renderTCM) exprs
+    exprs' <- mapM (parensM <$> renderTCM) exprs
     renderA name <> " := "
-      <> parens ("_ : " <> renderTCM expr1)
+      <> parensM ("_ : " <> renderTCM expr1)
       <> " "
-      <> vsep exprs'
+      <> vsepM exprs'
       <> " : "
       <> renderTCM expr2
   renderTCM (Agda.IsEmptyType expr) =
@@ -178,9 +178,9 @@ instance (RenderTCM a, Render b) => RenderTCM (Agda.OutputConstraint a b) where
   renderTCM (Agda.FindInstanceOF name expr exprs) = do
     exprs' <- mapM (\(e, t) -> renderTCM e <> " : " <> renderTCM t) exprs
     "Resolve instance argument "
-      <> indent (renderA name <> " : " <> renderTCM expr)
-      <> indent "Candidate:"
-      <> indent (indent (vsep exprs'))
+      <> indentM (renderA name <> " : " <> renderTCM expr)
+      <> indentM "Candidate:"
+      <> indentM (indentM (vsepM exprs'))
   renderTCM (Agda.PTSInstance name1 name2) =
     "PTS instance for ("
       <> renderA name1

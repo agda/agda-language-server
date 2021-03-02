@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Render.RichText
   ( RichText (..),
@@ -9,29 +9,37 @@ module Render.RichText
     text,
     link,
     icon,
+    -- combinators
     parens,
-    indent,
-    vsep,
-    sepBy',
-    sepBy
+    mparens,
+    parensM,
+    indentM,
+    vsepM,
+    sepBy,
+    sepByM,
+    -- utilities
+    renderHiding,
   )
 where
 
+import qualified Agda.Syntax.Common as Agda
 import qualified Agda.Syntax.Position as Agda
 import qualified Agda.Utils.FileName as Agda
-import Data.Aeson ( Value(Null), ToJSON(toJSON) )
+import qualified Agda.Utils.Null as Agda
+import Agda.Utils.Pretty (Doc)
+import qualified Agda.Utils.Pretty as Doc
+import Data.Aeson (ToJSON (toJSON), Value (Null))
+import qualified Data.List as List
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import qualified Data.Strict.Maybe as Strict
 import Data.String (IsString (..))
 import GHC.Generics (Generic)
-import Agda.Utils.Pretty (Doc)
-import qualified Agda.Utils.Pretty as Doc
-import qualified Data.List as List
+import Data.Foldable (toList)
 
 --------------------------------------------------------------------------------
 
-newtype RichText = RichText (Seq Element) deriving (Show)
+newtype RichText = RichText (Seq Element) 
 
 merge :: Seq Element -> Seq Element -> Seq Element
 merge xs Seq.Empty = xs
@@ -55,7 +63,8 @@ instance Monoid RichText where
 instance ToJSON RichText where
   toJSON (RichText xs) = toJSON xs
 
--- toJSON (merge Empty xs)
+instance Show RichText where
+  show (RichText xs) = unwords $ map show $ toList xs
 
 -- | Whitespace
 space :: RichText
@@ -71,23 +80,37 @@ icon :: String -> RichText
 icon s = RichText $ Seq.singleton $ Elem mempty (mempty {attrIcon = Just s})
 
 -- TODO: change how Element works
-parens :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
-parens x = pure "(" <> x <> pure ")"
+parens :: RichText -> RichText
+parens x = "(" <> x <> ")"
+
+parensM :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
+parensM x = pure "(" <> x <> pure ")"
 
 -- TODO: implement this
-indent :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
-indent x = pure " " <> x
+indentM :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
+indentM x = pure " " <> x
 
-sepBy' :: RichText -> [RichText] -> RichText
-sepBy' delim [] = mempty 
-sepBy' delim (x:xs) = x <> delim <> sepBy' delim xs
+sepBy :: RichText -> [RichText] -> RichText
+sepBy delim [] = mempty
+sepBy delim (x : xs) = x <> delim <> sepBy delim xs
 
-sepBy :: Applicative f => RichText -> [RichText] -> f RichText
-sepBy d = pure . sepBy' d 
+sepByM :: Applicative f => RichText -> [RichText] -> f RichText
+sepByM d = pure . sepBy d
 
 -- TODO: implement this
-vsep :: Applicative f => [RichText] -> f RichText
-vsep = sepBy " "
+vsepM :: Applicative f => [RichText] -> f RichText
+vsepM = sepByM " "
+
+braces :: RichText -> RichText
+braces x = "{" <> x <> "}"
+
+dbraces :: RichText -> RichText
+dbraces x = "{" <> x <> "}"
+
+-- | Apply 'parens' to 'Doc' if boolean is true.
+mparens :: Bool -> RichText -> RichText
+mparens True  = parens
+mparens False = id
 
 --------------------------------------------------------------------------------
 
@@ -129,9 +152,12 @@ overwriteLink target (Elem s attr) = Elem s (attr {attrLink = Just target})
 
 -- | Internal type, to be converted to JSON values
 data Element = Elem String Attributes
-  deriving (Generic, Show)
+  deriving (Generic)
 
 instance ToJSON Element
+
+instance Show Element where
+  show (Elem s _) = s
 
 --------------------------------------------------------------------------------
 
@@ -150,3 +176,28 @@ instance ToJSON Agda.SrcFile where
 
 instance ToJSON Agda.AbsolutePath where
   toJSON (Agda.AbsolutePath path) = toJSON path
+
+-- | Utilities
+
+-- | From 'prettyHiding'
+--   @renderHiding info visible text@ puts the correct braces
+--   around @text@ according to info @info@ and returns
+--   @visible text@ if the we deal with a visible thing.
+renderHiding :: Agda.LensHiding a => a -> (RichText -> RichText) -> RichText -> RichText
+renderHiding a parens =
+  case Agda.getHiding a of
+    Agda.Hidden -> braces'
+    Agda.Instance {} -> dbraces
+    Agda.NotHidden -> parens
+-- | From 'braces\''
+braces' :: RichText -> RichText
+braces' d =
+  let s = show d
+   in if Agda.null s
+        then braces d
+        else braces (spaceIfDash (head s) <> d <> spaceIfDash (last s))
+  where
+    -- Add space to avoid starting a comment (Ulf, 2010-09-13, #269)
+    -- Andreas, 2018-07-21, #3161: Also avoid ending a comment
+    spaceIfDash '-' = " "
+    spaceIfDash _ = mempty

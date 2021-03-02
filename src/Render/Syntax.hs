@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+{-# LANGUAGE FlexibleInstances #-}
 module Render.Syntax where
 
 import Agda.Syntax.Common
@@ -22,6 +23,11 @@ instance Render Expr where
     -- no hole index, use LinkRange instead
     QuestionMark range Nothing -> link (LinkRange range) "?"
     QuestionMark _range (Just n) -> link (LinkHole n) $ "?" <> text (show n)
+    Underscore range n -> link (LinkRange range) $ maybe "_" text n
+    App {} ->
+      case appView expr of
+        AppView e1 args ->
+          sepBy " " $ render e1 : map render args
     others -> text $ show (Agda.pretty others)
 
 instance RenderTCM Expr where
@@ -32,3 +38,11 @@ instance RenderTCM Expr where
 -- | InteractionId
 instance Render InteractionId where
   render (InteractionId i) = link (LinkHole i) ("?" <> render i)
+
+--------------------------------------------------------------------------------
+
+-- | Named NamedName (Named_)
+instance Render e => Render (Named NamedName e) where
+  renderPrec p (Named nm e)
+    | Just s <- bareNameOf nm = mparens (p > 0) $ sepBy " " [ text s <> " =", render e ]
+    | otherwise               = renderPrec p e

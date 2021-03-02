@@ -15,3 +15,11 @@ instance Render NameId where
 -- | MetaId
 instance Render MetaId where
   render (MetaId n) = text $ "_" ++ show n
+
+-- | Arg
+instance Render a => Render (Arg a) where
+  renderPrec p (Arg ai e) = renderHiding ai localParens $ renderPrec p' e
+      where p' | visible ai = p
+               | otherwise  = 0
+            localParens | getOrigin ai == Substitution = parens
+                        | otherwise = id

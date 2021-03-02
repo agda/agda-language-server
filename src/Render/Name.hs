@@ -17,7 +17,7 @@ instance Render C.NamePart where
   render (C.Id s) = text $ C.rawNameToString s
 
 instance Render C.Name where
-  render (C.Name _ _ xs) = sepBy' "." (map render xs)
+  render (C.Name _ _ xs) = sepBy "." (map render xs)
   render (C.NoName _ _) = "_"
 
 instance Render C.QName where
@@ -34,4 +34,4 @@ instance Render A.Name where
   render = render . A.nameConcrete
 
 instance Render A.QName where
-  render (A.QName m x) = sepBy' "." (map render (A.mnameToList m ++ [x]))
+  render (A.QName m x) = sepBy "." (map render (A.mnameToList m ++ [x]))

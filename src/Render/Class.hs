@@ -11,6 +11,7 @@ module Render.Class
 where
 
 import qualified Agda.Syntax.Position as Agda
+import qualified Agda.Syntax.Common as Agda
 import qualified Agda.TypeChecking.Monad.Base as Agda
 import qualified Agda.Utils.FileName as Agda
 import qualified Agda.Syntax.Translation.AbstractToConcrete as Agda
@@ -24,12 +25,17 @@ import qualified Agda.Utils.Pretty as Doc
 import qualified Data.List as List
 import Agda.Syntax.Fixity (Precedence(TopCtx))
 import Render.RichText
+import Agda.Utils.Null (ifNull)
 
 --------------------------------------------------------------------------------
 
 -- | Typeclass for rendering RichText
 class Render a where
   render :: a -> RichText
+  renderPrec  :: Int -> a -> RichText
+
+  render = renderPrec 0
+  renderPrec = const render
 
 -- | Rendering undersome context
 class RenderTCM a where
@@ -47,6 +53,7 @@ renderP = pure . text . Doc.render . Doc.pretty
 renderATop :: (RenderTCM c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
 renderATop x = Agda.abstractToConcreteCtx TopCtx x >>= renderTCM
 
+
 --------------------------------------------------------------------------------
 
 -- | Other instances of Render
@@ -57,4 +64,4 @@ instance Render Doc where
   render = text . Doc.render
 
 instance Render a => Render [a] where
-  render xs = "[" <> sepBy' ", " (map render xs) <> "]"
+  render xs = "[" <> sepBy ", " (map render xs) <> "]"
