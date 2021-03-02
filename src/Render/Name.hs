@@ -17,8 +17,8 @@ instance Render C.NamePart where
   render (C.Id s) = text $ C.rawNameToString s
 
 instance Render C.Name where
-  render (C.Name _ _ xs) = sepBy "." (map render xs)
-  render (C.NoName _ _) = "_"
+  render (C.Name range _inScope xs) = linkRange range $ sepBy " " (map render xs)
+  render (C.NoName range _) = "_"
 
 instance Render C.QName where
   render (C.Qual m x)

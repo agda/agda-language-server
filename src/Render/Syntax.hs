@@ -24,15 +24,17 @@ instance Render Expr where
     Ident qname -> render qname
     Lit lit -> render lit
     -- no hole index, use LinkRange instead
-    QuestionMark range Nothing -> link (LinkRange range) "?"
-    QuestionMark _range (Just n) -> link (LinkHole n) $ "?" <> text (show n)
-    Underscore range n -> link (LinkRange range) $ maybe "_" text n
+    QuestionMark range Nothing -> linkRange range "?"
+    QuestionMark _range (Just n) -> linkHole n $ "?" <> text (show n)
+    Underscore range n -> linkRange range $ maybe "_" text n
     App {} ->
       case appView expr of
         AppView e1 args ->
           sepBy " " $ render e1 : map render args
     RawApp _ es -> sepBy " " $ map render es
     OpApp _ q _ es -> sepBy " " $ prettyOpApp q es
+    WithApp _ e es -> sepBy " | " $ map render (e:es)
+    HiddenArg _ e -> braces' $ render e
     others -> text $ show (Agda.pretty others)
 
 prettyOpApp ::
@@ -109,7 +111,7 @@ instance Render a => Render (MaybePlaceholder a) where
 
 -- | InteractionId
 instance Render InteractionId where
-  render (InteractionId i) = link (LinkHole i) ("?" <> render i)
+  render (InteractionId i) = linkHole i ("?" <> render i)
 
 --------------------------------------------------------------------------------
 

@@ -7,9 +7,13 @@ module Render.RichText
     LinkTarget (..),
     space,
     text,
-    link,
+    -- link,
+    linkRange,
+    linkHole,
     icon,
     -- combinators
+    braces,
+    braces',
     parens,
     mparens,
     parensM,
@@ -73,8 +77,14 @@ space = " "
 text :: String -> RichText
 text s = RichText $ Seq.singleton $ Elem s mempty
 
-link :: LinkTarget -> RichText -> RichText
-link l (RichText xs) = RichText $ fmap (overwriteLink l) xs
+-- link :: LinkTarget -> RichText -> RichText
+-- link l (RichText xs) = RichText $ fmap (overwriteLink l) xs
+
+linkRange :: Agda.Range -> RichText -> RichText
+linkRange l (RichText xs) = RichText $ fmap (overwriteLink (LinkRange l)) xs
+
+linkHole :: Int -> RichText -> RichText
+linkHole i (RichText xs) = RichText $ fmap (addClassName ["component-hole"] . overwriteLink (LinkHole i)) xs
 
 icon :: String -> RichText
 icon s = RichText $ Seq.singleton $ Elem mempty (mempty {attrIcon = Just s})
@@ -126,7 +136,8 @@ instance ToJSON LinkTarget
 --------------------------------------------------------------------------------
 
 data Attributes = Attributes
-  { attrLink :: Maybe LinkTarget,
+  { attrClassNames :: [String],
+    attrLink :: Maybe LinkTarget,
     attrIcon :: Maybe String
   }
   deriving (Generic, Eq, Show)
@@ -135,7 +146,7 @@ instance ToJSON Attributes
 
 -- | Merging Attributes with (<>)
 instance Semigroup Attributes where
-  Attributes a1 b1 <> Attributes a2 b2 = Attributes (a1 <+> a2) (b1 <+> b2)
+  Attributes a1 b1 c1 <> Attributes a2 b2 c2 = Attributes (a1 <> a2) (b1 <+> b2) (c1 <+> c2)
     where
       (<+>) :: Maybe a -> Maybe a -> Maybe a
       (<+>) (Just x) (Just _) = Just x
@@ -143,10 +154,13 @@ instance Semigroup Attributes where
       (<+>) x Nothing = x
 
 instance Monoid Attributes where
-  mempty = Attributes Nothing Nothing
+  mempty = Attributes [] Nothing Nothing
 
 overwriteLink :: LinkTarget -> Element -> Element
 overwriteLink target (Elem s attr) = Elem s (attr {attrLink = Just target})
+
+addClassName :: [String] -> Element -> Element
+addClassName classNames (Elem s attr) = Elem s (attr {attrClassNames = attrClassNames attr ++ classNames})
 
 --------------------------------------------------------------------------------
 
