@@ -10,21 +10,15 @@ module Agda.IR where
 
 import qualified Agda.Interaction.Base as Agda
 import qualified Agda.Interaction.Response as Agda
-import qualified Agda.Syntax.Abstract as A
 import qualified Agda.Syntax.Common as Agda
 import qualified Agda.Syntax.Concrete as C
-import qualified Agda.Syntax.Fixity as Agda
 import qualified Agda.Syntax.Position as Agda
-import qualified Agda.Syntax.Translation.AbstractToConcrete as Agda
 import Agda.TypeChecking.Monad (TCM)
 import qualified Agda.TypeChecking.Monad.Base as Agda
-import qualified Agda.Utils.FileName as Agda
 import qualified Agda.Utils.Pretty as Agda
 import Data.Aeson
-import qualified Data.Strict.Maybe as Strict
 import GHC.Generics (Generic)
 import Render
-import Render.Name
 --------------------------------------------------------------------------------
 
 -- | Typeclass for converting Agda values into IR
@@ -95,13 +89,6 @@ instance ToJSON GiveResult
 
 --------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
-
-instance Render Agda.InteractionId where
-  render (Agda.InteractionId i) = link (Hole i) ("?" <> render i)
-
---------------------------------------------------------------------------------
-
 -- | IR for HighlightingInfo
 data HighlightingInfo
   = HighlightingInfo
@@ -119,15 +106,6 @@ data HighlightingInfos = HighlightingInfos Bool [HighlightingInfo]
   deriving (Generic, Show)
 
 instance ToJSON HighlightingInfos
-
---------------------------------------------------------------------------------
-
--- | Expression
-instance Render C.Expr where
-  render expr = string $ show (Agda.pretty expr)
-
-instance RenderTCM C.Expr where
-  renderTCM = return . render
 
 --------------------------------------------------------------------------------
 

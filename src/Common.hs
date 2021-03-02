@@ -6,24 +6,14 @@ module Common where
 import Agda.IR
 
 import Agda.Interaction.Base (IOTCM)
-import qualified Agda.Interaction.Response as Agda
-import qualified Agda.Syntax.Common as Agda
-import qualified Agda.Syntax.Position as Agda
 import Agda.TypeChecking.Monad (TCMT)
-import qualified Agda.TypeChecking.Monad.Base as Agda
-import qualified Agda.Utils.FileName as Agda
 import Control.Concurrent
 import Control.Concurrent.Foreman (Foreman)
 import qualified Control.Concurrent.Foreman as Foreman
 import Control.Concurrent.Throttler (Throttler)
 import qualified Control.Concurrent.Throttler as Throttler
 import Control.Monad.Reader
-import Data.Aeson
-import qualified Data.Aeson.Encoding as JSON
-import Data.Aeson.Types (Parser)
-import qualified Data.Strict.Maybe as Strict
 import Data.Text (Text)
-import GHC.Generics (Generic)
 import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 
 --------------------------------------------------------------------------------

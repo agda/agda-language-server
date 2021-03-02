@@ -45,7 +45,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
-import Render (RichText, renderTCM, renderATop)
+import Render (RichText, renderATop)
 import Render.TypeChecking ()
 
 responseAbbr :: IsString a => Response -> a
