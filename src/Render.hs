@@ -3,7 +3,7 @@ module Render
     module Render.Class,
     module Render.Name,
     module Render.TypeChecking,
-    module Render.Syntax,
+    module Render.Concrete,
   )
 where
 
@@ -11,4 +11,4 @@ import Render.Class
 import Render.Name
 import Render.RichText
 import Render.TypeChecking
-import Render.Syntax
+import Render.Concrete
