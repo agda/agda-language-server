@@ -59,7 +59,7 @@ setGoal foreman callback = do
   dispatched <- readIORef (dispatchedCount foreman)
   completed <- readIORef (completedCount foreman)
   -- see if the previously dispatched works have been completed
-  if dispatched == completed 
+  if dispatched == completed  
     then callback ()
     else do 
       -- constructs a Goal from `dispatchedCount`

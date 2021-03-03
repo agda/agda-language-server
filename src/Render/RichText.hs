@@ -67,8 +67,9 @@ merge :: Seq Element -> Seq Element -> Seq Element
 merge xs Seq.Empty = xs
 merge xs (y :<| ys) = merge (mergeOne xs y) ys
 
+-- | Like @(|>)@ but merges two elements as one if their attributes are the same
 mergeOne :: Seq Element -> Element -> Seq Element
-mergeOne Empty (Elem y b) = Seq.singleton (Elem y b)
+mergeOne Empty             (Elem y b) = Seq.singleton (Elem y b)
 mergeOne (xs :|> Elem x a) (Elem y b) =
   if a == b then xs :|> Elem (x <> y) a else xs :|> Elem x a :|> Elem y b
 
@@ -88,8 +89,12 @@ instance ToJSON RichText where
 instance Show RichText where
   show (RichText xs) = unwords $ map show $ toList xs
 
+-- | An alternative @show@ for debugging 
+debug :: RichText -> String 
+debug (RichText xs) = show $ toList $ fmap (\(Elem s a) -> s <> " " <> show a) xs
+
 (<+>) :: RichText -> RichText -> RichText
-x <+> y = x <+> y
+x <+> y = x <> " " <> y
 
 -- | Whitespace
 space :: RichText

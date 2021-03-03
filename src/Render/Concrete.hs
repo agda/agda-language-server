@@ -24,6 +24,7 @@ import Render.Literal ()
 import Render.Name ()
 import Render.RichText
 import Render.TypeChecking ()
+import Debug.Trace (traceShowId)
 
 --------------------------------------------------------------------------------
 
@@ -84,10 +85,10 @@ instance Render Expr where
         [ render (Tel $ smashTel tel) <+> arrow,
           render e
         ]
-    Set _ -> "Set"
-    Prop _ -> "Prop"
-    SetN _ n -> "Set" <> text (showIndex n)
-    PropN _ n -> "Prop" <> text (showIndex n)
+    Set range -> linkRange range "Set"
+    Prop range -> linkRange range "Prop"
+    SetN range n -> linkRange range $ "Set" <> text (showIndex n)
+    PropN range n -> linkRange range $ "Prop" <> text (showIndex n)
     Let _ ds me ->
       sep
         [ "let" <+> vcat (map render ds),
