@@ -4,7 +4,7 @@
 
 module Render.RichText
   ( RichText (..),
-    LinkTarget (..),
+    -- LinkTarget (..),
     space,
     text,
     -- link,
@@ -61,24 +61,14 @@ import qualified GHC.IO.Unsafe as UNSAFE
 
 --------------------------------------------------------------------------------
 
-newtype RichText = RichText (Seq Element)
-
-merge :: Seq Element -> Seq Element -> Seq Element
-merge xs Seq.Empty = xs
-merge xs (y :<| ys) = merge (mergeOne xs y) ys
-
--- | Like @(|>)@ but merges two elements as one if their attributes are the same
-mergeOne :: Seq Element -> Element -> Seq Element
-mergeOne Empty             (Elem y b) = Seq.singleton (Elem y b)
-mergeOne (xs :|> Elem x a) (Elem y b) =
-  if a == b then xs :|> Elem (x <> y) a else xs :|> Elem x a :|> Elem y b
+newtype RichText = RichText (Seq Inline)
 
 -- Represent RichText with String literals
 instance IsString RichText where
-  fromString s = RichText (Seq.singleton (Elem s mempty))
+  fromString s = RichText (Seq.singleton (Text s mempty))
 
 instance Semigroup RichText where
-  RichText xs <> RichText ys = RichText (merge xs ys)
+  RichText xs <> RichText ys = RichText (xs <> ys)
 
 instance Monoid RichText where
   mempty = RichText mempty
@@ -90,8 +80,8 @@ instance Show RichText where
   show (RichText xs) = unwords $ map show $ toList xs
 
 -- | An alternative @show@ for debugging 
-debug :: RichText -> String 
-debug (RichText xs) = show $ toList $ fmap (\(Elem s a) -> s <> " " <> show a) xs
+-- debug :: RichText -> String 
+-- debug (RichText xs) = show $ toList $ fmap (\(Elem s a) -> s <> " " <> show a) xs
 
 (<+>) :: RichText -> RichText -> RichText
 x <+> y = x <> " " <> y
@@ -101,70 +91,44 @@ space :: RichText
 space = " "
 
 text :: String -> RichText
-text s = RichText $ Seq.singleton $ Elem s mempty
-
--- link :: LinkTarget -> RichText -> RichText
--- link l (RichText xs) = RichText $ fmap (overwriteLink l) xs
-
-linkRange :: Agda.Range -> RichText -> RichText
-linkRange l (RichText xs) = RichText $ fmap (overwriteLink (LinkRange l)) xs
-
-linkHole :: Int -> RichText -> RichText
-linkHole i (RichText xs) = RichText $ fmap (addClassName ["component-hole"] . overwriteLink (LinkHole i)) xs
+text s = RichText $ Seq.singleton $ Text s mempty
 
 icon :: String -> RichText
-icon s = RichText $ Seq.singleton $ Elem mempty (mempty {attrIcon = Just s})
+icon s = RichText $ Seq.singleton $ Icon s []
+
+linkRange :: Agda.Range -> RichText -> RichText
+linkRange range (RichText xs) = RichText $ Seq.singleton $ Link range (toList xs) mempty 
+
+linkHole :: Int -> RichText -> RichText
+linkHole i (RichText xs) = RichText $ Seq.singleton $ Hole i
 
 --------------------------------------------------------------------------------
 
-data LinkTarget
-  = -- | Pointing to some hole
-    LinkHole Int
-  | -- | Pointing to some places in a file
-    LinkRange Agda.Range
-  deriving (Generic, Eq, Show)
-
-instance ToJSON LinkTarget
-
---------------------------------------------------------------------------------
-
-data Attributes = Attributes
-  { attrClassNames :: [String],
-    attrLink :: Maybe LinkTarget,
-    attrIcon :: Maybe String
-  }
-  deriving (Generic, Eq, Show)
-
-instance ToJSON Attributes
-
--- | Merging Attributes with (<>)
-instance Semigroup Attributes where
-  Attributes a1 b1 c1 <> Attributes a2 b2 c2 = Attributes (a1 <> a2) (b1 <+> b2) (c1 <+> c2)
-    where
-      (<+>) :: Maybe a -> Maybe a -> Maybe a
-      (<+>) (Just x) (Just _) = Just x
-      (<+>) Nothing x = x
-      (<+>) x Nothing = x
-
-instance Monoid Attributes where
-  mempty = Attributes [] Nothing Nothing
-
-overwriteLink :: LinkTarget -> Element -> Element
-overwriteLink target (Elem s attr) = Elem s (attr {attrLink = Just target})
-
-addClassName :: [String] -> Element -> Element
-addClassName classNames (Elem s attr) = Elem s (attr {attrClassNames = attrClassNames attr ++ classNames})
-
+type ClassNames = [String]
 --------------------------------------------------------------------------------
 
 -- | Internal type, to be converted to JSON values
-data Element = Elem String Attributes
+data Inline 
+  = Icon String ClassNames
+  | Text String ClassNames
+  | Link Agda.Range [Inline] ClassNames
+  | Hole Int
   deriving (Generic)
 
-instance ToJSON Element
+instance ToJSON Inline
 
-instance Show Element where
-  show (Elem s _) = s
+instance Show Inline where
+  show (Icon s _) = s
+  show (Text s _) = s
+  show (Link _ s _) = mconcat $ fmap show s
+  show (Hole i) = "?" ++ show i
+
+addClassName :: ClassNames -> Inline -> Inline
+addClassName ys elem = case elem of 
+  Icon s xs -> Icon s (xs <> ys)
+  Text s xs -> Text s (xs <> ys)
+  Link range s xs -> Link range s (xs <> ys)
+  Hole i    -> Hole i
 
 --------------------------------------------------------------------------------
 
