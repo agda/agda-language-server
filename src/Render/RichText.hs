@@ -32,7 +32,11 @@ module Render.RichText
     -- symbols
     arrow,
     lambda,
-    forallQ
+    forallQ,
+    showIndex,
+    leftIdiomBrkt,
+    rightIdiomBrkt,
+    emptyIdiomBrkt,
   )
 where
 
@@ -43,6 +47,7 @@ import qualified Agda.Utils.FileName as Agda
 import qualified Agda.Utils.Null as Agda
 import Agda.Utils.Pretty (Doc)
 import qualified Agda.Utils.Pretty as Doc
+import Agda.Utils.Suffix (subscriptAllowed, toSubscriptDigit)
 import Data.Aeson (ToJSON (toJSON), Value (Null))
 import Data.Foldable (toList)
 import Data.IORef (readIORef)
@@ -235,6 +240,12 @@ lambda = _lambda specialCharacters
 forallQ :: RichText
 forallQ = _forallQ specialCharacters
 
+-- left, right, and empty idiom bracket
+leftIdiomBrkt, rightIdiomBrkt, emptyIdiomBrkt :: RichText
+leftIdiomBrkt = _leftIdiomBrkt specialCharacters
+rightIdiomBrkt = _rightIdiomBrkt specialCharacters
+emptyIdiomBrkt = _emptyIdiomBrkt specialCharacters
+
 -- | Apply 'parens' to 'Doc' if boolean is true.
 mparens :: Bool -> RichText -> RichText
 mparens True = parens
@@ -252,6 +263,13 @@ braces' d =
     -- Andreas, 2018-07-21, #3161: Also avoid ending a comment
     spaceIfDash '-' = " "
     spaceIfDash _ = mempty
+
+-- | Shows a non-negative integer using the characters ₀-₉ instead of
+-- 0-9 unless the user explicitly asked us to not use any unicode characters.
+showIndex :: (Show i, Integral i) => i -> String
+showIndex = case subscriptAllowed of
+  Agda.UnicodeOk -> map toSubscriptDigit . show
+  Agda.AsciiOnly -> show
 
 --------------------------------------------------------------------------------
 

@@ -8,7 +8,7 @@ module Render.Concrete where
 
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete
-import Agda.Syntax.Concrete.Pretty (NamedBinding (..), isLabeled, Tel(..))
+import Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
 import Agda.Syntax.Position (noRange)
 import Agda.TypeChecking.Monad.Base hiding (Open, Primitive, Record)
 import Agda.Utils.Float (toStringWithoutDotZero)
@@ -22,8 +22,8 @@ import Render.Class
 import Render.Common
 import Render.Literal ()
 import Render.Name ()
-import Render.TypeChecking ()
 import Render.RichText
+import Render.TypeChecking ()
 
 --------------------------------------------------------------------------------
 
@@ -67,7 +67,57 @@ instance Render Expr where
     HiddenArg _ e -> braces' $ render e
     InstanceArg _ e -> dbraces $ render e
     Lam _ bs (AbsurdLam _ h) -> lambda <+> sepBy " " (map render bs) <+> absurd h
-    others -> text $ show (Agda.pretty others)
+    Lam _ bs e ->
+      sep
+        [ lambda <+> fsep (map render bs) <+> arrow,
+          indent $ render e
+        ]
+    AbsurdLam _ h -> lambda <+> absurd h
+    ExtendedLam _ pes -> lambda <+> bracesAndSemicolons (map render pes)
+    Fun _ e1 e2 ->
+      sep
+        [ renderCohesion e1 (renderQuantity e1 (render e1)) <+> arrow,
+          render e2
+        ]
+    Pi tel e ->
+      sep
+        [ render (Tel $ smashTel tel) <+> arrow,
+          render e
+        ]
+    Set _ -> "Set"
+    Prop _ -> "Prop"
+    SetN _ n -> "Set" <> text (showIndex n)
+    PropN _ n -> "Prop" <> text (showIndex n)
+    Let _ ds me ->
+      sep
+        [ "let" <+> vcat (map render ds),
+          maybe mempty (\e -> "in" <+> render e) me
+        ]
+    Paren _ e -> parens $ render e
+    IdiomBrackets _ es ->
+      case es of
+        [] -> emptyIdiomBrkt
+        [e] -> leftIdiomBrkt <+> render e <+> rightIdiomBrkt
+        e : es -> leftIdiomBrkt <+> render e <+> fsep (map (("|" <+>) . render) es) <+> rightIdiomBrkt
+    DoBlock _ ss -> "do" <+> vcat (map render ss)
+    As _ x e  -> render x <> "@" <> render e
+    Dot _ e   -> "." <> render e
+    DoubleDot _ e  -> ".." <> render e
+    Absurd _  -> "()"
+    Rec _ xs  -> sep ["record", bracesAndSemicolons (map render xs)]
+    RecUpdate _ e xs ->
+      sep ["record" <+> render e, bracesAndSemicolons (map render xs)]
+    ETel []  -> "()"
+    ETel tel -> fsep $ map render tel
+    Quote _ -> "quote"
+    QuoteTerm _ -> "quoteTerm"
+    Unquote _  -> "unquote"
+    Tactic _ t -> "tactic" <+> render t
+    -- Andreas, 2011-10-03 print irrelevant things as .(e)
+    DontCare e -> "." <> parens (render e)
+    Equal _ a b -> render a <+> "=" <+> render b
+    Ellipsis _  -> "..."
+    Generalized e -> render e
     where
       absurd NotHidden = "()"
       absurd Instance {} = "{{}}"
@@ -82,28 +132,31 @@ instance (Render a, Render b) => Render (Either a b) where
   render = either render render
 
 instance Render a => Render (FieldAssignment' a) where
-  render (FieldAssignment x e) = sep [ render x <+> "=" , indent $ render e ]
+  render (FieldAssignment x e) = sep [render x <+> "=", indent $ render e]
 
 instance Render ModuleAssignment where
   render (ModuleAssignment m es i) = fsep (render m : map render es) <+> render i
 
 instance Render LamClause where
   render (LamClause lhs rhs wh _) =
-    sep [ render lhs
-        , indent $ render' rhs
-        ] <> indent (render wh)
+    sep
+      [ render lhs,
+        indent $ render' rhs
+      ]
+      <> indent (render wh)
     where
-      render' (RHS e)   = arrow <+> render e
+      render' (RHS e) = arrow <+> render e
       render' AbsurdRHS = mempty
 
 instance Render BoundName where
-  render BName{ boundName = x } = render x
-
+  render BName {boundName = x} = render x
 
 instance Render a => Render (Binder' a) where
-  render (Binder mpat n) = let d = render n in case mpat of
-    Nothing  -> d
-    Just pat -> d <+> "@" <+> parens (render pat)
+  render (Binder mpat n) =
+    let d = render n
+     in case mpat of
+          Nothing -> d
+          Just pat -> d <+> "@" <+> parens (render pat)
 
 --------------------------------------------------------------------------------
 
@@ -174,21 +227,22 @@ instance Render TypedBinding where
           same x y = getArgInfo x == getArgInfo y && isNothing (isLabeled y)
 
 instance Render Tel where
-    render (Tel tel)
-      | any isMeta tel = forallQ <+> fsep (map render tel)
-      | otherwise      = fsep (map render tel)
-      where
-        isMeta (TBind _ _ (Underscore _ Nothing)) = True
-        isMeta _ = False
+  render (Tel tel)
+    | any isMeta tel = forallQ <+> fsep (map render tel)
+    | otherwise = fsep (map render tel)
+    where
+      isMeta (TBind _ _ (Underscore _ Nothing)) = True
+      isMeta _ = False
 
 smashTel :: Telescope -> Telescope
-smashTel (TBind r xs e  :
-          TBind _ ys e' : tel)
-  | show e == show e' = smashTel (TBind r (xs ++ ys) e : tel)
+smashTel
+  ( TBind r xs e
+      : TBind _ ys e'
+      : tel
+    )
+    | show e == show e' = smashTel (TBind r (xs ++ ys) e : tel)
 smashTel (b : tel) = b : smashTel tel
 smashTel [] = []
-
-
 
 instance Render RHS where
   render (RHS e) = "=" <+> render e
@@ -218,17 +272,20 @@ instance Render LHS where
         indent $ prefixedThings "with" (map render es)
       ]
 
-
 instance Render LHSCore where
   render (LHSHead f ps) = sep $ render f : map (parens . render) ps
-  render (LHSProj d ps lhscore ps') = sep $
-    render d : map (parens . render) ps ++
-    parens (render lhscore) : map (parens . render) ps'
-  render (LHSWith h wps ps) = if null ps then doc else
-      sep $ parens doc : map (parens . render) ps
+  render (LHSProj d ps lhscore ps') =
+    sep $
+      render d :
+      map (parens . render) ps
+        ++ parens (render lhscore) :
+      map (parens . render) ps'
+  render (LHSWith h wps ps) =
+    if null ps
+      then doc
+      else sep $ parens doc : map (parens . render) ps
     where
-    doc = sep $ render h : map (("|" <+>) . render) wps
-
+      doc = sep $ render h : map (("|" <+>) . render) wps
 
 instance Render ModuleApplication where
   render (SectionApp _ bs e) = fsep (map render bs) <+> "=" <+> render e
