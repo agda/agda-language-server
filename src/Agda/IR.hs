@@ -30,31 +30,31 @@ class FromAgdaTCM a b | a -> b where
 
 --------------------------------------------------------------------------------
 -- IR for IOCTM
-data Reaction
+data Response
   = -- non-last responses
-    ReactionHighlightingInfoDirect HighlightingInfos
-  | ReactionHighlightingInfoIndirect FilePath
-  | ReactionDisplayInfo DisplayInfo
-  | ReactionStatus Bool Bool
-  | ReactionClearHighlightingTokenBased
-  | ReactionClearHighlightingNotOnlyTokenBased
-  | ReactionRunningInfo Int String
-  | ReactionClearRunningInfo
-  | ReactionDoneAborting
-  | ReactionDoneExiting
-  | ReactionGiveAction Int GiveResult
+    ResponseHighlightingInfoDirect HighlightingInfos
+  | ResponseHighlightingInfoIndirect FilePath
+  | ResponseDisplayInfo DisplayInfo
+  | ResponseStatus Bool Bool
+  | ResponseClearHighlightingTokenBased
+  | ResponseClearHighlightingNotOnlyTokenBased
+  | ResponseRunningInfo Int String
+  | ResponseClearRunningInfo
+  | ResponseDoneAborting
+  | ResponseDoneExiting
+  | ResponseGiveAction Int GiveResult
   | -- priority: 1
-    ReactionInteractionPoints [Int]
+    ResponseInteractionPoints [Int]
   | -- priority: 2
-    ReactionMakeCaseFunction [String]
-  | ReactionMakeCaseExtendedLambda [String]
-  | ReactionSolveAll [(Int, String)]
+    ResponseMakeCaseFunction [String]
+  | ResponseMakeCaseExtendedLambda [String]
+  | ResponseSolveAll [(Int, String)]
   | -- priority: 3
-    ReactionJumpToError FilePath Int
-  | ReactionEnd
+    ResponseJumpToError FilePath Int
+  | ResponseEnd
   deriving (Generic)
 
-instance ToJSON Reaction
+instance ToJSON Response
 
 --------------------------------------------------------------------------------
 

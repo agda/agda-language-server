@@ -41,7 +41,7 @@ interact = do
     lift $
       setInteractionOutputCallback $ \response -> do
         reaction <- fromResponse response
-        sendReaction env reaction
+        sendResponse env reaction
 
     -- keep reading command
     commands <- liftIO $ initialiseCommandQueue (readCommand env)

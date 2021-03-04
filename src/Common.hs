@@ -21,8 +21,8 @@ import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 data Env = Env
   { envLogChan :: Chan Text,
     envCmdThrottler :: Throttler IOTCM,
-    envReactionChan :: Chan Reaction,
-    envReactionController :: Foreman,
+    envResponseChan :: Chan Response,
+    envResponseController :: Foreman,
     envDevMode :: Bool
   }
 
@@ -58,18 +58,18 @@ consumeCommand env = liftIO $ Throttler.take (envCmdThrottler env)
 
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
-  foreman <- asks envReactionController
+  foreman <- asks envResponseController
   liftIO $ Foreman.setGoalAndWait foreman
 
 signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m ()
 signalCommandFinish = do
   writeLog "[Command] Finished"
-  -- send `ReactionEnd`
+  -- send `ResponseEnd`
   env <- ask
-  liftIO $ writeChan (envReactionChan env) ReactionEnd
+  liftIO $ writeChan (envResponseChan env) ResponseEnd
   -- allow the next Command to be consumed
   liftIO $ Throttler.move (envCmdThrottler env)
 
-sendReaction :: (Monad m, MonadIO m) => Env -> Reaction -> TCMT m ()
-sendReaction env reaction = do
-  liftIO $ writeChan (envReactionChan env) reaction
+sendResponse :: (Monad m, MonadIO m) => Env -> Response -> TCMT m ()
+sendResponse env reaction = do
+  liftIO $ writeChan (envResponseChan env) reaction

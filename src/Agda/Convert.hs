@@ -6,7 +6,7 @@
 
 module Agda.Convert where
 
-import Agda.IR (FromAgda (..), Reaction (..))
+import Agda.IR (FromAgda (..))
 import qualified Agda.IR as IR
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
@@ -69,26 +69,25 @@ responseAbbr res = case res of
 serialize :: Lisp String -> String
 serialize = show . pretty
 
--- | Convert Response to an Reaction for the LSP client
-fromResponse :: Response -> TCM IR.Reaction
+fromResponse :: Response -> TCM IR.Response
 fromResponse (Resp_HighlightingInfo info remove method modFile) =
   fromHighlightingInfo info remove method modFile
-fromResponse (Resp_DisplayInfo info) = ReactionDisplayInfo <$> fromDisplayInfo info
-fromResponse (Resp_ClearHighlighting TokenBased) = return ReactionClearHighlightingTokenBased
-fromResponse (Resp_ClearHighlighting NotOnlyTokenBased) = return ReactionClearHighlightingNotOnlyTokenBased
-fromResponse Resp_DoneAborting = return ReactionDoneAborting
-fromResponse Resp_DoneExiting = return ReactionDoneExiting
-fromResponse Resp_ClearRunningInfo = return ReactionClearRunningInfo
-fromResponse (Resp_RunningInfo n s) = return $ ReactionRunningInfo n s
-fromResponse (Resp_Status s) = return $ ReactionStatus (sChecked s) (sShowImplicitArguments s)
-fromResponse (Resp_JumpToError f p) = return $ ReactionJumpToError f (fromIntegral p)
+fromResponse (Resp_DisplayInfo info) = IR.ResponseDisplayInfo <$> fromDisplayInfo info
+fromResponse (Resp_ClearHighlighting TokenBased) = return IR.ResponseClearHighlightingTokenBased
+fromResponse (Resp_ClearHighlighting NotOnlyTokenBased) = return IR.ResponseClearHighlightingNotOnlyTokenBased
+fromResponse Resp_DoneAborting = return IR.ResponseDoneAborting
+fromResponse Resp_DoneExiting = return IR.ResponseDoneExiting
+fromResponse Resp_ClearRunningInfo = return IR.ResponseClearRunningInfo
+fromResponse (Resp_RunningInfo n s) = return $ IR.ResponseRunningInfo n s
+fromResponse (Resp_Status s) = return $ IR.ResponseStatus (sChecked s) (sShowImplicitArguments s)
+fromResponse (Resp_JumpToError f p) = return $ IR.ResponseJumpToError f (fromIntegral p)
 fromResponse (Resp_InteractionPoints is) =
-  return $ ReactionInteractionPoints (map interactionId is)
+  return $ IR.ResponseInteractionPoints (map interactionId is)
 fromResponse (Resp_GiveAction (InteractionId i) giveAction) =
-  return $ ReactionGiveAction i (fromAgda giveAction)
-fromResponse (Resp_MakeCase _ Function pcs) = return $ ReactionMakeCaseFunction pcs
-fromResponse (Resp_MakeCase _ ExtendedLambda pcs) = return $ ReactionMakeCaseExtendedLambda pcs
-fromResponse (Resp_SolveAll ps) = return $ ReactionSolveAll (map prn ps)
+  return $ IR.ResponseGiveAction i (fromAgda giveAction)
+fromResponse (Resp_MakeCase _ Function pcs) = return $ IR.ResponseMakeCaseFunction pcs
+fromResponse (Resp_MakeCase _ ExtendedLambda pcs) = return $ IR.ResponseMakeCaseExtendedLambda pcs
+fromResponse (Resp_SolveAll ps) = return $ IR.ResponseSolveAll (map prn ps)
   where
     prn (InteractionId i, e) = (i, prettyShow e)
 
@@ -97,11 +96,11 @@ fromHighlightingInfo ::
   RemoveTokenBasedHighlighting ->
   HighlightingMethod ->
   ModuleToSource ->
-  TCM IR.Reaction
+  TCM IR.Response
 fromHighlightingInfo h remove method modFile =
   case chooseHighlightingMethod h method of
-    Direct -> return $ ReactionHighlightingInfoDirect info
-    Indirect -> ReactionHighlightingInfoIndirect <$> indirect
+    Direct -> return $ IR.ResponseHighlightingInfoDirect info
+    Indirect -> IR.ResponseHighlightingInfoIndirect <$> indirect
   where
     fromAspects ::
       (Highlighting.Range, Aspects) ->

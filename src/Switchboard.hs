@@ -15,7 +15,7 @@ import Data.IORef
 
 data Switchboard = Switchboard 
   { sbPrintLog :: ThreadId
-  , sbSendReaction :: ThreadId
+  , sbSendResponse :: ThreadId
   , sbRunAgda :: ThreadId
   , sbLanguageContextEnv :: IORef (Maybe (LanguageContextEnv ()))
   }
@@ -26,7 +26,7 @@ new env = do
   ctxEnvIORef <- newIORef Nothing
   Switchboard
     <$> forkIO (keepPrintingLog env)
-    <*> forkIO (keepSendindReaction env ctxEnvIORef)
+    <*> forkIO (keepSendindResponse env ctxEnvIORef)
     <*> forkIO (runReaderT Agda.interact env)
     <*> pure ctxEnvIORef
 
@@ -38,7 +38,7 @@ setupLanguageContextEnv switchboard ctxEnv = do
 destroy :: Switchboard -> IO ()
 destroy switchboard = do
   killThread (sbPrintLog switchboard)
-  killThread (sbSendReaction switchboard)
+  killThread (sbSendResponse switchboard)
   killThread (sbRunAgda switchboard)
   writeIORef (sbLanguageContextEnv switchboard) Nothing
 
@@ -51,17 +51,17 @@ keepPrintingLog env = forever $ do
     Text.putStrLn result
 
 -- | Keep sending reactions
--- Consumer of `envReactionChan`
-keepSendindReaction :: Env -> IORef (Maybe (LanguageContextEnv ())) -> IO ()
-keepSendindReaction env ctxEnvIORef = forever $ do
-  response <- readChan (envReactionChan env)
+-- Consumer of `envResponseChan`
+keepSendindResponse :: Env -> IORef (Maybe (LanguageContextEnv ())) -> IO ()
+keepSendindResponse env ctxEnvIORef = forever $ do
+  response <- readChan (envResponseChan env)
 
   result <- readIORef ctxEnvIORef
   forM_ result $ \ctxEnv -> do 
     runLspT ctxEnv $ do
-      callback <- liftIO $ Foreman.dispatch (envReactionController env)
+      callback <- liftIO $ Foreman.dispatch (envResponseController env)
 
       let value = JSON.toJSON response
       sendRequest (SCustomMethod "agda") value $ \_result -> liftIO $ do
-        -- writeChan (envLogChan env) $ "[Reaction] >>>> " <> pack (show value)
+        -- writeChan (envLogChan env) $ "[Response] >>>> " <> pack (show value)
         callback ()
