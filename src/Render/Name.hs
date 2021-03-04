@@ -18,7 +18,7 @@ instance Render C.NamePart where
 
 instance Render C.Name where
   render (C.Name range _inScope xs) = linkRange range $ sepBy " " (map render xs)
-  render (C.NoName range _) = "_"
+  render (C.NoName _ _) = "_"
 
 instance Render C.QName where
   render (C.Qual m x)

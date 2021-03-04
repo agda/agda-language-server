@@ -4,7 +4,6 @@
 module Render.Common where
 
 import Agda.Syntax.Common
-import Agda.Syntax.Concrete (BoundName (bnameTactic), TacticAttribute)
 import qualified Agda.Utils.Null as Agda
 import Render.Class
 import Render.RichText
@@ -59,11 +58,11 @@ instance Render Cohesion where
 --   around @text@ according to info @info@ and returns
 --   @visible text@ if the we deal with a visible thing.
 renderHiding :: LensHiding a => a -> (RichText -> RichText) -> RichText -> RichText
-renderHiding a parens =
+renderHiding a parensF =
   case getHiding a of
     Hidden -> braces'
     Instance {} -> dbraces
-    NotHidden -> parens
+    NotHidden -> parensF
 
 renderRelevance :: LensRelevance a => a -> RichText -> RichText
 renderRelevance a d =

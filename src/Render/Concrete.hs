@@ -10,12 +10,10 @@ import Agda.Syntax.Common
 import Agda.Syntax.Concrete
 import Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
 import Agda.Syntax.Position (noRange)
-import Agda.TypeChecking.Monad.Base hiding (Open, Primitive, Record)
 import Agda.Utils.Float (toStringWithoutDotZero)
 import Agda.Utils.Function (applyWhen)
 import Agda.Utils.Functor (dget, (<&>))
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
-import qualified Agda.Utils.Pretty as Agda
 import Data.Maybe (isNothing, maybeToList)
 import qualified Data.Strict.Maybe as Strict
 import Render.Class
@@ -24,7 +22,6 @@ import Render.Literal ()
 import Render.Name ()
 import Render.RichText
 import Render.TypeChecking ()
-import Debug.Trace (traceShowId)
 
 --------------------------------------------------------------------------------
 
@@ -45,7 +42,7 @@ instance Render a => Render (MaybePlaceholder a) where
 
 -- | InteractionId
 instance Render InteractionId where
-  render (InteractionId i) = linkHole i ("?" <> render i)
+  render (InteractionId i) = linkHole i
 
 --------------------------------------------------------------------------------
 
@@ -56,7 +53,7 @@ instance Render Expr where
     Lit lit -> render lit
     -- no hole index, use LinkRange instead
     QuestionMark range Nothing -> linkRange range "?"
-    QuestionMark _range (Just n) -> linkHole n $ "?" <> text (show n)
+    QuestionMark _range (Just n) -> linkHole n
     Underscore range n -> linkRange range $ maybe "_" text n
     App {} ->
       case appView expr of
@@ -95,8 +92,8 @@ instance Render Expr where
           maybe mempty (\e -> "in" <+> render e) me
         ]
     Paren _ e -> parens $ render e
-    IdiomBrackets _ es ->
-      case es of
+    IdiomBrackets _ exprs ->
+      case exprs of
         [] -> emptyIdiomBrkt
         [e] -> leftIdiomBrkt <+> render e <+> rightIdiomBrkt
         e : es -> leftIdiomBrkt <+> render e <+> fsep (map (("|" <+>) . render) es) <+> rightIdiomBrkt
@@ -174,13 +171,13 @@ instance Render NamedBinding where
       prH
         | withH =
           renderRelevance x
-            . renderHiding x mparens
+            . renderHiding x mparens'
             . renderCohesion x
             . renderQuantity x
             . renderTactic bn
         | otherwise = id
       -- Parentheses are needed when an attribute @... is present
-      mparens
+      mparens'
         | noUserQuantity x, Nothing <- bnameTactic bn = id
         | otherwise = parens
 
@@ -203,7 +200,7 @@ instance Render TypedBinding where
   render (TLet _ ds) = parens $ "let" <+> sepBy " " (map render ds)
   render (TBind _ xs (Underscore _ Nothing)) =
     sepBy " " (map (render . NamedBinding True) xs)
-  render (TBind _ xs e) =
+  render (TBind _ binders e) =
     sepBy
       " "
       [ renderRelevance y $
@@ -216,7 +213,7 @@ instance Render TypedBinding where
                     [ sepBy " " (map (render . NamedBinding False) ys),
                       ":" <+> render e
                     ]
-        | ys@(y : _) <- groupBinds xs
+        | ys@(y : _) <- groupBinds binders
       ]
     where
       groupBinds [] = []
@@ -225,7 +222,7 @@ instance Render TypedBinding where
         | otherwise = (x : ys) : groupBinds zs
         where
           (ys, zs) = span (same x) xs
-          same x y = getArgInfo x == getArgInfo y && isNothing (isLabeled y)
+          same a b = getArgInfo a == getArgInfo b && isNothing (isLabeled b)
 
 instance Render Tel where
   render (Tel tel)
@@ -266,7 +263,7 @@ instance Render WhereClause where
       ]
 
 instance Render LHS where
-  render (LHS p eqs es ell) =
+  render (LHS p eqs es _) =
     sep
       [ render p,
         indent $ if null eqs then mempty else fsep $ map render eqs,
@@ -297,7 +294,7 @@ instance Render DoStmt where
     ((render p <+> "←") <> indent (render e)) <> indent (prCs cs)
     where
       prCs [] = mempty
-      prCs cs = "where" <> indent (vcat (map render cs))
+      prCs cs' = "where" <> indent (vcat (map render cs'))
   render (DoThen e) = render e
   render (DoLet _ ds) = "let" <+> vcat (map render ds)
 
@@ -318,12 +315,12 @@ instance Render Declaration where
                   renderQuantity i $
                     render $ TypeSig (setRelevance Relevant i) tac x e
         where
-          mkInst (InstanceDef _) d = sep ["instance", indent d]
-          mkInst NotInstanceDef d = d
+          mkInst (InstanceDef _) f = sep ["instance", indent f]
+          mkInst NotInstanceDef f = f
 
-          mkOverlap i d
-            | isOverlappable i = "overlap" <+> d
-            | otherwise = d
+          mkOverlap j f
+            | isOverlappable j = "overlap" <+> f
+            | otherwise = f
       Field _ fs ->
         sep
           [ "field",
@@ -392,7 +389,7 @@ instance Render Declaration where
         pRecord x ind eta con tel Nothing cs
       Infix f xs ->
         render f <+> sepBy "," (map render xs)
-      Syntax n xs -> "syntax" <+> render n <+> "..."
+      Syntax n _ -> "syntax" <+> render n <+> "..."
       PatternSyn _ n as p ->
         "pattern" <+> render n <+> fsep (map render as)
           <+> "="
@@ -425,7 +422,7 @@ instance Render Declaration where
           [ render open <+> "module" <+> render x <+> fcat (map render tel),
             indent $ "=" <+> render e <+> render i
           ]
-      ModuleMacro _ x (RecordModuleInstance _ rec) open i ->
+      ModuleMacro _ x (RecordModuleInstance _ rec) open _ ->
         sep
           [ render open <+> "module" <+> render x,
             indent $ "=" <+> render rec <+> "{{...}}"
@@ -435,7 +432,7 @@ instance Render Declaration where
         hsep [render open, "import", render x, as rn, render i]
         where
           as Nothing = mempty
-          as (Just x) = "as" <+> render (asName x)
+          as (Just y) = "as" <+> render (asName y)
       UnquoteDecl _ xs t ->
         sep ["unquoteDecl" <+> fsep (map render xs) <+> "=", indent $ render t]
       UnquoteDef _ xs t ->
@@ -599,12 +596,12 @@ renderOpApp ::
   QName ->
   [NamedArg (MaybePlaceholder a)] ->
   [RichText]
-renderOpApp q es = merge [] $ prOp ms xs es
+renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
   where
     -- ms: the module part of the name.
-    ms = init (qnameParts q)
+    moduleNames = init (qnameParts q)
     -- xs: the concrete name (alternation of @Id@ and @Hole@)
-    xs = case unqualify q of
+    concreteNames = case unqualify q of
       Name _ _ xs -> xs
       NoName {} -> __IMPOSSIBLE__
 
@@ -625,7 +622,7 @@ renderOpApp q es = merge [] $ prOp ms xs es
 
     prOp _ [] es = map (\e -> (render e, Nothing)) es
 
-    qual ms doc = sepBy "." $ map render ms ++ [doc]
+    qual ms' doc = sepBy "." $ map render ms' ++ [doc]
 
     -- Section underscores should be printed without surrounding
     -- whitespace. This function takes care of that.
@@ -634,9 +631,9 @@ renderOpApp q es = merge [] $ prOp ms xs es
     merge before ((d, Nothing) : after) = merge (d : before) after
     merge before ((d, Just Beginning) : after) = mergeRight before d after
     merge before ((d, Just End) : after) = case mergeLeft d before of
-      (d, bs) -> merge (d : bs) after
+      (d', bs) -> merge (d' : bs) after
     merge before ((d, Just Middle) : after) = case mergeLeft d before of
-      (d, bs) -> mergeRight bs d after
+      (d', bs) -> mergeRight bs d' after
 
     mergeRight before d after =
       reverse before
@@ -653,15 +650,15 @@ instance (Render a, Render b) => Render (ImportDirective' a b) where
     sep
       [ public (publicOpen i),
         render $ using i,
-        renderHiding $ hiding i,
+        renderHiding' $ hiding i,
         rename $ impRenaming i
       ]
     where
       public Just {} = "public"
       public Nothing = mempty
 
-      renderHiding [] = mempty
-      renderHiding xs = "hiding" <+> parens (sepBy ";" $ map render xs)
+      renderHiding' [] = mempty
+      renderHiding' xs = "hiding" <+> parens (sepBy ";" $ map render xs)
 
       rename [] = mempty
       rename xs =

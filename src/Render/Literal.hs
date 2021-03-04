@@ -2,10 +2,7 @@
 
 module Render.Literal where
 
-import Agda.Syntax.Common
 import Agda.Syntax.Literal
-import Agda.TypeChecking.Monad.Base
-import qualified Agda.Utils.Pretty as Agda
 import Render.Class
 import Render.RichText
 import Render.Name ()

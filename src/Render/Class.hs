@@ -10,22 +10,12 @@ module Render.Class
   )
 where
 
-import qualified Agda.Syntax.Position as Agda
-import qualified Agda.Syntax.Common as Agda
 import qualified Agda.TypeChecking.Monad.Base as Agda
-import qualified Agda.Utils.FileName as Agda
 import qualified Agda.Syntax.Translation.AbstractToConcrete as Agda
-import Data.Sequence (Seq (..))
-import qualified Data.Sequence as Seq
-import qualified Data.Strict.Maybe as Strict
-import Data.String (IsString (..))
-import GHC.Generics (Generic)
 import Agda.Utils.Pretty (Doc)
 import qualified Agda.Utils.Pretty as Doc
-import qualified Data.List as List
 import Agda.Syntax.Fixity (Precedence(TopCtx))
 import Render.RichText
-import Agda.Utils.Null (ifNull)
 
 --------------------------------------------------------------------------------
 

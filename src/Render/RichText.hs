@@ -41,17 +41,13 @@ module Render.RichText
 where
 
 import qualified Agda.Interaction.Options.IORefs as Agda
-import qualified Agda.Syntax.Common as Agda
 import qualified Agda.Syntax.Position as Agda
 import qualified Agda.Utils.FileName as Agda
 import qualified Agda.Utils.Null as Agda
-import Agda.Utils.Pretty (Doc)
-import qualified Agda.Utils.Pretty as Doc
 import Agda.Utils.Suffix (subscriptAllowed, toSubscriptDigit)
 import Data.Aeson (ToJSON (toJSON), Value (Null))
 import Data.Foldable (toList)
 import Data.IORef (readIORef)
-import qualified Data.List as List
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import qualified Data.Strict.Maybe as Strict
@@ -79,10 +75,9 @@ instance ToJSON RichText where
 instance Show RichText where
   show (RichText xs) = unwords $ map show $ toList xs
 
--- | An alternative @show@ for debugging 
--- debug :: RichText -> String 
+-- | An alternative @show@ for debugging
+-- debug :: RichText -> String
 -- debug (RichText xs) = show $ toList $ fmap (\(Elem s a) -> s <> " " <> show a) xs
-
 (<+>) :: RichText -> RichText -> RichText
 x <+> y = x <> " " <> y
 
@@ -97,18 +92,19 @@ icon :: String -> RichText
 icon s = RichText $ Seq.singleton $ Icon s []
 
 linkRange :: Agda.Range -> RichText -> RichText
-linkRange range (RichText xs) = RichText $ Seq.singleton $ Link range (toList xs) mempty 
+linkRange range (RichText xs) = RichText $ Seq.singleton $ Link range (toList xs) mempty
 
-linkHole :: Int -> RichText -> RichText
-linkHole i (RichText xs) = RichText $ Seq.singleton $ Hole i
+linkHole :: Int -> RichText
+linkHole i = RichText $ Seq.singleton $ Hole i
 
 --------------------------------------------------------------------------------
 
 type ClassNames = [String]
+
 --------------------------------------------------------------------------------
 
 -- | Internal type, to be converted to JSON values
-data Inline 
+data Inline
   = Icon String ClassNames
   | Text String ClassNames
   | Link Agda.Range [Inline] ClassNames
@@ -123,12 +119,12 @@ instance Show Inline where
   show (Link _ s _) = mconcat $ fmap show s
   show (Hole i) = "?" ++ show i
 
-addClassName :: ClassNames -> Inline -> Inline
-addClassName ys elem = case elem of 
-  Icon s xs -> Icon s (xs <> ys)
-  Text s xs -> Text s (xs <> ys)
-  Link range s xs -> Link range s (xs <> ys)
-  Hole i    -> Hole i
+-- addClassName :: ClassNames -> Inline -> Inline
+-- addClassName ys element = case element of
+--   Icon s xs -> Icon s (xs <> ys)
+--   Text s xs -> Text s (xs <> ys)
+--   Link range s xs -> Link range s (xs <> ys)
+--   Hole i -> Hole i
 
 --------------------------------------------------------------------------------
 
@@ -167,8 +163,8 @@ indentM :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
 indentM x = pure "  " <> x
 
 sepBy :: RichText -> [RichText] -> RichText
-sepBy delim [] = mempty
-sepBy delim [x] = x
+sepBy _ [] = mempty
+sepBy _ [x] = x
 sepBy delim (x : xs) = x <> delim <> sepBy delim xs
 
 sepByM :: Applicative f => RichText -> [RichText] -> f RichText

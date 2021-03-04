@@ -8,14 +8,10 @@
 -- | Intermediate Representation for Agda's types
 module Agda.IR where
 
-import qualified Agda.Interaction.Base as Agda
 import qualified Agda.Interaction.Response as Agda
-import qualified Agda.Syntax.Common as Agda
-import qualified Agda.Syntax.Concrete as C
 import qualified Agda.Syntax.Position as Agda
 import Agda.TypeChecking.Monad (TCM)
 import qualified Agda.TypeChecking.Monad.Base as Agda
-import qualified Agda.Utils.Pretty as Agda
 import Data.Aeson
 import GHC.Generics (Generic)
 import Render

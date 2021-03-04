@@ -53,10 +53,10 @@ interact = do
     _ <- mapReaderT (`runStateT` commandState) (loop env)
 
     return ""
-
+  -- TODO: we should examine the result
   case result of
-    Left err -> return ()
-    Right val -> return ()
+    Left _err -> return ()
+    Right _val -> return ()
   where
     loop :: Env -> ServerM' CommandM ()
     loop env = do
