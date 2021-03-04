@@ -58,6 +58,7 @@ instance ToJSON Response
 data DisplayInfo
   = DisplayInfoGeneric String String
   | DisplayInfoAllGoalsWarnings String [(RichText, String)] [(RichText, String, Agda.Range)] [String] [String]
+  | DisplayInfoCurrentGoal (RichText, String)
   | DisplayInfoCompilationOk [String] [String]
   | DisplayInfoAuto String
   | DisplayInfoError String

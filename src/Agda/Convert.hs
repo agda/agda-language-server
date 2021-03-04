@@ -45,7 +45,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
-import Render (RichText, renderATop)
+import Render (RenderTCM (renderTCM), RichText, renderATop)
 import Render.TypeChecking ()
 
 responseAbbr :: IsString a => Response -> a
@@ -309,8 +309,16 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
                   ++ constraintsDoc
         format (show doc) "*Goal type etc.*"
       Goal_CurrentGoal norm -> do
-        doc <- prettyTypeOfMeta norm ii
-        format (show doc) "*Current Goal*"
+        form <- B.typeOfMeta norm ii
+        case form of
+          OfType _ e -> do 
+            rendered <- renderATop e
+            raw <- show <$> prettyATop e
+            return $ IR.DisplayInfoCurrentGoal (rendered, raw)
+          _ -> do 
+            rendered <- renderATop form
+            raw <- show <$> prettyATop form
+            return $ IR.DisplayInfoCurrentGoal (rendered, raw)
       Goal_InferredType expr -> do
         doc <- prettyATop expr
         format (show doc) "*Inferred Type*"
