@@ -168,6 +168,7 @@ indentM x = pure "  " <> x
 
 sepBy :: RichText -> [RichText] -> RichText
 sepBy delim [] = mempty
+sepBy delim [x] = x
 sepBy delim (x : xs) = x <> delim <> sepBy delim xs
 
 sepByM :: Applicative f => RichText -> [RichText] -> f RichText
