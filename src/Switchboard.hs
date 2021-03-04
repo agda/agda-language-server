@@ -4,7 +4,7 @@ module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy) where
 
 import Common
 import Control.Concurrent
-import qualified Control.Concurrent.Foreman as Foreman
+import qualified Server.ResponseController as ResponseController
 import Control.Monad.Reader
 import qualified Agda
 import qualified Data.Aeson as JSON
@@ -59,7 +59,7 @@ keepSendindResponse env ctxEnvIORef = forever $ do
   result <- readIORef ctxEnvIORef
   forM_ result $ \ctxEnv -> do 
     runLspT ctxEnv $ do
-      callback <- liftIO $ Foreman.dispatch (envResponseController env)
+      callback <- liftIO $ ResponseController.dispatch (envResponseController env)
 
       let value = JSON.toJSON response
       sendRequest (SCustomMethod "agda") value $ \_result -> liftIO $ do

@@ -8,10 +8,10 @@ import Agda.IR
 import Agda.Interaction.Base (IOTCM)
 import Agda.TypeChecking.Monad (TCMT)
 import Control.Concurrent
-import Control.Concurrent.Foreman (Foreman)
-import qualified Control.Concurrent.Foreman as Foreman
-import Control.Concurrent.Throttler (Throttler)
-import qualified Control.Concurrent.Throttler as Throttler
+import Server.ResponseController (ResponseController)
+import qualified Server.ResponseController as ResponseController
+import Server.CommandController (CommandController)
+import qualified Server.CommandController as CommandController
 import Control.Monad.Reader
 import Data.Text (Text)
 import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
@@ -20,9 +20,9 @@ import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 
 data Env = Env
   { envLogChan :: Chan Text,
-    envCmdThrottler :: Throttler IOTCM,
+    envCommandController :: CommandController,
     envResponseChan :: Chan Response,
-    envResponseController :: Foreman,
+    envResponseController :: ResponseController,
     envDevMode :: Bool
   }
 
@@ -33,9 +33,9 @@ type ServerM = ServerM' IO
 createInitEnv :: Bool -> IO Env
 createInitEnv devMode =
   Env <$> newChan
-    <*> Throttler.new
+    <*> CommandController.new
     <*> newChan
-    <*> Foreman.new
+    <*> ResponseController.new
     <*> pure devMode
 
 runServerLSP :: Env -> LanguageContextEnv () -> LspT () (ServerM' m) a -> m a
@@ -49,17 +49,17 @@ writeLog msg = do
 -- | Provider
 provideCommand :: (Monad m, MonadIO m) => IOTCM -> ServerM' m ()
 provideCommand iotcm = do
-  throttler <- asks envCmdThrottler
-  liftIO $ Throttler.put throttler iotcm
+  controller <- asks envCommandController
+  liftIO $ CommandController.put controller iotcm
 
 -- | Consumter
 consumeCommand :: (Monad m, MonadIO m) => Env -> m IOTCM
-consumeCommand env = liftIO $ Throttler.take (envCmdThrottler env)
+consumeCommand env = liftIO $ CommandController.take (envCommandController env)
 
 waitUntilResponsesSent :: (Monad m, MonadIO m) => ServerM' m ()
 waitUntilResponsesSent = do
-  foreman <- asks envResponseController
-  liftIO $ Foreman.setGoalAndWait foreman
+  controller <- asks envResponseController
+  liftIO $ ResponseController.setCheckpointAndWait controller
 
 signalCommandFinish :: (Monad m, MonadIO m) => ServerM' m ()
 signalCommandFinish = do
@@ -68,7 +68,7 @@ signalCommandFinish = do
   env <- ask
   liftIO $ writeChan (envResponseChan env) ResponseEnd
   -- allow the next Command to be consumed
-  liftIO $ Throttler.move (envCmdThrottler env)
+  liftIO $ CommandController.release (envCommandController env)
 
 sendResponse :: (Monad m, MonadIO m) => Env -> Response -> TCMT m ()
 sendResponse env reaction = do

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 95d1878d9bb8036341ce4627032c2407670a0fc89eaaa6d753ad0dd3bc025f05
+-- hash: bb1db68b171984f7cb52ff05fbfad73ee72bea3589d073d4a8e045aa40c655c2
 
 name:           agda-language-server
 version:        0.0.1.0
@@ -31,9 +31,7 @@ library
       Agda.Convert
       Agda.IR
       Common
-      Control.Concurrent.Foreman
       Control.Concurrent.SizedChan
-      Control.Concurrent.Throttler
       Render
       Render.Class
       Render.Common
@@ -43,6 +41,8 @@ library
       Render.RichText
       Render.TypeChecking
       Server
+      Server.CommandController
+      Server.ResponseController
       Switchboard
   other-modules:
       Paths_agda_language_server
