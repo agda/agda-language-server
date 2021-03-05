@@ -291,9 +291,8 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
       Goal_NormalForm cmode expr -> do
         doc <- showComputed cmode expr
         return $ IR.DisplayInfoGeneric "Normal Form" [IR.Unlabeled (Render.text $ show doc) Nothing]
-      Goal_GoalType norm aux ctx boundaries constraints -> do
+      Goal_GoalType norm aux resCtxs boundaries constraints -> do
         raw <- do
-          ctxDoc <- prettyResponseContexts ii True ctx
           let constraintsDoc =
                 if null constraints
                   then []
@@ -301,7 +300,7 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
                     [ text $ delimiter "Constraints",
                       vcat $ map pretty constraints
                     ]
-          let doc = vcat $ ctxDoc : constraintsDoc
+          let doc = vcat constraintsDoc
           return $ show doc
 
         goalSect <- do
@@ -324,9 +323,10 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
                 else
                   IR.Header "Boundary" :
                   map (\boundary -> IR.Unlabeled (render boundary) (Just $ show $ pretty boundary)) boundaries
-        -- contextSect <-
+        contextSect <- reverse . concat <$> mapM (renderResponseContext ii) resCtxs
+
         return $
-          IR.DisplayInfoGeneric "Goal type etc" $ goalSect ++ auxSect ++ boundarySect ++ [IR.Unlabeled (Render.text "") (Just raw)]
+          IR.DisplayInfoGeneric "Goal type etc" $ goalSect ++ auxSect ++ boundarySect ++ contextSect ++ [IR.Unlabeled (Render.text "") (Just raw)]
       Goal_CurrentGoal norm -> do
         (rendered, raw) <- prettyTypeOfMeta norm ii
         return $ IR.DisplayInfoCurrentGoal (IR.Unlabeled rendered (Just raw))
@@ -509,11 +509,85 @@ prettyResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
               ["instance" | isInstance ai]
             ]
     ty <- prettyATop expr
-    maybeVal <- traverse prettyATop letv
+
+    letv' <- case letv of
+      Nothing -> return []
+      Just val -> do
+        val' <- prettyATop val
+        return [(prettyShow x, "=" <+> val')]
 
     return $
-      (attribute ++ prettyCtxName, ":" <+> ty <+> parenSep extras) :
-        [(prettyShow x, "=" <+> val) | val <- maybeToList maybeVal]
+      (attribute ++ prettyCtxName, ":" <+> ty <+> parenSep extras) : letv'
+  where
+    parenSep :: [Doc] -> Doc
+    parenSep docs
+      | null docs = empty
+      | otherwise = (" " <+>) $ parens $ fsep $ punctuate comma docs
+
+-- | Render the context of the given meta-variable.
+renderResponseContext ::
+  -- | Context of this meta-variable.
+  InteractionId ->
+  ResponseContextEntry ->
+  TCM [IR.Item]
+renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = withInteractionId ii $ do
+  modality <- asksTC getModality
+  do
+    let 
+        rawCtxName :: String
+        rawCtxName
+          | n == x = prettyShow x
+          | isInScope n == InScope = prettyShow n ++ " = " ++ prettyShow x
+          | otherwise = prettyShow x
+          
+        renderedCtxName :: RichText
+        renderedCtxName
+          | n == x = render x
+          | isInScope n == InScope = render n Render.<+> "=" Render.<+> render x
+          | otherwise = render x
+
+        -- Some attributes are useful to report whenever they are not
+        -- in the default state.
+        rawAttribute :: String
+        rawAttribute = c ++ if null c then "" else " "
+          where
+            c = prettyShow (getCohesion ai)
+
+        renderedAttribute :: RichText
+        renderedAttribute = c <> if null (show c) then "" else " "
+          where
+            c = render (getCohesion ai)
+
+        extras :: IsString a => [a]
+        extras =
+          concat
+            [ ["not in scope" | isInScope nis == C.NotInScope],
+              -- Print erased if hypothesis is erased by goal is non-erased.
+              ["erased" | not $ getQuantity ai `moreQuantity` getQuantity modality],
+              -- Print irrelevant if hypothesis is strictly less relevant than goal.
+              ["irrelevant" | not $ getRelevance ai `moreRelevant` getRelevance modality],
+              -- Print instance if variable is considered by instance search
+              ["instance" | isInstance ai]
+            ]
+
+    renderedExpr <- renderATop expr
+    rawExpr <- prettyATop expr
+    let renderedValue = renderedCtxName <> renderedAttribute Render.<+> ":" Render.<+> renderedExpr Render.<+> Render.parens (Render.sepBy ", " extras)
+    let rawType = show $ align 10 [(rawAttribute ++ rawCtxName, ":" <+> rawExpr <+> parenSep extras)]
+    let typeItem = IR.Unlabeled "" (Just rawType)
+
+    valueItem <- case letv of
+      Nothing -> return []
+      Just val -> do
+        valText <- renderATop val
+        valString <- prettyATop val
+        let renderedValue = Render.render x Render.<+> "=" Render.<+> valText
+        let rawValue = show $ align 10 [(prettyShow x, "=" <+> valString)]
+        return
+          [ IR.Unlabeled renderedValue (Just rawValue)
+          ]
+
+    return $ typeItem : valueItem
   where
     parenSep :: [Doc] -> Doc
     parenSep docs
