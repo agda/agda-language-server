@@ -15,6 +15,7 @@ import qualified Agda.TypeChecking.Monad.Base as Agda
 import Data.Aeson
 import GHC.Generics (Generic)
 import Render
+
 --------------------------------------------------------------------------------
 
 -- | Typeclass for converting Agda values into IR
@@ -25,7 +26,7 @@ class FromAgdaTCM a b | a -> b where
   fromAgdaTCM :: a -> TCM b
 
 --------------------------------------------------------------------------------
--- IR for IOCTM
+-- | IR for IOCTM
 data Response
   = -- non-last responses
     ResponseHighlightingInfoDirect HighlightingInfos
@@ -59,6 +60,7 @@ data DisplayInfo
   = DisplayInfoGeneric String String
   | DisplayInfoAllGoalsWarnings String [(RichText, String)] [(RichText, String, Agda.Range)] [String] [String]
   | DisplayInfoCurrentGoal (RichText, String)
+  | DisplayInfoInferredType (RichText, String)
   | DisplayInfoCompilationOk [String] [String]
   | DisplayInfoAuto String
   | DisplayInfoError String
