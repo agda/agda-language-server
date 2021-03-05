@@ -4,97 +4,110 @@ module Render.Interaction where
 
 import Render.Class
 import Render.Name ()
+import Render.TypeChecking ()
+import Render.Position ()
 import Render.RichText
-import Agda.Interaction.Base ( OutputConstraint(..) )
+import Agda.Interaction.Base
 import Agda.TypeChecking.Monad
 
 
 --------------------------------------------------------------------------------
 
+-- | OutputForm 
+instance (Render a, Render b) => Render (OutputForm a b) where
+  render (OutputForm r pids c) = sep [render c, indent $ prange r, indent $ prPids pids]
+    where
+      prPids []    = mempty
+      prPids [pid] = parens $ "problem" <+> render pid
+      prPids pids  = parens $ "problems" <+> sepBy ", " (map render pids)
+      prange r | null s = mempty
+               | otherwise = text $ " [ at " ++ s ++ " ]"
+        where s = show $ render r
+
 -- | OutputConstraint 
-instance (RenderTCM a, Render b) => RenderTCM (OutputConstraint a b) where
-  renderTCM (OfType name expr) =
-    renderM name <> " : " <> renderTCM expr
-  renderTCM (JustType name) =
-    "Type " <> renderM name
-  renderTCM (JustSort name) =
-    "Sort " <> renderM name
-  renderTCM (CmpInType cmp expr name1 name2) =
-    renderM name1
+instance (Render a, Render b) => Render (OutputConstraint a b) where
+  render (OfType name expr) =
+    render name <> " : " <> render expr
+  render (JustType name) =
+    "Type " <> render name
+  render (JustSort name) =
+    "Sort " <> render name
+  render (CmpInType cmp expr name1 name2) =
+    render name1
       <> " "
-      <> renderP cmp
+      <> render cmp
       <> " "
-      <> renderM name2
+      <> render name2
       <> " : "
-      <> renderTCM expr
-  renderTCM (CmpElim pols expr names1 names2) =
-    renderM names1
+      <> render expr
+  render (CmpElim pols expr names1 names2) =
+    render names1
       <> " "
-      <> renderP pols
+      <> render pols
       <> " "
-      <> renderM names2
+      <> render names2
       <> " : "
-      <> renderTCM expr
-  renderTCM (CmpTypes cmp name1 name2) =
-    renderM name1
+      <> render expr
+  render (CmpTypes cmp name1 name2) =
+    render name1
       <> " "
-      <> renderP cmp
+      <> render cmp
       <> " "
-      <> renderM name2
-  renderTCM (CmpLevels cmp name1 name2) =
-    renderM name1
+      <> render name2
+  render (CmpLevels cmp name1 name2) =
+    render name1
       <> " "
-      <> renderP cmp
+      <> render cmp
       <> " "
-      <> renderM name2
-  renderTCM (CmpTeles cmp name1 name2) =
-    renderM name1
+      <> render name2
+  render (CmpTeles cmp name1 name2) =
+    render name1
       <> " "
-      <> renderP cmp
+      <> render cmp
       <> " "
-      <> renderM name2
-  renderTCM (CmpSorts cmp name1 name2) =
-    renderM name1
+      <> render name2
+  render (CmpSorts cmp name1 name2) =
+    render name1
       <> " "
-      <> renderP cmp
+      <> render cmp
       <> " "
-      <> renderM name2
-  renderTCM (Guard x (ProblemId pid)) =
-    renderTCM x
-      <> indentM (parensM ("blocked by problem " <> renderP pid))
-  renderTCM (Assign name expr) =
-    renderM name <> " := " <> renderTCM expr
-  renderTCM (TypedAssign name expr1 expr2) =
-    renderM name <> " := " <> renderTCM expr1 <> " :? " <> renderTCM expr2
-  renderTCM (PostponedCheckArgs name exprs expr1 expr2) = do
-    exprs' <- mapM (parensM <$> renderTCM) exprs
-    renderM name <> " := "
-      <> parensM ("_ : " <> renderTCM expr1)
+      <> render name2
+  render (Guard x (ProblemId pid)) =
+    render x
+      <> indent (parens ("blocked by problem " <> render pid))
+  render (Assign name expr) =
+    render name <> " := " <> render expr
+  render (TypedAssign name expr1 expr2) =
+    render name <> " := " <> render expr1 <> " :? " <> render expr2
+  render (PostponedCheckArgs name exprs expr1 expr2) = 
+    let exprs' = map (parens . render) exprs in
+    render name <> " := "
+      <> parens ("_ : " <> render expr1)
       <> " "
-      <> vsepM exprs'
+      <> vsep exprs'
       <> " : "
-      <> renderTCM expr2
-  renderTCM (IsEmptyType expr) =
-    "Is empty: " <> renderTCM expr
-  renderTCM (SizeLtSat expr) =
-    "Not empty type of sizes: " <> renderTCM expr
-  renderTCM (FindInstanceOF name expr exprs) = do
-    exprs' <- mapM (\(e, t) -> renderTCM e <> " : " <> renderTCM t) exprs
+      <> render expr2
+  render (IsEmptyType expr) =
+    "Is empty: " <> render expr
+  render (SizeLtSat expr) =
+    "Not empty type of sizes: " <> render expr
+  render (FindInstanceOF name expr exprs) = 
+    let exprs' = map (\(e, t) -> render e <> " : " <> render t) exprs in
     "Resolve instance argument "
-      <> indentM (renderM name <> " : " <> renderTCM expr)
-      <> indentM "Candidate:"
-      <> indentM (indentM (vsepM exprs'))
-  renderTCM (PTSInstance name1 name2) =
+      <> indent (render name <> " : " <> render expr)
+      <> indent "Candidate:"
+      <> indent (indent (vsep exprs'))
+  render (PTSInstance name1 name2) =
     "PTS instance for ("
-      <> renderM name1
+      <> render name1
       <> ", "
-      <> renderM name2
+      <> render name2
       <> ")"
-  renderTCM (PostponedCheckFunDef name expr) =
+  render (PostponedCheckFunDef name expr) =
     "Check definition of "
-      <> renderM name
+      <> render name
       <> " : "
-      <> renderTCM expr
+      <> render expr
 
 -- | IPBoundary'
 instance Render c => Render (IPBoundary' c) where

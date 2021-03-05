@@ -121,8 +121,8 @@ instance Render Expr where
       absurd Instance {} = "{{}}"
       absurd Hidden = "{}"
 
-instance RenderTCM Expr where
-  renderTCM = return . render
+-- instance RenderTCM Expr where
+--   renderTCM = render
 
 --------------------------------------------------------------------------------
 

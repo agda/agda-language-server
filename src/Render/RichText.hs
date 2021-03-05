@@ -21,6 +21,7 @@ module Render.RichText
     parensM,
     indent,
     indentM,
+    vsep,
     vsepM,
     sepBy,
     sepByM,
@@ -171,6 +172,9 @@ sepByM :: Applicative f => RichText -> [RichText] -> f RichText
 sepByM d = pure . sepBy d
 
 -- TODO: implement this
+vsep :: [RichText] -> RichText
+vsep = sepBy " "
+
 vsepM :: Applicative f => [RichText] -> f RichText
 vsepM = sepByM " "
 

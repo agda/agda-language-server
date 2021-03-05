@@ -45,7 +45,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
-import Render (Render (render), RenderTCM (renderTCM), RichText, renderATop)
+import Render (Render (render), RichText, renderATop)
 import qualified Render
 
 responseAbbr :: IsString a => Response -> a
@@ -324,9 +324,15 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
                   IR.Header "Boundary" :
                   map (\boundary -> IR.Unlabeled (render boundary) (Just $ show $ pretty boundary)) boundaries
         contextSect <- reverse . concat <$> mapM (renderResponseContext ii) resCtxs
+        let constraintSect = 
+                if null constraints
+                  then []
+                  else
+                    IR.Header "Constraints" :
+                    map (\constraint -> IR.Unlabeled (render constraint) (Just $ show $ pretty constraint)) constraints
 
         return $
-          IR.DisplayInfoGeneric "Goal type etc" $ goalSect ++ auxSect ++ boundarySect ++ contextSect ++ [IR.Unlabeled (Render.text "") (Just raw)]
+          IR.DisplayInfoGeneric "Goal type etc" $ goalSect ++ auxSect ++ boundarySect ++ contextSect ++ constraintSect
       Goal_CurrentGoal norm -> do
         (rendered, raw) <- prettyTypeOfMeta norm ii
         return $ IR.DisplayInfoCurrentGoal (IR.Unlabeled rendered (Just raw))

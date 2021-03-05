@@ -1,9 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Render.Class
   ( Render (..),
-    RenderTCM (..),
+    -- RenderTCM (..),
     renderM,
     renderP,
     renderA,
@@ -11,11 +11,12 @@ module Render.Class
   )
 where
 
-import qualified Agda.TypeChecking.Monad.Base as Agda
+import Agda.Syntax.Fixity (Precedence (TopCtx))
 import qualified Agda.Syntax.Translation.AbstractToConcrete as Agda
+import qualified Agda.TypeChecking.Monad.Base as Agda
 import Agda.Utils.Pretty (Doc)
 import qualified Agda.Utils.Pretty as Doc
-import Agda.Syntax.Fixity (Precedence(TopCtx))
+import Data.Int (Int32)
 import Render.RichText
 
 --------------------------------------------------------------------------------
@@ -23,36 +24,44 @@ import Render.RichText
 -- | Typeclass for rendering RichText
 class Render a where
   render :: a -> RichText
-  renderPrec  :: Int -> a -> RichText
+  renderPrec :: Int -> a -> RichText
 
   render = renderPrec 0
   renderPrec = const render
 
 -- | Rendering undersome context
-class RenderTCM a where
-  renderTCM :: a -> Agda.TCM RichText
+-- class RenderTCM a where
+--   renderTCM :: a -> Agda.TCM RichText
 
 -- | Simply "pure . render"
 renderM :: (Applicative m, Render a) => a -> m RichText
 renderM = pure . render
 
--- | Render instances of Pretty 
+-- | Render instances of Pretty
 renderP :: (Applicative m, Doc.Pretty a) => a -> m RichText
-renderP = pure . text . Doc.render . Doc.pretty 
+renderP = pure . text . Doc.render . Doc.pretty
 
 -- | like 'prettyA'
-renderA :: (RenderTCM c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
-renderA x = Agda.abstractToConcrete_ x >>= renderTCM
+renderA :: (Render c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
+renderA x = render <$> Agda.abstractToConcrete_ x 
 
 -- | like 'prettyATop'
-renderATop :: (RenderTCM c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
-renderATop x = Agda.abstractToConcreteCtx TopCtx x >>= renderTCM
-
+renderATop :: (Render c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
+renderATop x = render <$> Agda.abstractToConcreteCtx TopCtx x
 
 --------------------------------------------------------------------------------
 
 -- | Other instances of Render
 instance Render Int where
+  render = text . show
+
+instance Render Int32 where
+  render = text . show
+
+instance Render Integer where
+  render = text . show
+
+instance Render Bool where
   render = text . show
 
 instance Render Doc where

@@ -12,4 +12,5 @@ import Render.Internal ()
 import Render.Name ()
 import Render.RichText
 import Render.TypeChecking ()
+import Render.Position ()
 import Render.Utils ()
