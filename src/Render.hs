@@ -6,8 +6,10 @@ module Render
 where
 
 import Render.Class
-import Render.Concrete 
+import Render.Concrete
 import Render.Interaction ()
+import Render.Internal ()
 import Render.Name ()
 import Render.RichText
 import Render.TypeChecking ()
+import Render.Utils ()

@@ -54,13 +54,24 @@ data Response
 instance ToJSON Response
 
 --------------------------------------------------------------------------------
+-- | View items for DisplayInfo
+
+data Item 
+  = Labeled RichText (Maybe String) String String 
+  | Unlabeled RichText (Maybe String)
+  | Header String  
+  deriving (Generic)
+
+instance ToJSON Item
+
+--------------------------------------------------------------------------------
 
 -- | IR for DisplayInfo
 data DisplayInfo
-  = DisplayInfoGeneric String String
+  = DisplayInfoGeneric String [Item]
   | DisplayInfoAllGoalsWarnings String [(RichText, String)] [(RichText, String, Agda.Range)] [String] [String]
-  | DisplayInfoCurrentGoal (RichText, String)
-  | DisplayInfoInferredType (RichText, String)
+  | DisplayInfoCurrentGoal Item
+  | DisplayInfoInferredType Item
   | DisplayInfoCompilationOk [String] [String]
   | DisplayInfoAuto String
   | DisplayInfoError String

@@ -4,8 +4,9 @@
 module Render.Class
   ( Render (..),
     RenderTCM (..),
-    renderA,
+    renderM,
     renderP,
+    renderA,
     renderATop,
   )
 where
@@ -32,12 +33,16 @@ class RenderTCM a where
   renderTCM :: a -> Agda.TCM RichText
 
 -- | Simply "pure . render"
-renderA :: (Applicative m, Render a) => a -> m RichText
-renderA = pure . render
+renderM :: (Applicative m, Render a) => a -> m RichText
+renderM = pure . render
 
 -- | Render instances of Pretty 
 renderP :: (Applicative m, Doc.Pretty a) => a -> m RichText
 renderP = pure . text . Doc.render . Doc.pretty 
+
+-- | like 'prettyA'
+renderA :: (RenderTCM c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
+renderA x = Agda.abstractToConcrete_ x >>= renderTCM
 
 -- | like 'prettyATop'
 renderATop :: (RenderTCM c, Agda.ToConcrete a c) => a -> Agda.TCM RichText

@@ -45,8 +45,8 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
-import Render (RichText, renderATop)
-import Render.TypeChecking ()
+import Render (Render (render), RenderTCM (renderTCM), RichText, renderATop)
+import qualified Render
 
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
@@ -142,7 +142,13 @@ fromDisplayInfo info = case info of
     warnings <- mapM prettyTCM filteredWarnings
     errors <- mapM prettyTCM filteredErrors
     return $ IR.DisplayInfoCompilationOk (map show warnings) (map show errors)
-  Info_Constraints s -> format (show $ vcat $ map pretty s) "*Constraints*"
+  Info_Constraints s -> do
+    -- constraints <- forM s $ \e -> do
+    --   rendered <- renderTCM e
+    --   let raw = show (pretty e)
+    --   return $ IR.Unlabeled rendered (Just raw)
+    -- return $ IR.DisplayInfoGeneric "Constraints" constraints
+    return $ IR.DisplayInfoGeneric "Constraints" [IR.Unlabeled (Render.text $ show $ vcat $ map pretty s) Nothing]
   Info_AllGoalsWarnings (ims, hms) ws -> do
     -- visible metas (goals)
     goals <- mapM convertGoals ims
@@ -213,15 +219,24 @@ fromDisplayInfo info = case info of
                 (if computeIgnoreAbstract cmode then ignoreAbstractMode else inConcreteMode) $
                   B.showComputed cmode expr
   Info_InferredType state time expr -> do
-    exprDoc <- evalStateT prettyExpr state
-    let doc = maybe empty prettyTimed time $$ exprDoc
-    format (show doc) "*Inferred Type*"
-    where
-      prettyExpr =
+    renderedExpr <-
+      flip evalStateT state $
+        localStateCommandM $
+          lift $
+            B.atTopLevel $
+              Render.renderA expr
+    let rendered = case time of
+          Nothing -> renderedExpr
+          -- TODO: handle this newline
+          Just t -> "Time:" Render.<+> Render.render t Render.<+> "\n" Render.<+> renderedExpr
+    exprDoc <-
+      flip evalStateT state $
         localStateCommandM $
           lift $
             B.atTopLevel $
               TCP.prettyA expr
+    let raw = show $ maybe empty prettyTimed time $$ exprDoc
+    return $ IR.DisplayInfoGeneric "Inferred Type" [IR.Unlabeled rendered (Just raw)]
   Info_ModuleContents modules tel types -> do
     doc <- localTCState $ do
       typeDocs <- addContext tel $
@@ -235,7 +250,7 @@ fromDisplayInfo info = case info of
             "Names",
             nest 2 $ align 10 typeDocs
           ]
-    format (show doc) "*Module contents*"
+    return $ IR.DisplayInfoGeneric "Module contents" [IR.Unlabeled (Render.text $ show doc) Nothing]
   Info_SearchAbout hits names -> do
     hitDocs <- forM hits $ \(x, t) -> do
       doc <- prettyTCM t
@@ -243,14 +258,15 @@ fromDisplayInfo info = case info of
     let doc =
           "Definitions about"
             <+> text (List.intercalate ", " $ words names) $$ nest 2 (align 10 hitDocs)
-    format (show doc) "*Search About*"
+    return $ IR.DisplayInfoGeneric "Search About" [IR.Unlabeled (Render.text $ show doc) Nothing]
   Info_WhyInScope s cwd v xs ms -> do
     doc <- explainWhyInScope s cwd v xs ms
-    format (show doc) "*Scope Info*"
+    return $ IR.DisplayInfoGeneric "Scope Info" [IR.Unlabeled (Render.text $ show doc) Nothing]
   Info_Context ii ctx -> do
-    doc <- localTCState (prettyResponseContext ii False ctx)
-    format (show doc) "*Context*"
-  Info_Intro_NotFound -> format "No introduction forms found." "*Intro*"
+    doc <- localTCState (prettyResponseContexts ii False ctx)
+    return $ IR.DisplayInfoGeneric "Context" [IR.Unlabeled (Render.text $ show doc) Nothing]
+  Info_Intro_NotFound ->
+    return $ IR.DisplayInfoGeneric "Intro" [IR.Unlabeled (Render.text "No introduction forms found.") Nothing]
   Info_Intro_ConstructorUnknown ss -> do
     let doc =
           sep
@@ -260,8 +276,9 @@ fromDisplayInfo info = case info of
                   mkOr (x : xs) = text x : mkOr xs
                in nest 2 $ fsep $ punctuate comma (mkOr ss)
             ]
-    format (show doc) "*Intro*"
-  Info_Version -> format ("Agda version " ++ versionWithCommitInfo) "*Agda Version*"
+    return $ IR.DisplayInfoGeneric "Intro" [IR.Unlabeled (Render.text $ show doc) Nothing]
+  Info_Version ->
+    return $ IR.DisplayInfoGeneric "Agda Version" [IR.Unlabeled (Render.text $ "Agda version " ++ versionWithCommitInfo) Nothing]
   Info_GoalSpecific ii kind -> lispifyGoalSpecificDisplayInfo ii kind
 
 lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM IR.DisplayInfo
@@ -270,71 +287,65 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
     case kind of
       Goal_HelperFunction helperType -> do
         doc <- inTopContext $ prettyATop helperType
-        formatAndCopy (show doc ++ "\n") "*Helper function*"
+        return $ IR.DisplayInfoGeneric "Helper function" [IR.Unlabeled (Render.text $ show doc ++ "\n") Nothing]
       Goal_NormalForm cmode expr -> do
         doc <- showComputed cmode expr
-        format (show doc) "*Normal Form*" -- show?
-      Goal_GoalType norm aux ctx bndry constraints -> do
-        ctxDoc <- prettyResponseContext ii True ctx
-        goalDoc <- prettyTypeOfMeta norm ii
-        auxDoc <- case aux of
-          GoalOnly -> return empty
+        return $ IR.DisplayInfoGeneric "Normal Form" [IR.Unlabeled (Render.text $ show doc) Nothing]
+      Goal_GoalType norm aux ctx boundaries constraints -> do
+        raw <- do
+          ctxDoc <- prettyResponseContexts ii True ctx
+          let constraintsDoc =
+                if null constraints
+                  then []
+                  else
+                    [ text $ delimiter "Constraints",
+                      vcat $ map pretty constraints
+                    ]
+          let doc = vcat $ ctxDoc : constraintsDoc
+          return $ show doc
+
+        goalSect <- do
+          (rendered, raw) <- prettyTypeOfMeta norm ii
+          return [IR.Labeled rendered (Just raw) "Goal" "special"]
+
+        auxSect <- case aux of
+          GoalOnly -> return []
           GoalAndHave expr -> do
-            doc <- prettyATop expr
-            return $ "Have:" <+> doc
+            rendered <- renderATop expr
+            raw <- show <$> prettyATop expr
+            return [IR.Labeled rendered (Just raw) "Have" "special"]
           GoalAndElaboration term -> do
-            doc <- TCP.prettyTCM term
-            return $ "Elaborates to:" <+> doc
-        let boundaryDoc
-              | null bndry = []
-              | otherwise =
-                [ text $ delimiter "Boundary",
-                  vcat $ map pretty bndry
-                ]
-        let constraintsDoc =
-              if null constraints
+            let rendered = render term
+            raw <- show <$> TCP.prettyTCM term
+            return [IR.Labeled rendered (Just raw) "Elaborates to" "special"]
+        let boundarySect =
+              if null boundaries
                 then []
                 else
-                  [ text $ delimiter "Constraints",
-                    vcat $ map pretty constraints
-                  ]
-        let doc =
-              vcat $
-                [ "Goal:" <+> goalDoc,
-                  auxDoc,
-                  vcat boundaryDoc,
-                  text (replicate 60 '\x2014'),
-                  ctxDoc
-                ]
-                  ++ constraintsDoc
-        format (show doc) "*Goal type etc.*"
+                  IR.Header "Boundary" :
+                  map (\boundary -> IR.Unlabeled (render boundary) (Just $ show $ pretty boundary)) boundaries
+        -- contextSect <-
+        return $
+          IR.DisplayInfoGeneric "Goal type etc" $ goalSect ++ auxSect ++ boundarySect ++ [IR.Unlabeled (Render.text "") (Just raw)]
       Goal_CurrentGoal norm -> do
-        form <- B.typeOfMeta norm ii
-        case form of
-          OfType _ e -> do
-            rendered <- renderATop e
-            raw <- show <$> prettyATop e
-            return $ IR.DisplayInfoCurrentGoal (rendered, raw)
-          _ -> do
-            rendered <- renderATop form
-            raw <- show <$> prettyATop form
-            return $ IR.DisplayInfoCurrentGoal (rendered, raw)
+        (rendered, raw) <- prettyTypeOfMeta norm ii
+        return $ IR.DisplayInfoCurrentGoal (IR.Unlabeled rendered (Just raw))
       Goal_InferredType expr -> do
         rendered <- renderATop expr
         raw <- show <$> prettyATop expr
-        return $ IR.DisplayInfoInferredType (rendered, raw)
+        return $ IR.DisplayInfoInferredType (IR.Unlabeled rendered (Just raw))
 
--- | Format responses of DisplayInfo
-formatPrim :: Bool -> String -> String -> TCM IR.DisplayInfo
-formatPrim _copy content header = return $ IR.DisplayInfoGeneric header content
+-- -- | Format responses of DisplayInfo
+-- formatPrim :: Bool -> [IR.Item] -> String -> TCM IR.DisplayInfo
+-- formatPrim _copy items header = return $ IR.DisplayInfoGeneric header items
 
--- | Format responses of DisplayInfo ("agda2-info-action")
-format :: String -> String -> TCM IR.DisplayInfo
-format = formatPrim False
+-- -- | Format responses of DisplayInfo ("agda2-info-action")
+-- format :: [IR.Item] -> String -> TCM IR.DisplayInfo
+-- format = formatPrim False
 
--- | Format responses of DisplayInfo ("agda2-info-action-copy")
-formatAndCopy :: String -> String -> TCM IR.DisplayInfo
-formatAndCopy = formatPrim True
+-- -- | Format responses of DisplayInfo ("agda2-info-action-copy")
+-- formatAndCopy :: [IR.Item] -> String -> TCM IR.DisplayInfo
+-- formatAndCopy = formatPrim True
 
 --------------------------------------------------------------------------------
 
@@ -453,47 +464,56 @@ explainWhyInScope s _ v xs ms =
         TCP.$$ pWhy r w
 
 -- | Pretty-prints the context of the given meta-variable.
-prettyResponseContext ::
+prettyResponseContexts ::
   -- | Context of this meta-variable.
   InteractionId ->
   -- | Print the elements in reverse order?
   Bool ->
   [ResponseContextEntry] ->
   TCM Doc
-prettyResponseContext ii rev ctx = withInteractionId ii $ do
+prettyResponseContexts ii rev ctxs = do
+  rows <- mapM (prettyResponseContext ii) ctxs
+  return $ align 10 $ concat $ applyWhen rev reverse rows
+
+-- | Pretty-prints the context of the given meta-variable.
+prettyResponseContext ::
+  -- | Context of this meta-variable.
+  InteractionId ->
+  ResponseContextEntry ->
+  TCM [(String, Doc)]
+prettyResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = withInteractionId ii $ do
   modality <- asksTC getModality
-  align 10 . concat . applyWhen rev reverse <$> do
-    forM ctx $ \(ResponseContextEntry n x (Arg ai expr) letv nis) -> do
-      let prettyCtxName :: String
-          prettyCtxName
-            | n == x = prettyShow x
-            | isInScope n == InScope = prettyShow n ++ " = " ++ prettyShow x
-            | otherwise = prettyShow x
+  do
+    let prettyCtxName :: String
+        prettyCtxName
+          | n == x = prettyShow x
+          | isInScope n == InScope = prettyShow n ++ " = " ++ prettyShow x
+          | otherwise = prettyShow x
 
-          -- Some attributes are useful to report whenever they are not
-          -- in the default state.
-          attribute :: String
-          attribute = c ++ if null c then "" else " "
-            where
-              c = prettyShow (getCohesion ai)
+        -- Some attributes are useful to report whenever they are not
+        -- in the default state.
+        attribute :: String
+        attribute = c ++ if null c then "" else " "
+          where
+            c = prettyShow (getCohesion ai)
 
-          extras :: [Doc]
-          extras =
-            concat
-              [ ["not in scope" | isInScope nis == C.NotInScope],
-                -- Print erased if hypothesis is erased by goal is non-erased.
-                ["erased" | not $ getQuantity ai `moreQuantity` getQuantity modality],
-                -- Print irrelevant if hypothesis is strictly less relevant than goal.
-                ["irrelevant" | not $ getRelevance ai `moreRelevant` getRelevance modality],
-                -- Print instance if variable is considered by instance search
-                ["instance" | isInstance ai]
-              ]
-      ty <- prettyATop expr
-      maybeVal <- traverse prettyATop letv
+        extras :: [Doc]
+        extras =
+          concat
+            [ ["not in scope" | isInScope nis == C.NotInScope],
+              -- Print erased if hypothesis is erased by goal is non-erased.
+              ["erased" | not $ getQuantity ai `moreQuantity` getQuantity modality],
+              -- Print irrelevant if hypothesis is strictly less relevant than goal.
+              ["irrelevant" | not $ getRelevance ai `moreRelevant` getRelevance modality],
+              -- Print instance if variable is considered by instance search
+              ["instance" | isInstance ai]
+            ]
+    ty <- prettyATop expr
+    maybeVal <- traverse prettyATop letv
 
-      return $
-        (attribute ++ prettyCtxName, ":" <+> ty <+> parenSep extras) :
-          [(prettyShow x, "=" <+> val) | val <- maybeToList maybeVal]
+    return $
+      (attribute ++ prettyCtxName, ":" <+> ty <+> parenSep extras) :
+        [(prettyShow x, "=" <+> val) | val <- maybeToList maybeVal]
   where
     parenSep :: [Doc] -> Doc
     parenSep docs
@@ -501,12 +521,18 @@ prettyResponseContext ii rev ctx = withInteractionId ii $ do
       | otherwise = (" " <+>) $ parens $ fsep $ punctuate comma docs
 
 -- | Pretty-prints the type of the meta-variable.
-prettyTypeOfMeta :: Rewrite -> InteractionId -> TCM Doc
+prettyTypeOfMeta :: Rewrite -> InteractionId -> TCM (RichText, String)
 prettyTypeOfMeta norm ii = do
   form <- B.typeOfMeta norm ii
   case form of
-    OfType _ e -> prettyATop e
-    _ -> prettyATop form
+    OfType _ e -> do
+      rendered <- renderATop e
+      raw <- show <$> prettyATop e
+      return (rendered, raw)
+    _ -> do
+      rendered <- renderATop form
+      raw <- show <$> prettyATop form
+      return (rendered, raw)
 
 -- | Prefix prettified CPUTime with "Time:"
 prettyTimed :: CPUTime -> Doc
