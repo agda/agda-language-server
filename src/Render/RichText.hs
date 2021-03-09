@@ -18,15 +18,10 @@ module Render.RichText
     dbraces,
     parens,
     mparens,
-    parensM,
     indent,
-    indentM,
-    vsep,
-    vsepM,
     hcat,
     hsep,
     sepBy,
-    sepByM,
     sep,
     fsep,
     vcat,
@@ -67,7 +62,7 @@ newtype Block = Paragraph (Seq Inline)
 
 --------------------------------------------------------------------------------
 
-newtype Inlines = Inlines { unInlines :: Seq Inline }
+newtype Inlines = Inlines {unInlines :: Seq Inline}
 
 -- Represent Inlines with String literals
 instance IsString Inlines where
@@ -87,12 +82,16 @@ instance Show Inlines where
 
 -- | see if the rendered text is "empty"
 isEmpty :: Inlines -> Bool
-isEmpty (Inlines xs) = all elemIsEmpty (Seq.viewl xs)
+isEmpty (Inlines elems) = all elemIsEmpty (Seq.viewl elems)
   where
     elemIsEmpty :: Inline -> Bool
+    elemIsEmpty (Icon _ _) = False
     elemIsEmpty (Text "" _) = True
-    elemIsEmpty (Link _ s _) = all elemIsEmpty $ unInlines s
-    elemIsEmpty _ = False
+    elemIsEmpty (Text _ _) = False
+    elemIsEmpty (Link _ xs _) = all elemIsEmpty $ unInlines xs
+    elemIsEmpty (Hole _) = False
+    elemIsEmpty (Horz xs) = all isEmpty xs
+    elemIsEmpty (Vert xs) = all isEmpty xs
 
 (<+>) :: Inlines -> Inlines -> Inlines
 x <+> y
@@ -128,10 +127,10 @@ data Inline
   | Text String ClassNames
   | Link Agda.Range Inlines ClassNames
   | Hole Int
-  | -- | Elements inside would wrap (to the next line) when there's no space
-    Wrap
-      Bool
-      Inlines
+  | -- | Horizontal grouping, wrap when there's no space
+    Horz [Inlines]
+  | -- | Vertical grouping, each children would end with a newline
+    Vert [Inlines]
   deriving (Generic)
 
 instance ToJSON Inline
@@ -141,8 +140,8 @@ instance Show Inline where
   show (Text s _) = s
   show (Link _ xs _) = mconcat (map show $ toList $ unInlines xs)
   show (Hole i) = "?" ++ show i
-  show (Wrap True xs) = unwords (map show $ toList $ unInlines xs)
-  show (Wrap False xs) = mconcat (map show $ toList $ unInlines xs)
+  show (Horz xs) = unwords (map show $ toList xs)
+  show (Vert xs) = unlines (map show $ toList xs)
 
 --------------------------------------------------------------------------------
 
@@ -170,48 +169,41 @@ instance ToJSON Agda.AbsolutePath where
 parens :: Inlines -> Inlines
 parens x = "(" <> x <> ")"
 
-parensM :: (Semigroup (f Inlines), Applicative f) => f Inlines -> f Inlines
-parensM x = pure "(" <> x <> pure ")"
-
 -- TODO: implement this
 indent :: Inlines -> Inlines
 indent x = "  " <> x
-
-indentM :: (Semigroup (f Inlines), Applicative f) => f Inlines -> f Inlines
-indentM x = pure "  " <> x
 
 sepBy :: Inlines -> [Inlines] -> Inlines
 sepBy _ [] = mempty
 sepBy _ [x] = x
 sepBy delim (x : xs) = x <> delim <> sepBy delim xs
 
-sepByM :: Applicative f => Inlines -> [Inlines] -> f Inlines
-sepByM d = pure . sepBy d
+--------------------------------------------------------------------------------
 
+-- | Just pure concatenation, no grouping or whatsoever
 hcat :: [Inlines] -> Inlines
 hcat = mconcat
 
 hsep :: [Inlines] -> Inlines
 hsep = sepBy " "
 
+--------------------------------------------------------------------------------
+
+-- | Vertical listing
 vcat :: [Inlines] -> Inlines
-vcat = sepBy " "
+vcat = Inlines . pure . Vert
 
--- TODO: implement this
-vsep :: [Inlines] -> Inlines
-vsep = sepBy " "
-
-vsepM :: Applicative f => [Inlines] -> f Inlines
-vsepM = sepByM " "
-
+-- | Horizontal listing
 sep :: [Inlines] -> Inlines
-sep = sepBy " "
+sep = Inlines . pure . Horz
 
 fsep :: [Inlines] -> Inlines
-fsep = sepBy " "
+fsep = sep
 
 fcat :: [Inlines] -> Inlines
-fcat = sepBy " "
+fcat = sep
+
+--------------------------------------------------------------------------------
 
 -- | Single braces
 braces :: Inlines -> Inlines

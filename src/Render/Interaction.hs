@@ -84,7 +84,7 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
     render name <> " := "
       <> parens ("_ : " <> render expr1)
       <> " "
-      <> vsep exprs'
+      <> fsep exprs'
       <> " : "
       <> render expr2
   render (IsEmptyType expr) =
@@ -96,7 +96,7 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
     "Resolve instance argument "
       <> indent (render name <> " : " <> render expr)
       <> indent "Candidate:"
-      <> indent (indent (vsep exprs'))
+      <> indent (indent (vcat exprs'))
   render (PTSInstance name1 name2) =
     "PTS instance for ("
       <> render name1
