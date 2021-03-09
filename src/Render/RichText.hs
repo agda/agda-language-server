@@ -59,7 +59,15 @@ import qualified GHC.IO.Unsafe as UNSAFE
 
 --------------------------------------------------------------------------------
 
-newtype Inlines = Inlines (Seq Inline)
+newtype RichText = RichText (Seq Block)
+
+--------------------------------------------------------------------------------
+
+newtype Block = Paragraph (Seq Inline)
+
+--------------------------------------------------------------------------------
+
+newtype Inlines = Inlines { unInlines :: Seq Inline }
 
 -- Represent Inlines with String literals
 instance IsString Inlines where
@@ -83,7 +91,7 @@ isEmpty (Inlines xs) = all elemIsEmpty (Seq.viewl xs)
   where
     elemIsEmpty :: Inline -> Bool
     elemIsEmpty (Text "" _) = True
-    elemIsEmpty (Link _ s _) = all elemIsEmpty s
+    elemIsEmpty (Link _ s _) = all elemIsEmpty $ unInlines s
     elemIsEmpty _ = False
 
 (<+>) :: Inlines -> Inlines -> Inlines
@@ -103,7 +111,7 @@ icon :: String -> Inlines
 icon s = Inlines $ Seq.singleton $ Icon s []
 
 linkRange :: Agda.Range -> Inlines -> Inlines
-linkRange range (Inlines xs) = Inlines $ Seq.singleton $ Link range (toList xs) mempty
+linkRange range xs = Inlines $ Seq.singleton $ Link range xs mempty
 
 linkHole :: Int -> Inlines
 linkHole i = Inlines $ Seq.singleton $ Hole i
@@ -118,12 +126,12 @@ type ClassNames = [String]
 data Inline
   = Icon String ClassNames
   | Text String ClassNames
-  | Link Agda.Range [Inline] ClassNames
+  | Link Agda.Range Inlines ClassNames
   | Hole Int
   | -- | Elements inside would wrap (to the next line) when there's no space
     Wrap
       Bool
-      [Inline]
+      Inlines
   deriving (Generic)
 
 instance ToJSON Inline
@@ -131,10 +139,10 @@ instance ToJSON Inline
 instance Show Inline where
   show (Icon s _) = s
   show (Text s _) = s
-  show (Link _ xs _) = mconcat (fmap show xs)
+  show (Link _ xs _) = mconcat (map show $ toList $ unInlines xs)
   show (Hole i) = "?" ++ show i
-  show (Wrap True xs) = unwords (fmap show xs)
-  show (Wrap False xs) = mconcat (fmap show xs)
+  show (Wrap True xs) = unwords (map show $ toList $ unInlines xs)
+  show (Wrap False xs) = mconcat (map show $ toList $ unInlines xs)
 
 --------------------------------------------------------------------------------
 
