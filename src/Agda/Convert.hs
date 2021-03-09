@@ -148,12 +148,12 @@ fromDisplayInfo info = case info of
     --   let raw = show (pretty e)
     --   return $ IR.Unlabeled rendered (Just raw)
     -- return $ IR.DisplayInfoGeneric "Constraints" constraints
-    return $ IR.DisplayInfoGeneric "Constraints" [IR.Unlabeled (Render.text $ show $ vcat $ map pretty s) Nothing]
+    return $ IR.DisplayInfoGeneric "Constraints" [IR.Unlabeled (Render.text $ show $ vcat $ map pretty s) Nothing Nothing]
   Info_AllGoalsWarnings (ims, hms) ws -> do
     -- visible metas (goals)
-    goals <- mapM convertGoals ims
+    goals <- mapM convertGoal ims
     -- hidden (unsolved) metas
-    metas <- mapM convertHiddenMetas hms
+    metas <- mapM convertHiddenMeta hms
 
     -- errors / warnings
     -- filter
@@ -177,19 +177,19 @@ fromDisplayInfo info = case info of
 
     return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas (map show warnings) (map show errors)
     where
-      convertHiddenMetas :: OutputConstraint A.Expr NamedMeta -> TCM (RichText, String, Range)
-      convertHiddenMetas m = do
+      convertHiddenMeta :: OutputConstraint A.Expr NamedMeta -> TCM IR.Item
+      convertHiddenMeta m = do
         let i = nmid $ namedMetaOf m
         -- output constrain
-        outputConstraint <- withMetaId i $ renderATop m
-        outputConstraint' <- show <$> withMetaId i (prettyATop m)
+        meta <- withMetaId i $ renderATop m
+        serialized <- show <$> withMetaId i (prettyATop m)
         -- range
         range <- getMetaRange i
 
-        return (outputConstraint, outputConstraint', range)
+        return $ IR.Unlabeled meta (Just serialized) (Just range)
 
-      convertGoals :: OutputConstraint A.Expr InteractionId -> TCM (RichText, String)
-      convertGoals i = do
+      convertGoal :: OutputConstraint A.Expr InteractionId -> TCM IR.Item
+      convertGoal i = do
         -- output constrain
         goal <-
           withInteractionId (outputFormId $ OutputForm noRange [] i) $
@@ -198,8 +198,7 @@ fromDisplayInfo info = case info of
         serialized <-
           withInteractionId (outputFormId $ OutputForm noRange [] i) $
             prettyATop i
-
-        return (goal, show serialized)
+        return $ IR.Unlabeled goal (Just $ show serialized) Nothing
   Info_Auto s -> return $ IR.DisplayInfoAuto s
   Info_Error err -> do
     s <- showInfoError err
@@ -236,7 +235,7 @@ fromDisplayInfo info = case info of
             B.atTopLevel $
               TCP.prettyA expr
     let raw = show $ maybe empty prettyTimed time $$ exprDoc
-    return $ IR.DisplayInfoGeneric "Inferred Type" [IR.Unlabeled rendered (Just raw)]
+    return $ IR.DisplayInfoGeneric "Inferred Type" [IR.Unlabeled rendered (Just raw) Nothing]
   Info_ModuleContents modules tel types -> do
     doc <- localTCState $ do
       typeDocs <- addContext tel $
@@ -250,7 +249,7 @@ fromDisplayInfo info = case info of
             "Names",
             nest 2 $ align 10 typeDocs
           ]
-    return $ IR.DisplayInfoGeneric "Module contents" [IR.Unlabeled (Render.text $ show doc) Nothing]
+    return $ IR.DisplayInfoGeneric "Module contents" [IR.Unlabeled (Render.text $ show doc) Nothing Nothing]
   Info_SearchAbout hits names -> do
     hitDocs <- forM hits $ \(x, t) -> do
       doc <- prettyTCM t
@@ -258,15 +257,15 @@ fromDisplayInfo info = case info of
     let doc =
           "Definitions about"
             <+> text (List.intercalate ", " $ words names) $$ nest 2 (align 10 hitDocs)
-    return $ IR.DisplayInfoGeneric "Search About" [IR.Unlabeled (Render.text $ show doc) Nothing]
+    return $ IR.DisplayInfoGeneric "Search About" [IR.Unlabeled (Render.text $ show doc) Nothing Nothing]
   Info_WhyInScope s cwd v xs ms -> do
     doc <- explainWhyInScope s cwd v xs ms
-    return $ IR.DisplayInfoGeneric "Scope Info" [IR.Unlabeled (Render.text $ show doc) Nothing]
+    return $ IR.DisplayInfoGeneric "Scope Info" [IR.Unlabeled (Render.text $ show doc) Nothing Nothing]
   Info_Context ii ctx -> do
     doc <- localTCState (prettyResponseContexts ii False ctx)
-    return $ IR.DisplayInfoGeneric "Context" [IR.Unlabeled (Render.text $ show doc) Nothing]
+    return $ IR.DisplayInfoGeneric "Context" [IR.Unlabeled (Render.text $ show doc) Nothing Nothing]
   Info_Intro_NotFound ->
-    return $ IR.DisplayInfoGeneric "Intro" [IR.Unlabeled (Render.text "No introduction forms found.") Nothing]
+    return $ IR.DisplayInfoGeneric "Intro" [IR.Unlabeled (Render.text "No introduction forms found.") Nothing Nothing]
   Info_Intro_ConstructorUnknown ss -> do
     let doc =
           sep
@@ -276,9 +275,9 @@ fromDisplayInfo info = case info of
                   mkOr (x : xs) = text x : mkOr xs
                in nest 2 $ fsep $ punctuate comma (mkOr ss)
             ]
-    return $ IR.DisplayInfoGeneric "Intro" [IR.Unlabeled (Render.text $ show doc) Nothing]
+    return $ IR.DisplayInfoGeneric "Intro" [IR.Unlabeled (Render.text $ show doc) Nothing Nothing]
   Info_Version ->
-    return $ IR.DisplayInfoGeneric "Agda Version" [IR.Unlabeled (Render.text $ "Agda version " ++ versionWithCommitInfo) Nothing]
+    return $ IR.DisplayInfoGeneric "Agda Version" [IR.Unlabeled (Render.text $ "Agda version " ++ versionWithCommitInfo) Nothing Nothing]
   Info_GoalSpecific ii kind -> lispifyGoalSpecificDisplayInfo ii kind
 
 lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM IR.DisplayInfo
@@ -287,10 +286,10 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
     case kind of
       Goal_HelperFunction helperType -> do
         doc <- inTopContext $ prettyATop helperType
-        return $ IR.DisplayInfoGeneric "Helper function" [IR.Unlabeled (Render.text $ show doc ++ "\n") Nothing]
+        return $ IR.DisplayInfoGeneric "Helper function" [IR.Unlabeled (Render.text $ show doc ++ "\n") Nothing Nothing]
       Goal_NormalForm cmode expr -> do
         doc <- showComputed cmode expr
-        return $ IR.DisplayInfoGeneric "Normal Form" [IR.Unlabeled (Render.text $ show doc) Nothing]
+        return $ IR.DisplayInfoGeneric "Normal Form" [IR.Unlabeled (Render.text $ show doc) Nothing Nothing]
       Goal_GoalType norm aux resCtxs boundaries constraints -> do
         raw <- do
           let constraintsDoc =
@@ -305,41 +304,41 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 
         goalSect <- do
           (rendered, raw) <- prettyTypeOfMeta norm ii
-          return [IR.Labeled rendered (Just raw) "Goal" "special"]
+          return [IR.Labeled rendered (Just raw) Nothing "Goal" "special"]
 
         auxSect <- case aux of
           GoalOnly -> return []
           GoalAndHave expr -> do
             rendered <- renderATop expr
             raw <- show <$> prettyATop expr
-            return [IR.Labeled rendered (Just raw) "Have" "special"]
+            return [IR.Labeled rendered (Just raw) Nothing "Have" "special"]
           GoalAndElaboration term -> do
             let rendered = render term
             raw <- show <$> TCP.prettyTCM term
-            return [IR.Labeled rendered (Just raw) "Elaborates to" "special"]
+            return [IR.Labeled rendered (Just raw) Nothing "Elaborates to" "special"]
         let boundarySect =
               if null boundaries
                 then []
                 else
                   IR.Header "Boundary" :
-                  map (\boundary -> IR.Unlabeled (render boundary) (Just $ show $ pretty boundary)) boundaries
+                  map (\boundary -> IR.Unlabeled (render boundary) (Just $ show $ pretty boundary) Nothing) boundaries
         contextSect <- reverse . concat <$> mapM (renderResponseContext ii) resCtxs
         let constraintSect = 
                 if null constraints
                   then []
                   else
                     IR.Header "Constraints" :
-                    map (\constraint -> IR.Unlabeled (render constraint) (Just $ show $ pretty constraint)) constraints
+                    map (\constraint -> IR.Unlabeled (render constraint) (Just $ show $ pretty constraint) Nothing) constraints
 
         return $
           IR.DisplayInfoGeneric "Goal type etc" $ goalSect ++ auxSect ++ boundarySect ++ contextSect ++ constraintSect
       Goal_CurrentGoal norm -> do
         (rendered, raw) <- prettyTypeOfMeta norm ii
-        return $ IR.DisplayInfoCurrentGoal (IR.Unlabeled rendered (Just raw))
+        return $ IR.DisplayInfoCurrentGoal (IR.Unlabeled rendered (Just raw) Nothing)
       Goal_InferredType expr -> do
         rendered <- renderATop expr
         raw <- show <$> prettyATop expr
-        return $ IR.DisplayInfoInferredType (IR.Unlabeled rendered (Just raw))
+        return $ IR.DisplayInfoInferredType (IR.Unlabeled rendered (Just raw) Nothing)
 
 -- -- | Format responses of DisplayInfo
 -- formatPrim :: Bool -> [IR.Item] -> String -> TCM IR.DisplayInfo
@@ -580,7 +579,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
     rawExpr <- prettyATop expr
     let renderedValue = renderedCtxName <> renderedAttribute Render.<+> ":" Render.<+> renderedExpr Render.<+> Render.parens (Render.sepBy ", " extras)
     let rawType = show $ align 10 [(rawAttribute ++ rawCtxName, ":" <+> rawExpr <+> parenSep extras)]
-    let typeItem = IR.Unlabeled "" (Just rawType)
+    let typeItem = IR.Unlabeled "" (Just rawType) Nothing
 
     valueItem <- case letv of
       Nothing -> return []
@@ -590,7 +589,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
         let renderedValue = Render.render x Render.<+> "=" Render.<+> valText
         let rawValue = show $ align 10 [(prettyShow x, "=" <+> valString)]
         return
-          [ IR.Unlabeled renderedValue (Just rawValue)
+          [ IR.Unlabeled renderedValue (Just rawValue) Nothing
           ]
 
     return $ typeItem : valueItem
