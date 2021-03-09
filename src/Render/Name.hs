@@ -16,8 +16,9 @@ instance Render C.NamePart where
   render C.Hole = "_"
   render (C.Id s) = text $ C.rawNameToString s
 
+-- glueing name parts together 
 instance Render C.Name where
-  render (C.Name range _inScope xs) = linkRange range $ sepBy " " (map render xs)
+  render (C.Name range _inScope xs) = linkRange range $ mconcat (map render xs)
   render (C.NoName _ _) = "_"
 
 instance Render C.QName where

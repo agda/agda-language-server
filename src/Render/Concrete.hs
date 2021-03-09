@@ -98,23 +98,23 @@ instance Render Expr where
         [e] -> leftIdiomBrkt <+> render e <+> rightIdiomBrkt
         e : es -> leftIdiomBrkt <+> render e <+> fsep (map (("|" <+>) . render) es) <+> rightIdiomBrkt
     DoBlock _ ss -> "do" <+> vcat (map render ss)
-    As _ x e  -> render x <> "@" <> render e
-    Dot _ e   -> "." <> render e
-    DoubleDot _ e  -> ".." <> render e
-    Absurd _  -> "()"
-    Rec _ xs  -> sep ["record", bracesAndSemicolons (map render xs)]
+    As _ x e -> render x <> "@" <> render e
+    Dot _ e -> "." <> render e
+    DoubleDot _ e -> ".." <> render e
+    Absurd _ -> "()"
+    Rec _ xs -> sep ["record", bracesAndSemicolons (map render xs)]
     RecUpdate _ e xs ->
       sep ["record" <+> render e, bracesAndSemicolons (map render xs)]
-    ETel []  -> "()"
+    ETel [] -> "()"
     ETel tel -> fsep $ map render tel
     Quote _ -> "quote"
     QuoteTerm _ -> "quoteTerm"
-    Unquote _  -> "unquote"
+    Unquote _ -> "unquote"
     Tactic _ t -> "tactic" <+> render t
     -- Andreas, 2011-10-03 print irrelevant things as .(e)
     DontCare e -> "." <> parens (render e)
     Equal _ a b -> render a <+> "=" <+> render b
-    Ellipsis _  -> "..."
+    Ellipsis _ -> "..."
     Generalized e -> render e
     where
       absurd NotHidden = "()"
