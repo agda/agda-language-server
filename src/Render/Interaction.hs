@@ -19,10 +19,10 @@ instance (Render a, Render b) => Render (OutputForm a b) where
     where
       prPids []    = mempty
       prPids [pid] = parens $ "problem" <+> render pid
-      prPids pids  = parens $ "problems" <+> sepBy ", " (map render pids)
-      prange r | null s = mempty
-               | otherwise = text $ " [ at " ++ s ++ " ]"
-        where s = show $ render r
+      prPids pids' = parens $ "problems" <+> sepBy ", " (map render pids')
+      prange rr | null s = mempty
+                | otherwise = text $ " [ at " ++ s ++ " ]"
+        where s = show $ render rr
 
 -- | OutputConstraint 
 instance (Render a, Render b) => Render (OutputConstraint a b) where

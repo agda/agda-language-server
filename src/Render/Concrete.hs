@@ -182,10 +182,10 @@ instance Render NamedBinding where
         | noUserQuantity x, Nothing <- bnameTactic bn = id
         | otherwise = parens
 
-renderTactic :: BoundName -> RichText -> RichText
+renderTactic :: BoundName -> Inlines -> Inlines
 renderTactic = renderTactic' . bnameTactic
 
-renderTactic' :: TacticAttribute -> RichText -> RichText
+renderTactic' :: TacticAttribute -> Inlines -> Inlines
 renderTactic' Nothing d = d
 renderTactic' (Just t) d = "@" <> (parens ("tactic " <> render t) <+> d)
 
@@ -454,7 +454,7 @@ pRecord ::
   [LamBinding] ->
   Maybe Expr ->
   [Declaration] ->
-  RichText
+  Inlines
 pRecord x ind eta con tel me cs =
   sep
     [ hsep
@@ -587,7 +587,7 @@ instance Render Pattern where
     EllipsisP _ -> "..."
     WithP _ p -> "|" <+> render p
 
-bracesAndSemicolons :: [RichText] -> RichText
+bracesAndSemicolons :: [Inlines] -> Inlines
 bracesAndSemicolons [] = "{}"
 bracesAndSemicolons (d : ds) = sep (["{" <+> d] ++ map (";" <+>) ds ++ ["}"])
 
@@ -596,7 +596,7 @@ renderOpApp ::
   Render a =>
   QName ->
   [NamedArg (MaybePlaceholder a)] ->
-  [RichText]
+  [Inlines]
 renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
   where
     -- ms: the module part of the name.
@@ -606,7 +606,7 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
       Name _ _ xs -> xs
       NoName {} -> __IMPOSSIBLE__
 
-    prOp :: Render a => [Name] -> [NamePart] -> [NamedArg (MaybePlaceholder a)] -> [(RichText, Maybe PositionInName)]
+    prOp :: Render a => [Name] -> [NamePart] -> [NamedArg (MaybePlaceholder a)] -> [(Inlines, Maybe PositionInName)]
     prOp ms (Hole : xs) (e : es) =
       case namedArg e of
         Placeholder p -> (qual ms $ render e, Just p) : prOp [] xs es
@@ -627,7 +627,7 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
 
     -- Section underscores should be printed without surrounding
     -- whitespace. This function takes care of that.
-    merge :: [RichText] -> [(RichText, Maybe PositionInName)] -> [RichText]
+    merge :: [Inlines] -> [(Inlines, Maybe PositionInName)] -> [Inlines]
     merge before [] = reverse before
     merge before ((d, Nothing) : after) = merge (d : before) after
     merge before ((d, Just Beginning) : after) = mergeRight before d after

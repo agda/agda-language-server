@@ -57,8 +57,8 @@ instance ToJSON Response
 -- | View items for DisplayInfo
 
 data Item 
-  = Labeled RichText (Maybe String) (Maybe Agda.Range) String String 
-  | Unlabeled RichText (Maybe String) (Maybe Agda.Range)
+  = Labeled Inlines (Maybe String) (Maybe Agda.Range) String String 
+  | Unlabeled Inlines (Maybe String) (Maybe Agda.Range)
   | Header String  
   deriving (Generic)
 

@@ -57,22 +57,22 @@ instance Render Cohesion where
 --   @renderHiding info visible text@ puts the correct braces
 --   around @text@ according to info @info@ and returns
 --   @visible text@ if the we deal with a visible thing.
-renderHiding :: LensHiding a => a -> (RichText -> RichText) -> RichText -> RichText
+renderHiding :: LensHiding a => a -> (Inlines -> Inlines) -> Inlines -> Inlines
 renderHiding a parensF =
   case getHiding a of
     Hidden -> braces'
     Instance {} -> dbraces
     NotHidden -> parensF
 
-renderRelevance :: LensRelevance a => a -> RichText -> RichText
+renderRelevance :: LensRelevance a => a -> Inlines -> Inlines
 renderRelevance a d =
   if show d == "_" then d else render (getRelevance a) <> d
 
-renderQuantity :: LensQuantity a => a -> RichText -> RichText
+renderQuantity :: LensQuantity a => a -> Inlines -> Inlines
 renderQuantity a d =
   if show d == "_" then d else render (getQuantity a) <+> d
 
-renderCohesion :: LensCohesion a => a -> RichText -> RichText
+renderCohesion :: LensCohesion a => a -> Inlines -> Inlines
 renderCohesion a d =
   if show d == "_" then d else render (getCohesion a) <+> d
 
@@ -84,7 +84,7 @@ instance (Render p, Render e) => Render (RewriteEqn' qn p e) where
     Rewrite es   -> prefixedThings (text "rewrite") (render . snd <$> es)
     Invert _ pes -> prefixedThings (text "invert") (pes <&> \ (p, e) -> render p <+> "<-" <+> render e)
 
-prefixedThings :: RichText -> [RichText] -> RichText
+prefixedThings :: Inlines -> [Inlines] -> Inlines
 prefixedThings kw = \case
   [] -> mempty
   (doc : docs) -> fsep $ (kw <+> doc) : map ("|" <+>) docs

@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Render.RichText
-  ( RichText (..),
+  ( Inlines (..),
     -- LinkTarget (..),
     space,
     text,
@@ -23,11 +23,12 @@ module Render.RichText
     indentM,
     vsep,
     vsepM,
+    hcat,
+    hsep,
     sepBy,
     sepByM,
     sep,
     fsep,
-    hsep,
     vcat,
     fcat,
     -- symbols
@@ -49,7 +50,6 @@ import Agda.Utils.Suffix (subscriptAllowed, toSubscriptDigit)
 import Data.Aeson (ToJSON (toJSON), Value (Null))
 import Data.Foldable (toList)
 import Data.IORef (readIORef)
-import Data.List (intercalate)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import qualified Data.Strict.Maybe as Strict
@@ -59,54 +59,54 @@ import qualified GHC.IO.Unsafe as UNSAFE
 
 --------------------------------------------------------------------------------
 
-newtype RichText = RichText (Seq Inline)
+newtype Inlines = Inlines (Seq Inline)
 
--- Represent RichText with String literals
-instance IsString RichText where
-  fromString s = RichText (Seq.singleton (Text s mempty))
+-- Represent Inlines with String literals
+instance IsString Inlines where
+  fromString s = Inlines (Seq.singleton (Text s mempty))
 
-instance Semigroup RichText where
-  RichText xs <> RichText ys = RichText (xs <> ys)
+instance Semigroup Inlines where
+  Inlines xs <> Inlines ys = Inlines (xs <> ys)
 
-instance Monoid RichText where
-  mempty = RichText mempty
+instance Monoid Inlines where
+  mempty = Inlines mempty
 
-instance ToJSON RichText where
-  toJSON (RichText xs) = toJSON xs
+instance ToJSON Inlines where
+  toJSON (Inlines xs) = toJSON xs
 
-instance Show RichText where
-  show (RichText xs) = unwords $ map show $ toList xs
+instance Show Inlines where
+  show (Inlines xs) = unwords $ map show $ toList xs
 
 -- | see if the rendered text is "empty"
-isEmpty :: RichText -> Bool
-isEmpty (RichText xs) = all elemIsEmpty (Seq.viewl xs)
+isEmpty :: Inlines -> Bool
+isEmpty (Inlines xs) = all elemIsEmpty (Seq.viewl xs)
   where
     elemIsEmpty :: Inline -> Bool
     elemIsEmpty (Text "" _) = True
-    elemIsEmpty (Link _ xs _) = all elemIsEmpty xs
+    elemIsEmpty (Link _ s _) = all elemIsEmpty s
     elemIsEmpty _ = False
 
-(<+>) :: RichText -> RichText -> RichText
+(<+>) :: Inlines -> Inlines -> Inlines
 x <+> y
   | isEmpty x = y
   | isEmpty y = x
   | otherwise = x <> " " <> y
 
 -- | Whitespace
-space :: RichText
+space :: Inlines
 space = " "
 
-text :: String -> RichText
-text s = RichText $ Seq.singleton $ Text s mempty
+text :: String -> Inlines
+text s = Inlines $ Seq.singleton $ Text s mempty
 
-icon :: String -> RichText
-icon s = RichText $ Seq.singleton $ Icon s []
+icon :: String -> Inlines
+icon s = Inlines $ Seq.singleton $ Icon s []
 
-linkRange :: Agda.Range -> RichText -> RichText
-linkRange range (RichText xs) = RichText $ Seq.singleton $ Link range (toList xs) mempty
+linkRange :: Agda.Range -> Inlines -> Inlines
+linkRange range (Inlines xs) = Inlines $ Seq.singleton $ Link range (toList xs) mempty
 
-linkHole :: Int -> RichText
-linkHole i = RichText $ Seq.singleton $ Hole i
+linkHole :: Int -> Inlines
+linkHole i = Inlines $ Seq.singleton $ Hole i
 
 --------------------------------------------------------------------------------
 
@@ -159,82 +159,82 @@ instance ToJSON Agda.AbsolutePath where
 -- | Utilities / Combinators
 
 -- TODO: change how Element works
-parens :: RichText -> RichText
+parens :: Inlines -> Inlines
 parens x = "(" <> x <> ")"
 
-parensM :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
+parensM :: (Semigroup (f Inlines), Applicative f) => f Inlines -> f Inlines
 parensM x = pure "(" <> x <> pure ")"
 
 -- TODO: implement this
-indent :: RichText -> RichText
+indent :: Inlines -> Inlines
 indent x = "  " <> x
 
-indentM :: (Semigroup (f RichText), Applicative f) => f RichText -> f RichText
+indentM :: (Semigroup (f Inlines), Applicative f) => f Inlines -> f Inlines
 indentM x = pure "  " <> x
 
-sepBy :: RichText -> [RichText] -> RichText
+sepBy :: Inlines -> [Inlines] -> Inlines
 sepBy _ [] = mempty
 sepBy _ [x] = x
 sepBy delim (x : xs) = x <> delim <> sepBy delim xs
 
-sepByM :: Applicative f => RichText -> [RichText] -> f RichText
+sepByM :: Applicative f => Inlines -> [Inlines] -> f Inlines
 sepByM d = pure . sepBy d
 
-hcat :: [RichText] -> RichText
+hcat :: [Inlines] -> Inlines
 hcat = mconcat
 
-hsep :: [RichText] -> RichText
+hsep :: [Inlines] -> Inlines
 hsep = sepBy " "
 
-vcat :: [RichText] -> RichText
+vcat :: [Inlines] -> Inlines
 vcat = sepBy " "
 
 -- TODO: implement this
-vsep :: [RichText] -> RichText
+vsep :: [Inlines] -> Inlines
 vsep = sepBy " "
 
-vsepM :: Applicative f => [RichText] -> f RichText
+vsepM :: Applicative f => [Inlines] -> f Inlines
 vsepM = sepByM " "
 
-sep :: [RichText] -> RichText
+sep :: [Inlines] -> Inlines
 sep = sepBy " "
 
-fsep :: [RichText] -> RichText
+fsep :: [Inlines] -> Inlines
 fsep = sepBy " "
 
-fcat :: [RichText] -> RichText
+fcat :: [Inlines] -> Inlines
 fcat = sepBy " "
 
 -- | Single braces
-braces :: RichText -> RichText
+braces :: Inlines -> Inlines
 braces x = "{" <> x <> "}"
 
 -- | Double braces
-dbraces :: RichText -> RichText
+dbraces :: Inlines -> Inlines
 dbraces = _dbraces specialCharacters
 
-arrow :: RichText
+arrow :: Inlines
 arrow = _arrow specialCharacters
 
-lambda :: RichText
+lambda :: Inlines
 lambda = _lambda specialCharacters
 
-forallQ :: RichText
+forallQ :: Inlines
 forallQ = _forallQ specialCharacters
 
 -- left, right, and empty idiom bracket
-leftIdiomBrkt, rightIdiomBrkt, emptyIdiomBrkt :: RichText
+leftIdiomBrkt, rightIdiomBrkt, emptyIdiomBrkt :: Inlines
 leftIdiomBrkt = _leftIdiomBrkt specialCharacters
 rightIdiomBrkt = _rightIdiomBrkt specialCharacters
 emptyIdiomBrkt = _emptyIdiomBrkt specialCharacters
 
 -- | Apply 'parens' to 'Doc' if boolean is true.
-mparens :: Bool -> RichText -> RichText
+mparens :: Bool -> Inlines -> Inlines
 mparens True = parens
 mparens False = id
 
 -- | From braces'
-braces' :: RichText -> RichText
+braces' :: Inlines -> Inlines
 braces' d =
   let s = show d
    in if Agda.null s
@@ -259,13 +259,13 @@ showIndex = case subscriptAllowed of
 -- whether we are allowed to use unicode or have to limit ourselves
 -- to ascii.
 data SpecialCharacters = SpecialCharacters
-  { _dbraces :: RichText -> RichText,
-    _lambda :: RichText,
-    _arrow :: RichText,
-    _forallQ :: RichText,
-    _leftIdiomBrkt :: RichText,
-    _rightIdiomBrkt :: RichText,
-    _emptyIdiomBrkt :: RichText
+  { _dbraces :: Inlines -> Inlines,
+    _lambda :: Inlines,
+    _arrow :: Inlines,
+    _forallQ :: Inlines,
+    _leftIdiomBrkt :: Inlines,
+    _rightIdiomBrkt :: Inlines,
+    _emptyIdiomBrkt :: Inlines
   }
 
 {-# NOINLINE specialCharacters #-}

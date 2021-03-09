@@ -39,7 +39,7 @@ instance Render IntervalWithoutFile where
 instance Render a => Render (Interval' (Strict.Maybe a)) where
   render i@(Interval s _) = file <> render (setIntervalFile () i)
     where
-      file :: RichText
+      file :: Inlines
       file = case srcFile s of
         Strict.Nothing -> mempty
         Strict.Just f -> render f <> ":"

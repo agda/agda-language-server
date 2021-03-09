@@ -33,7 +33,7 @@ import Agda.Utils.FileName (filePath)
 import Agda.Utils.Function (applyWhen)
 import Agda.Utils.IO.TempFile (writeToTempFile)
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
-import Agda.Utils.Maybe (catMaybes, maybeToList)
+import Agda.Utils.Maybe (catMaybes)
 import Agda.Utils.Null (empty)
 import Agda.Utils.Pretty hiding (render)
 import Agda.Utils.String (delimiter)
@@ -45,7 +45,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
-import Render (Render (render), RichText, renderATop)
+import Render (Render (render), Inlines, renderATop)
 import qualified Render
 
 responseAbbr :: IsString a => Response -> a
@@ -291,17 +291,6 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
         doc <- showComputed cmode expr
         return $ IR.DisplayInfoGeneric "Normal Form" [IR.Unlabeled (Render.text $ show doc) Nothing Nothing]
       Goal_GoalType norm aux resCtxs boundaries constraints -> do
-        raw <- do
-          let constraintsDoc =
-                if null constraints
-                  then []
-                  else
-                    [ text $ delimiter "Constraints",
-                      vcat $ map pretty constraints
-                    ]
-          let doc = vcat constraintsDoc
-          return $ show doc
-
         goalSect <- do
           (rendered, raw) <- prettyTypeOfMeta norm ii
           return [IR.Labeled rendered (Just raw) Nothing "Goal" "special"]
@@ -545,7 +534,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
           | isInScope n == InScope = prettyShow n ++ " = " ++ prettyShow x
           | otherwise = prettyShow x
           
-        renderedCtxName :: RichText
+        renderedCtxName :: Inlines
         renderedCtxName
           | n == x = render x
           | isInScope n == InScope = render n Render.<+> "=" Render.<+> render x
@@ -558,7 +547,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
           where
             c = prettyShow (getCohesion ai)
 
-        renderedAttribute :: RichText
+        renderedAttribute :: Inlines
         renderedAttribute = c <> if null (show c) then "" else " "
           where
             c = render (getCohesion ai)
@@ -577,9 +566,9 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
 
     renderedExpr <- renderATop expr
     rawExpr <- prettyATop expr
-    let renderedValue = renderedCtxName <> renderedAttribute Render.<+> ":" Render.<+> renderedExpr Render.<+> Render.parens (Render.sepBy ", " extras)
+    let renderedType = renderedCtxName <> renderedAttribute Render.<+> ":" Render.<+> renderedExpr Render.<+> Render.parens (Render.sepBy ", " extras)
     let rawType = show $ align 10 [(rawAttribute ++ rawCtxName, ":" <+> rawExpr <+> parenSep extras)]
-    let typeItem = IR.Unlabeled "" (Just rawType) Nothing
+    let typeItem = IR.Unlabeled renderedType (Just rawType) Nothing
 
     valueItem <- case letv of
       Nothing -> return []
@@ -600,7 +589,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
       | otherwise = (" " <+>) $ parens $ fsep $ punctuate comma docs
 
 -- | Pretty-prints the type of the meta-variable.
-prettyTypeOfMeta :: Rewrite -> InteractionId -> TCM (RichText, String)
+prettyTypeOfMeta :: Rewrite -> InteractionId -> TCM (Inlines, String)
 prettyTypeOfMeta norm ii = do
   form <- B.typeOfMeta norm ii
   case form of

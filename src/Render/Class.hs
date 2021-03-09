@@ -21,32 +21,32 @@ import Render.RichText
 
 --------------------------------------------------------------------------------
 
--- | Typeclass for rendering RichText
+-- | Typeclass for rendering Inlines
 class Render a where
-  render :: a -> RichText
-  renderPrec :: Int -> a -> RichText
+  render :: a -> Inlines
+  renderPrec :: Int -> a -> Inlines
 
   render = renderPrec 0
   renderPrec = const render
 
 -- | Rendering undersome context
 -- class RenderTCM a where
---   renderTCM :: a -> Agda.TCM RichText
+--   renderTCM :: a -> Agda.TCM Inlines
 
 -- | Simply "pure . render"
-renderM :: (Applicative m, Render a) => a -> m RichText
+renderM :: (Applicative m, Render a) => a -> m Inlines
 renderM = pure . render
 
 -- | Render instances of Pretty
-renderP :: (Applicative m, Doc.Pretty a) => a -> m RichText
+renderP :: (Applicative m, Doc.Pretty a) => a -> m Inlines
 renderP = pure . text . Doc.render . Doc.pretty
 
 -- | like 'prettyA'
-renderA :: (Render c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
+renderA :: (Render c, Agda.ToConcrete a c) => a -> Agda.TCM Inlines
 renderA x = render <$> Agda.abstractToConcrete_ x 
 
 -- | like 'prettyATop'
-renderATop :: (Render c, Agda.ToConcrete a c) => a -> Agda.TCM RichText
+renderATop :: (Render c, Agda.ToConcrete a c) => a -> Agda.TCM Inlines
 renderATop x = render <$> Agda.abstractToConcreteCtx TopCtx x
 
 --------------------------------------------------------------------------------
