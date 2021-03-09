@@ -49,6 +49,7 @@ import Agda.Utils.Suffix (subscriptAllowed, toSubscriptDigit)
 import Data.Aeson (ToJSON (toJSON), Value (Null))
 import Data.Foldable (toList)
 import Data.IORef (readIORef)
+import Data.List (intercalate)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import qualified Data.Strict.Maybe as Strict
@@ -76,11 +77,20 @@ instance ToJSON RichText where
 instance Show RichText where
   show (RichText xs) = unwords $ map show $ toList xs
 
--- | An alternative @show@ for debugging
--- debug :: RichText -> String
--- debug (RichText xs) = show $ toList $ fmap (\(Elem s a) -> s <> " " <> show a) xs
+-- | see if the rendered text is "empty"
+isEmpty :: RichText -> Bool
+isEmpty (RichText xs) = all elemIsEmpty (Seq.viewl xs)
+  where
+    elemIsEmpty :: Inline -> Bool
+    elemIsEmpty (Text "" _) = True
+    elemIsEmpty (Link _ xs _) = all elemIsEmpty xs
+    elemIsEmpty _ = False
+
 (<+>) :: RichText -> RichText -> RichText
-x <+> y = x <> " " <> y
+x <+> y
+  | isEmpty x = y
+  | isEmpty y = x
+  | otherwise = x <> " " <> y
 
 -- | Whitespace
 space :: RichText
@@ -110,6 +120,10 @@ data Inline
   | Text String ClassNames
   | Link Agda.Range [Inline] ClassNames
   | Hole Int
+  | -- | Elements inside would wrap (to the next line) when there's no space
+    Wrap
+      Bool
+      [Inline]
   deriving (Generic)
 
 instance ToJSON Inline
@@ -117,15 +131,10 @@ instance ToJSON Inline
 instance Show Inline where
   show (Icon s _) = s
   show (Text s _) = s
-  show (Link _ s _) = mconcat $ fmap show s
+  show (Link _ xs _) = mconcat (fmap show xs)
   show (Hole i) = "?" ++ show i
-
--- addClassName :: ClassNames -> Inline -> Inline
--- addClassName ys element = case element of
---   Icon s xs -> Icon s (xs <> ys)
---   Text s xs -> Text s (xs <> ys)
---   Link range s xs -> Link range s (xs <> ys)
---   Hole i -> Hole i
+  show (Wrap True xs) = unwords (fmap show xs)
+  show (Wrap False xs) = mconcat (fmap show xs)
 
 --------------------------------------------------------------------------------
 
@@ -171,6 +180,15 @@ sepBy delim (x : xs) = x <> delim <> sepBy delim xs
 sepByM :: Applicative f => RichText -> [RichText] -> f RichText
 sepByM d = pure . sepBy d
 
+hcat :: [RichText] -> RichText
+hcat = mconcat
+
+hsep :: [RichText] -> RichText
+hsep = sepBy " "
+
+vcat :: [RichText] -> RichText
+vcat = sepBy " "
+
 -- TODO: implement this
 vsep :: [RichText] -> RichText
 vsep = sepBy " "
@@ -183,12 +201,6 @@ sep = sepBy " "
 
 fsep :: [RichText] -> RichText
 fsep = sepBy " "
-
-hsep :: [RichText] -> RichText
-hsep = sepBy " "
-
-vcat :: [RichText] -> RichText
-vcat = sepBy " "
 
 fcat :: [RichText] -> RichText
 fcat = sepBy " "

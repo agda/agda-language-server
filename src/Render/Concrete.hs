@@ -55,7 +55,8 @@ instance Render Expr where
     QuestionMark range Nothing -> linkRange range "?"
     QuestionMark _range (Just n) -> linkHole n
     Underscore range n -> linkRange range $ maybe "_" text n
-    App {} ->
+    -- '_range' is almost always 'NoRange' :(
+    App _range _ _ ->
       case appView expr of
         AppView e1 args ->
           sepBy " " $ render e1 : map render args
