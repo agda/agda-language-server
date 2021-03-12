@@ -58,8 +58,7 @@ instance Render Expr where
     -- '_range' is almost always 'NoRange' :(
     App _range _ _ ->
       case appView expr of
-        AppView e1 args ->
-          sepBy " " $ render e1 : map render args
+        AppView e1 args -> fsep $ render e1 : map render args
     RawApp _ es -> sepBy " " $ map render es
     OpApp _ q _ es -> sepBy " " $ renderOpApp q es
     WithApp _ e es -> sepBy " | " $ map render (e : es)
