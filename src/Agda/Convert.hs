@@ -566,7 +566,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
 
     renderedExpr <- renderATop expr
     rawExpr <- prettyATop expr
-    let renderedType = renderedCtxName <> renderedAttribute Render.<+> ":" Render.<+> renderedExpr Render.<+> Render.parens (Render.sepBy ", " extras)
+    let renderedType = renderedCtxName <> renderedAttribute Render.<+> ":" Render.<+> renderedExpr Render.<+> Render.parens (Render.fsep $ Render.punctuate "," extras)
     let rawType = show $ align 10 [(rawAttribute ++ rawCtxName, ":" <+> rawExpr <+> parenSep extras)]
     let typeItem = IR.Unlabeled renderedType (Just rawType) Nothing
 

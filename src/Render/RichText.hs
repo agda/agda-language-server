@@ -45,13 +45,13 @@ import Agda.Utils.Suffix (subscriptAllowed, toSubscriptDigit)
 import Data.Aeson (ToJSON (toJSON), Value (Null))
 import Data.Foldable (toList)
 import Data.IORef (readIORef)
+import Data.List (intersperse)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import qualified Data.Strict.Maybe as Strict
 import Data.String (IsString (..))
 import GHC.Generics (Generic)
 import qualified GHC.IO.Unsafe as UNSAFE
-import Data.List (intersperse)
 
 --------------------------------------------------------------------------------
 
@@ -70,7 +70,26 @@ instance IsString Inlines where
   fromString s = Inlines (Seq.singleton (Text s mempty))
 
 instance Semigroup Inlines where
-  Inlines xs <> Inlines ys = Inlines (xs <> ys)
+  Inlines xs <> Inlines ys = Inlines (merge xs ys)
+    where
+      merge :: Seq Inline -> Seq Inline -> Seq Inline
+      merge Empty             ys                
+        = ys
+      merge (xs :|> Text s c) (Text t d :<| ys) 
+        | c == d    = merge xs (Text (s <> t) c :<| ys)
+        | otherwise = merge xs (Text s c :<| Text t d :<| ys) 
+      merge (xs :|> x)        ys                
+        = merge xs (x :<| ys)
+
+
+  -- = Icon String ClassNames
+  -- | Text String ClassNames
+  -- | Link Agda.Range Inlines ClassNames
+  -- | Hole Int
+  -- | -- | Horizontal grouping, wrap when there's no space
+  --   Horz [Inlines]
+  -- | -- | Vertical grouping, each children would end with a newline
+  --   Vert [Inlines]
 
 instance Monoid Inlines where
   mempty = Inlines mempty
@@ -188,7 +207,6 @@ hsep :: [Inlines] -> Inlines
 hsep [] = mempty
 hsep [x] = x
 hsep (x : xs) = x <+> hsep xs
-
 
 --------------------------------------------------------------------------------
 
