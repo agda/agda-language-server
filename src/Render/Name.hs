@@ -35,4 +35,4 @@ instance Render A.Name where
   render = render . A.nameConcrete
 
 instance Render A.QName where
-  render (A.QName m x) = sepBy "." (map render (A.mnameToList m ++ [x]))
+  render = hcat . punctuate "." . map render . A.qnameToList

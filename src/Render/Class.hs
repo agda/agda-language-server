@@ -68,4 +68,4 @@ instance Render Doc where
   render = text . Doc.render
 
 instance Render a => Render [a] where
-  render xs = "[" <> sepBy ", " (map render xs) <> "]"
+  render xs = "[" <> fsep (punctuate "," (map render xs)) <> "]"

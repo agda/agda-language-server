@@ -13,6 +13,7 @@ module Render.RichText
     icon,
     -- combinators
     (<+>),
+    punctuate,
     braces,
     braces',
     dbraces,
@@ -21,7 +22,6 @@ module Render.RichText
     indent,
     hcat,
     hsep,
-    sepBy,
     sep,
     fsep,
     vcat,
@@ -51,6 +51,7 @@ import qualified Data.Strict.Maybe as Strict
 import Data.String (IsString (..))
 import GHC.Generics (Generic)
 import qualified GHC.IO.Unsafe as UNSAFE
+import Data.List (intersperse)
 
 --------------------------------------------------------------------------------
 
@@ -173,10 +174,9 @@ parens x = "(" <> x <> ")"
 indent :: Inlines -> Inlines
 indent x = "  " <> x
 
-sepBy :: Inlines -> [Inlines] -> Inlines
-sepBy _ [] = mempty
-sepBy _ [x] = x
-sepBy delim (x : xs) = x <> delim <> sepBy delim xs
+punctuate :: Inlines -> [Inlines] -> [Inlines]
+punctuate _ [] = []
+punctuate delim xs = zipWith (<>) xs (replicate (length xs - 1) delim ++ [mempty])
 
 --------------------------------------------------------------------------------
 
@@ -185,7 +185,10 @@ hcat :: [Inlines] -> Inlines
 hcat = mconcat
 
 hsep :: [Inlines] -> Inlines
-hsep = sepBy " "
+hsep [] = mempty
+hsep [x] = x
+hsep (x : xs) = x <+> hsep xs
+
 
 --------------------------------------------------------------------------------
 

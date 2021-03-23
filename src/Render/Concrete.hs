@@ -59,12 +59,12 @@ instance Render Expr where
     App _range _ _ ->
       case appView expr of
         AppView e1 args -> fsep $ render e1 : map render args
-    RawApp _ es -> sepBy " " $ map render es
-    OpApp _ q _ es -> sepBy " " $ renderOpApp q es
-    WithApp _ e es -> sepBy " | " $ map render (e : es)
+    RawApp _ es -> fsep $ map render es
+    OpApp _ q _ es -> fsep $ renderOpApp q es
+    WithApp _ e es -> fsep $ render e : map (("|" <+>) . render) es
     HiddenArg _ e -> braces' $ render e
     InstanceArg _ e -> dbraces $ render e
-    Lam _ bs (AbsurdLam _ h) -> lambda <+> sepBy " " (map render bs) <+> absurd h
+    Lam _ bs (AbsurdLam _ h) -> lambda <+> fsep (map render bs) <+> absurd h
     Lam _ bs e ->
       sep
         [ lambda <+> fsep (map render bs) <+> arrow,
@@ -197,20 +197,18 @@ instance Render LamBinding where
 
 -- | TypedBinding
 instance Render TypedBinding where
-  render (TLet _ ds) = parens $ "let" <+> sepBy " " (map render ds)
+  render (TLet _ ds) = parens $ "let" <+> vcat (map render ds)
   render (TBind _ xs (Underscore _ Nothing)) =
-    sepBy " " (map (render . NamedBinding True) xs)
+    fsep (map (render . NamedBinding True) xs)
   render (TBind _ binders e) =
-    sepBy
-      " "
+    fsep
       [ renderRelevance y $
           renderHiding y parens $
             renderCohesion y $
               renderQuantity y $
                 renderTactic (binderName $ namedArg y) $
-                  sepBy
-                    " "
-                    [ sepBy " " (map (render . NamedBinding False) ys),
+                  sep
+                    [ fsep (map (render . NamedBinding False) ys),
                       ":" <+> render e
                     ]
         | ys@(y : _) <- groupBinds binders
@@ -387,8 +385,7 @@ instance Render Declaration where
         pRecord x ind eta con tel (Just e) cs
       RecordDef _ x ind eta con tel cs ->
         pRecord x ind eta con tel Nothing cs
-      Infix f xs ->
-        render f <+> sepBy "," (map render xs)
+      Infix f xs -> render f <+> fsep (punctuate "," $ map render xs)
       Syntax n _ -> "syntax" <+> render n <+> "..."
       PatternSyn _ n as p ->
         "pattern" <+> render n <+> fsep (map render as)
@@ -563,7 +560,7 @@ instance Render a => Render (Arg a) where
 -- | Named NamedName (Named_)
 instance Render e => Render (Named NamedName e) where
   renderPrec p (Named nm e)
-    | Just s <- bareNameOf nm = mparens (p > 0) $ sepBy " " [text s <> " =", render e]
+    | Just s <- bareNameOf nm = mparens (p > 0) $ sep [text s <> " =", render e]
     | otherwise = renderPrec p e
 
 instance Render Pattern where
@@ -622,7 +619,7 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
 
     prOp _ [] es = map (\e -> (render e, Nothing)) es
 
-    qual ms' doc = sepBy "." $ map render ms' ++ [doc]
+    qual ms' doc = hcat $ punctuate "." $ map render ms' ++ [doc]
 
     -- Section underscores should be printed without surrounding
     -- whitespace. This function takes care of that.
@@ -658,19 +655,19 @@ instance (Render a, Render b) => Render (ImportDirective' a b) where
       public Nothing = mempty
 
       renderHiding' [] = mempty
-      renderHiding' xs = "hiding" <+> parens (sepBy ";" $ map render xs)
+      renderHiding' xs = "hiding" <+> parens (fsep $ punctuate ";" $ map render xs)
 
       rename [] = mempty
       rename xs =
         hsep
           [ "renaming",
-            parens $ sepBy ";" $ map render xs
+            parens $ fsep $ punctuate ";" $ map render xs
           ]
 
 instance (Render a, Render b) => Render (Using' a b) where
   render UseEverything = mempty
   render (Using xs) =
-    "using" <+> parens (sepBy ";" $ map render xs)
+    "using" <+> parens (fsep $ punctuate ";" $ map render xs)
 
 instance (Render a, Render b) => Render (Renaming' a b) where
   render (Renaming from to mfx _r) =
