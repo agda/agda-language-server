@@ -73,23 +73,20 @@ instance Semigroup Inlines where
   Inlines xs <> Inlines ys = Inlines (merge xs ys)
     where
       merge :: Seq Inline -> Seq Inline -> Seq Inline
-      merge Empty             ys                
-        = ys
-      merge (xs :|> Text s c) (Text t d :<| ys) 
-        | c == d    = merge xs (Text (s <> t) c :<| ys)
-        | otherwise = merge xs (Text s c :<| Text t d :<| ys) 
-      merge (xs :|> x)        ys                
-        = merge xs (x :<| ys)
+      merge Empty      ys = ys
+      merge (xs :|> x) ys = merge xs (cons x ys)
 
+      cons :: Inline -> Seq Inline -> Seq Inline
+      cons (Text s c) (Text t d :<| xs)
+        -- merge 2 adjacent Text if they have the same classnames
+        | c == d    = Text (s <> t) c :<| xs 
+        | otherwise = Text s c :<| Text t d :<| xs
+      cons (Text s c) (Horz [] :<| xs) = cons (Text s c) xs
+      cons (Text s c) (Horz (Inlines t:ts) :<| xs)
+        -- merge Text with Horz when possible
+        = Horz (Inlines (cons (Text s c) t) :ts) :<| xs
+      cons x xs = x :<| xs
 
-  -- = Icon String ClassNames
-  -- | Text String ClassNames
-  -- | Link Agda.Range Inlines ClassNames
-  -- | Hole Int
-  -- | -- | Horizontal grouping, wrap when there's no space
-  --   Horz [Inlines]
-  -- | -- | Vertical grouping, each children would end with a newline
-  --   Vert [Inlines]
 
 instance Monoid Inlines where
   mempty = Inlines mempty
