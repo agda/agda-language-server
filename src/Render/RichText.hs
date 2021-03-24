@@ -7,6 +7,8 @@ module Render.RichText
     -- LinkTarget (..),
     space,
     text,
+    text',
+    parens,
     -- link,
     linkRange,
     linkHole,
@@ -17,7 +19,6 @@ module Render.RichText
     braces,
     braces',
     dbraces,
-    parens,
     mparens,
     indent,
     hcat,
@@ -45,7 +46,6 @@ import Agda.Utils.Suffix (subscriptAllowed, toSubscriptDigit)
 import Data.Aeson (ToJSON (toJSON), Value (Null))
 import Data.Foldable (toList)
 import Data.IORef (readIORef)
-import Data.List (intersperse)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import qualified Data.Strict.Maybe as Strict
@@ -55,11 +55,11 @@ import qualified GHC.IO.Unsafe as UNSAFE
 
 --------------------------------------------------------------------------------
 
-newtype RichText = RichText (Seq Block)
+-- newtype RichText = RichText (Seq Block)
 
 --------------------------------------------------------------------------------
 
-newtype Block = Paragraph (Seq Inline)
+-- newtype Block = Paragraph (Seq Inline)
 
 --------------------------------------------------------------------------------
 
@@ -70,7 +70,7 @@ instance IsString Inlines where
   fromString s = Inlines (Seq.singleton (Text s mempty))
 
 instance Semigroup Inlines where
-  Inlines xs <> Inlines ys = Inlines (merge xs ys)
+  Inlines as <> Inlines bs = Inlines (merge as bs)
     where
       merge :: Seq Inline -> Seq Inline -> Seq Inline
       merge Empty      ys = ys
@@ -109,6 +109,7 @@ isEmpty (Inlines elems) = all elemIsEmpty (Seq.viewl elems)
     elemIsEmpty (Hole _) = False
     elemIsEmpty (Horz xs) = all isEmpty xs
     elemIsEmpty (Vert xs) = all isEmpty xs
+    elemIsEmpty (Parn x) = isEmpty x
 
 (<+>) :: Inlines -> Inlines -> Inlines
 x <+> y
@@ -122,6 +123,12 @@ space = " "
 
 text :: String -> Inlines
 text s = Inlines $ Seq.singleton $ Text s mempty
+
+text' :: ClassNames -> String -> Inlines
+text' cs s = Inlines $ Seq.singleton $ Text s cs
+
+parens :: Inlines -> Inlines
+parens = Inlines . Seq.singleton . Parn
 
 icon :: String -> Inlines
 icon s = Inlines $ Seq.singleton $ Icon s []
@@ -148,6 +155,8 @@ data Inline
     Horz [Inlines]
   | -- | Vertical grouping, each children would end with a newline
     Vert [Inlines]
+  | -- | Parenthese
+    Parn Inlines
   deriving (Generic)
 
 instance ToJSON Inline
@@ -159,6 +168,7 @@ instance Show Inline where
   show (Hole i) = "?" ++ show i
   show (Horz xs) = unwords (map show $ toList xs)
   show (Vert xs) = unlines (map show $ toList xs)
+  show (Parn x) = "(" <> show x <> ")" 
 
 --------------------------------------------------------------------------------
 
@@ -181,10 +191,6 @@ instance ToJSON Agda.AbsolutePath where
 --------------------------------------------------------------------------------
 
 -- | Utilities / Combinators
-
--- TODO: change how Element works
-parens :: Inlines -> Inlines
-parens x = "(" <> x <> ")"
 
 -- TODO: implement this
 indent :: Inlines -> Inlines

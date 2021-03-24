@@ -61,7 +61,7 @@ instance Render Expr where
         AppView e1 args -> fsep $ render e1 : map render args
     RawApp _ es -> fsep $ map render es
     OpApp _ q _ es -> fsep $ renderOpApp q es
-    WithApp _ e es -> fsep $ render e : map (("|" <+>) . render) es
+    WithApp _ e es -> fsep $ render e : map ((text' ["delimiter"] "|" <+>) . render) es
     HiddenArg _ e -> braces' $ render e
     InstanceArg _ e -> dbraces $ render e
     Lam _ bs (AbsurdLam _ h) -> lambda <+> fsep (map render bs) <+> absurd h

@@ -19,7 +19,7 @@ instance (Render a, Render b) => Render (OutputForm a b) where
     where
       prPids []    = mempty
       prPids [pid] = parens $ "problem" <+> render pid
-      prPids pids' = parens $ "problems" <+> fsep (punctuate "," $ map render pids)
+      prPids pids' = parens $ "problems" <+> fsep (punctuate "," $ map render pids')
       prange rr | null s = mempty
                 | otherwise = text $ " [ at " ++ s ++ " ]"
         where s = show $ render rr
