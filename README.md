@@ -30,7 +30,7 @@ Here are the versions that work (on my machine)
 
 Build it with the package manager you hate the least. 
 
-I use Stack. But seriously, I couldn't care less.
+I use Stack. But honestly, I couldn't care less.
 
 ```
 stack install
