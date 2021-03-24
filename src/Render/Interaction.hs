@@ -2,29 +2,30 @@
 
 module Render.Interaction where
 
-import Render.Class
-import Render.Name ()
-import Render.TypeChecking ()
-import Render.Position ()
-import Render.RichText
 import Agda.Interaction.Base
 import Agda.TypeChecking.Monad
-
+import Render.Class
+import Render.Name ()
+import Render.Position ()
+import Render.RichText
+import Render.TypeChecking ()
 
 --------------------------------------------------------------------------------
 
--- | OutputForm 
+-- | OutputForm
 instance (Render a, Render b) => Render (OutputForm a b) where
-  render (OutputForm r pids c) = sep [render c, indent $ prange r, indent $ prPids pids]
+  render (OutputForm r pids c) = fsep [render c, prange r, prPids pids]
     where
-      prPids []    = mempty
+      prPids [] = mempty
       prPids [pid] = parens $ "problem" <+> render pid
       prPids pids' = parens $ "problems" <+> fsep (punctuate "," $ map render pids')
-      prange rr | null s = mempty
-                | otherwise = text $ " [ at " ++ s ++ " ]"
-        where s = show $ render rr
+      prange rr
+        | null s = mempty
+        | otherwise = text $ " [ at " ++ s ++ " ]"
+        where
+          s = show $ render rr
 
--- | OutputConstraint 
+-- | OutputConstraint
 instance (Render a, Render b) => Render (OutputConstraint a b) where
   render (OfType name expr) =
     render name <> " : " <> render expr
@@ -73,30 +74,34 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
       <> " "
       <> render name2
   render (Guard x (ProblemId pid)) =
-    render x
-      <> indent (parens ("blocked by problem " <> render pid))
+    fsep
+      [ render x
+          <> parens ("blocked by problem " <> render pid)
+      ]
   render (Assign name expr) =
     render name <> " := " <> render expr
   render (TypedAssign name expr1 expr2) =
     render name <> " := " <> render expr1 <> " :? " <> render expr2
-  render (PostponedCheckArgs name exprs expr1 expr2) = 
-    let exprs' = map (parens . render) exprs in
-    render name <> " := "
-      <> parens ("_ : " <> render expr1)
-      <> " "
-      <> fsep exprs'
-      <> " : "
-      <> render expr2
+  render (PostponedCheckArgs name exprs expr1 expr2) =
+    let exprs' = map (parens . render) exprs
+     in render name <> " := "
+          <> parens ("_ : " <> render expr1)
+          <> " "
+          <> fsep exprs'
+          <> " : "
+          <> render expr2
   render (IsEmptyType expr) =
     "Is empty: " <> render expr
   render (SizeLtSat expr) =
     "Not empty type of sizes: " <> render expr
-  render (FindInstanceOF name expr exprs) = 
-    let exprs' = map (\(e, t) -> render e <> " : " <> render t) exprs in
-    "Resolve instance argument "
-      <> indent (render name <> " : " <> render expr)
-      <> indent "Candidate:"
-      <> indent (indent (vcat exprs'))
+  render (FindInstanceOF name expr exprs) =
+    let exprs' = map (\(e, t) -> render e <> " : " <> render t) exprs
+     in fsep
+          [ "Resolve instance argument ",
+            render name <> " : " <> render expr,
+            "Candidate:",
+            vcat exprs'
+          ]
   render (PTSInstance name1 name2) =
     "PTS instance for ("
       <> render name1
@@ -112,9 +117,8 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
 -- | IPBoundary'
 instance Render c => Render (IPBoundary' c) where
   render (IPBoundary eqs val meta over) = do
-    let
-      xs = map (\ (l,r) -> render l <+> "=" <+> render r) eqs
-      rhs = case over of
-              Overapplied    -> "=" <+> render meta
-              NotOverapplied -> mempty
+    let xs = map (\(l, r) -> render l <+> "=" <+> render r) eqs
+        rhs = case over of
+          Overapplied -> "=" <+> render meta
+          NotOverapplied -> mempty
     fsep (punctuate "," xs) <+> "⊢" <+> render val <+> rhs

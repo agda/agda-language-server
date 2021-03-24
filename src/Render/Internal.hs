@@ -31,24 +31,24 @@ instance Render Term where
       Var x els -> text ("@" ++ show x) `pApp` els
       Lam ai b ->
         mparens (p > 0) $
-          sep
+          fsep
             [ "λ" <+> renderHiding ai id (text . absName $ b) <+> "->",
-              indent $ render (unAbs b)
+              render (unAbs b)
             ]
       Lit l -> render l
       Def q els -> render q `pApp` els
       Con c _ vs -> render (conName c) `pApp` vs
       Pi a (NoAbs _ b) ->
         mparens (p > 0) $
-          sep
+          fsep
             [ renderPrec 1 (unDom a) <+> "->",
-              indent $ render b
+              render b
             ]
       Pi a b ->
         mparens (p > 0) $
-          sep
+          fsep
             [ renderDom (domInfo a) (text (absName b) <+> ":" <+> render (unDom a)) <+> "->",
-              indent $ render (unAbs b)
+              render (unAbs b)
             ]
       Sort s -> renderPrec p s
       Level l -> renderPrec p l
@@ -58,7 +58,7 @@ instance Render Term where
     where
       pApp d els =
         mparens (not (null els) && p > 9) $
-          sep [d, indent $ fsep (map (renderPrec 10) els)]
+          fsep [d, fsep (map (renderPrec 10) els)]
 
 instance (Render t, Render e) => Render (Dom' t e) where
   render dom = pTac <+> renderDom dom (render $ unDom dom)
@@ -78,16 +78,15 @@ instance Render Clause where
   render Clause {clauseTel = tel, namedClausePats = ps, clauseBody = body, clauseType = ty} =
     sep
       [ render tel <+> "|-",
-        indent $
-          sep
-            [ fsep (map (renderPrec 10) ps) <+> "=",
-              indent $ pBody body ty
-            ]
+        fsep
+          [ fsep (map (renderPrec 10) ps) <+> "=",
+            pBody body ty
+          ]
       ]
     where
       pBody Nothing _ = "(absurd)"
       pBody (Just b) Nothing = render b
-      pBody (Just b) (Just t) = sep [render b <+> ":", indent $ render t]
+      pBody (Just b) (Just t) = fsep [render b <+> ":", render t]
 
 instance Render a => Render (Tele (Dom a)) where
   render tel = fsep [renderDom a (text x <+> ":" <+> render (unDom a)) | (x, a) <- telToList tel]
@@ -137,9 +136,9 @@ instance Render Sort where
         mparens (p > 9) $
           "piSort" <+> renderDom (domInfo a) (text (absName b) <+> ":" <+> render (unDom a))
             <+> parens
-              ( sep
+              ( fsep
                   [ text ("λ " ++ absName b ++ " ->"),
-                    indent $ render (unAbs b)
+                    render (unAbs b)
                   ]
               )
       FunSort a b ->

@@ -65,11 +65,7 @@ instance Render Expr where
     HiddenArg _ e -> braces' $ render e
     InstanceArg _ e -> dbraces $ render e
     Lam _ bs (AbsurdLam _ h) -> lambda <+> fsep (map render bs) <+> absurd h
-    Lam _ bs e ->
-      sep
-        [ lambda <+> fsep (map render bs) <+> arrow,
-          indent $ render e
-        ]
+    Lam _ bs e -> sep [lambda <+> fsep (map render bs) <+> arrow, render e]
     AbsurdLam _ h -> lambda <+> absurd h
     ExtendedLam _ pes -> lambda <+> bracesAndSemicolons (map render pes)
     Fun _ e1 e2 ->
@@ -130,7 +126,7 @@ instance (Render a, Render b) => Render (Either a b) where
   render = either render render
 
 instance Render a => Render (FieldAssignment' a) where
-  render (FieldAssignment x e) = sep [render x <+> "=", indent $ render e]
+  render (FieldAssignment x e) = sep [render x <+> "=", render e]
 
 instance Render ModuleAssignment where
   render (ModuleAssignment m es i) = fsep (render m : map render es) <+> render i
@@ -139,9 +135,9 @@ instance Render LamClause where
   render (LamClause lhs rhs wh _) =
     sep
       [ render lhs,
-        indent $ render' rhs
+        render' rhs,
+        render wh
       ]
-      <> indent (render wh)
     where
       render' (RHS e) = arrow <+> render e
       render' AbsurdRHS = mempty
@@ -248,8 +244,8 @@ instance Render WhereClause where
   render NoWhere = mempty
   render (AnyWhere [Module _ x [] ds])
     | isNoName (unqualify x) =
-      vcat ["where", indent (vcat $ map render ds)]
-  render (AnyWhere ds) = vcat ["where", indent (vcat $ map render ds)]
+      vcat ["where", vcat $ map render ds]
+  render (AnyWhere ds) = vcat ["where", vcat $ map render ds]
   render (SomeWhere m a ds) =
     vcat
       [ hsep $
@@ -257,15 +253,15 @@ instance Render WhereClause where
             (a == PrivateAccess UserWritten)
             ("private" :)
             ["module", render m, "where"],
-        indent (vcat $ map render ds)
+        vcat $ map render ds
       ]
 
 instance Render LHS where
   render (LHS p eqs es _) =
     sep
       [ render p,
-        indent $ if null eqs then mempty else fsep $ map render eqs,
-        indent $ prefixedThings "with" (map render es)
+        if null eqs then mempty else fsep $ map render eqs,
+        prefixedThings "with" (map render es)
       ]
 
 instance Render LHSCore where
@@ -289,10 +285,10 @@ instance Render ModuleApplication where
 
 instance Render DoStmt where
   render (DoBind _ p e cs) =
-    ((render p <+> "←") <> indent (render e)) <> indent (prCs cs)
+    fsep [render p <+> "←", render e, prCs cs]
     where
       prCs [] = mempty
-      prCs cs' = "where" <> indent (vcat (map render cs'))
+      prCs cs' = fsep ["where", vcat (map render cs')]
   render (DoThen e) = render e
   render (DoLet _ ds) = "let" <+> vcat (map render ds)
 
@@ -302,7 +298,7 @@ instance Render Declaration where
       TypeSig i tac x e ->
         sep
           [ renderTactic' tac $ renderRelevance i $ renderCohesion i $ renderQuantity i $ render x <+> ":",
-            indent $ render e
+            render e
           ]
       FieldSig inst tac x (Arg i e) ->
         mkInst inst $
@@ -313,7 +309,7 @@ instance Render Declaration where
                   renderQuantity i $
                     render $ TypeSig (setRelevance Relevant i) tac x e
         where
-          mkInst (InstanceDef _) f = sep ["instance", indent f]
+          mkInst (InstanceDef _) f = sep ["instance", f]
           mkInst NotInstanceDef f = f
 
           mkOverlap j f
@@ -322,42 +318,40 @@ instance Render Declaration where
       Field _ fs ->
         sep
           [ "field",
-            indent $ vcat (map render fs)
+            vcat (map render fs)
           ]
       FunClause lhs rhs wh _ ->
         sep
           [ render lhs,
-            indent $ render rhs
+            render rhs,
+            render wh
           ]
-          <> indent (render wh)
       DataSig _ x tel e ->
-        sep
+        fsep
           [ hsep
               [ "data",
                 render x,
                 fcat (map render tel)
               ],
-            indent $
-              hsep
-                [ ":",
-                  render e
-                ]
+            hsep
+              [ ":",
+                render e
+              ]
           ]
       Data _ x tel e cs ->
-        sep
+        fsep
           [ hsep
               [ "data",
                 render x,
                 fcat (map render tel)
               ],
-            indent $
-              hsep
-                [ ":",
-                  render e,
-                  "where"
-                ]
+            hsep
+              [ ":",
+                render e,
+                "where"
+              ],
+            vcat $ map render cs
           ]
-          <> indent (vcat $ map render cs)
       DataDef _ x tel cs ->
         sep
           [ hsep
@@ -365,9 +359,9 @@ instance Render Declaration where
                 render x,
                 fcat (map render tel)
               ],
-            indent "where"
+            "where",
+            vcat $ map render cs
           ]
-          <> indent (vcat $ map render cs)
       RecordSig _ x tel e ->
         sep
           [ hsep
@@ -375,11 +369,10 @@ instance Render Declaration where
                 render x,
                 fcat (map render tel)
               ],
-            indent $
-              hsep
-                [ ":",
-                  render e
-                ]
+            hsep
+              [ ":",
+                render e
+              ]
           ]
       Record _ x ind eta con tel e cs ->
         pRecord x ind eta con tel (Just e) cs
@@ -400,29 +393,31 @@ instance Render Declaration where
       Primitive _ ds -> namedBlock "primitive" ds
       Generalize _ ds -> namedBlock "variable" ds
       Module _ x tel ds ->
-        hsep
-          [ "module",
-            render x,
-            fcat (map render tel),
-            "where"
+        fsep
+          [ hsep
+              [ "module",
+                render x,
+                fcat (map render tel),
+                "where"
+              ],
+            vcat $ map render ds
           ]
-          <> indent (vcat $ map render ds)
       ModuleMacro _ x (SectionApp _ [] e) DoOpen i
         | isNoName x ->
-          sep
+          fsep
             [ render DoOpen,
-              indent $ render e,
-              indent $ indent $ render i
+              render e,
+              render i
             ]
       ModuleMacro _ x (SectionApp _ tel e) open i ->
-        sep
+        fsep
           [ render open <+> "module" <+> render x <+> fcat (map render tel),
-            indent $ "=" <+> render e <+> render i
+            "=" <+> render e <+> render i
           ]
       ModuleMacro _ x (RecordModuleInstance _ rec) open _ ->
-        sep
+        fsep
           [ render open <+> "module" <+> render x,
-            indent $ "=" <+> render rec <+> "{{...}}"
+            "=" <+> render rec <+> "{{...}}"
           ]
       Open _ x i -> hsep ["open", render x, render i]
       Import _ x rn open i ->
@@ -431,15 +426,15 @@ instance Render Declaration where
           as Nothing = mempty
           as (Just y) = "as" <+> render (asName y)
       UnquoteDecl _ xs t ->
-        sep ["unquoteDecl" <+> fsep (map render xs) <+> "=", indent $ render t]
+        fsep ["unquoteDecl" <+> fsep (map render xs) <+> "=", render t]
       UnquoteDef _ xs t ->
-        sep ["unquoteDef" <+> fsep (map render xs) <+> "=", indent $ render t]
+        fsep ["unquoteDef" <+> fsep (map render xs) <+> "=", render t]
       Pragma pr -> sep ["{-#" <+> render pr, "#-}"]
     where
       namedBlock s ds =
-        sep
+        fsep
           [ text s,
-            indent $ vcat $ map render ds
+            vcat $ map render ds
           ]
 
 pRecord ::
@@ -458,15 +453,13 @@ pRecord x ind eta con tel me cs =
           render x,
           fcat (map render tel)
         ],
-      indent $ pType me
+      pType me,
+      vcat $
+        pInd
+          ++ pEta
+          ++ pCon
+          ++ map render cs
     ]
-    <> indent
-      ( vcat $
-          pInd
-            ++ pEta
-            ++ pCon
-            ++ map render cs
-      )
   where
     pType (Just e) =
       hsep
@@ -520,7 +513,7 @@ instance Render Pragma where
   render (WarningOnUsage _ nm str) = hsep ["WARNING_ON_USAGE", render nm, text str]
   render (WarningOnImport _ str) = hsep ["WARNING_ON_IMPORT", text str]
   render (CatchallPragma _) = "CATCHALL"
-  render (DisplayPragma _ lhs rhs) = "DISPLAY" <+> sep [render lhs <+> "=", indent $ render rhs]
+  render (DisplayPragma _ lhs rhs) = "DISPLAY" <+> fsep [render lhs <+> "=", render rhs]
   render (NoPositivityCheckPragma _) = "NO_POSITIVITY_CHECK"
   render (PolarityPragma _ q occs) =
     hsep ("POLARITY" : render q : map render occs)
@@ -566,7 +559,7 @@ instance Render e => Render (Named NamedName e) where
 instance Render Pattern where
   render = \case
     IdentP x -> render x
-    AppP p1 p2 -> sep [render p1, indent $ render p2]
+    AppP p1 p2 -> fsep [render p1, render p2]
     RawAppP _ ps -> fsep $ map render ps
     OpAppP _ q _ ps -> fsep $ renderOpApp q (fmap (fmap (fmap (NoPlaceholder Strict.Nothing))) ps)
     HiddenP _ p -> braces' $ render p

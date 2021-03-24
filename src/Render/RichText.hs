@@ -20,7 +20,6 @@ module Render.RichText
     braces',
     dbraces,
     mparens,
-    indent,
     hcat,
     hsep,
     sep,
@@ -198,9 +197,9 @@ instance ToJSON Agda.AbsolutePath where
 
 -- | Utilities / Combinators
 
--- TODO: implement this
-indent :: Inlines -> Inlines
-indent x = "  " <> x
+-- -- TODO: implement this
+-- indent :: Inlines -> Inlines
+-- indent x = "  " <> x
 
 punctuate :: Inlines -> [Inlines] -> [Inlines]
 punctuate _ [] = []
