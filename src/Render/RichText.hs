@@ -109,7 +109,8 @@ isEmpty (Inlines elems) = all elemIsEmpty (Seq.viewl elems)
     elemIsEmpty (Hole _) = False
     elemIsEmpty (Horz xs) = all isEmpty xs
     elemIsEmpty (Vert xs) = all isEmpty xs
-    elemIsEmpty (Parn x) = isEmpty x
+    elemIsEmpty (Parn _) = False
+    elemIsEmpty (PrHz _) = False
 
 (<+>) :: Inlines -> Inlines -> Inlines
 x <+> y
@@ -127,8 +128,10 @@ text s = Inlines $ Seq.singleton $ Text s mempty
 text' :: ClassNames -> String -> Inlines
 text' cs s = Inlines $ Seq.singleton $ Text s cs
 
+-- When there's only 1 Horz inside a Parn, convert it to PrHz
 parens :: Inlines -> Inlines
-parens = Inlines . Seq.singleton . Parn
+parens (Inlines (Horz xs :<| Empty)) = Inlines $ Seq.singleton $ PrHz xs
+parens others = Inlines $ Seq.singleton $ Parn others
 
 icon :: String -> Inlines
 icon s = Inlines $ Seq.singleton $ Icon s []
@@ -157,6 +160,8 @@ data Inline
     Vert [Inlines]
   | -- | Parenthese
     Parn Inlines
+  | -- | Parenthese around a Horizontal, special case 
+    PrHz [Inlines]
   deriving (Generic)
 
 instance ToJSON Inline
@@ -169,6 +174,7 @@ instance Show Inline where
   show (Horz xs) = unwords (map show $ toList xs)
   show (Vert xs) = unlines (map show $ toList xs)
   show (Parn x) = "(" <> show x <> ")" 
+  show (PrHz xs) = "(" <> unwords (map show $ toList xs) <> ")" 
 
 --------------------------------------------------------------------------------
 
