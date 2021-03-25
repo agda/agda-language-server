@@ -26,6 +26,7 @@ Here are the versions that work (on my machine)
 | Language Server | [agda-mode](https://marketplace.visualstudio.com/items?itemName=banacorn.agda-mode) |
 | --------------- | ------------- |
 | [v0.0.1.0](https://github.com/banacorn/agda-language-server/releases/tag/v0.0.1.0)        | v0.2.8 |
+| [v0.0.2.0](https://github.com/banacorn/agda-language-server/releases/tag/v0.0.2.0)        | v0.2.10 |
 
 
 Build it with the package manager you hate the least. 
