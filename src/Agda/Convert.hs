@@ -564,10 +564,27 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
               ["instance" | isInstance ai]
             ]
 
-    renderedExpr <- renderATop expr
+        extras2 :: [Inlines]
+        extras2 =
+          concat
+            [ ["not in scope" | isInScope nis == C.NotInScope],
+              -- Print erased if hypothesis is erased by goal is non-erased.
+              ["erased" | not $ getQuantity ai `moreQuantity` getQuantity modality],
+              -- Print irrelevant if hypothesis is strictly less relevant than goal.
+              ["irrelevant" | not $ getRelevance ai `moreRelevant` getRelevance modality],
+              -- Print instance if variable is considered by instance search
+              ["instance" | isInstance ai]
+            ]
+
+    -- raw
     rawExpr <- prettyATop expr
-    let renderedType = renderedCtxName <> renderedAttribute Render.<+> ":" Render.<+> renderedExpr Render.<+> Render.parens (Render.fsep $ Render.punctuate "," extras)
     let rawType = show $ align 10 [(rawAttribute ++ rawCtxName, ":" <+> rawExpr <+> parenSep extras)]
+    -- rendered  
+    renderedExpr <- renderATop expr
+    let renderedType = (renderedCtxName <> renderedAttribute) Render.<+> ":" Render.<+> renderedExpr Render.<+> parenSep2 extras2
+      -- (Render.fsep $ Render.punctuate "," extras)
+    
+    -- result 
     let typeItem = IR.Unlabeled renderedType (Just rawType) Nothing
 
     valueItem <- case letv of
@@ -587,6 +604,12 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
     parenSep docs
       | null docs = empty
       | otherwise = (" " <+>) $ parens $ fsep $ punctuate comma docs
+
+    parenSep2 :: [Inlines] -> Inlines
+    parenSep2 docs
+      | null docs = mempty
+      | otherwise = (" " Render.<+>) $ Render.parens $ Render.fsep $ Render.punctuate "," docs
+
 
 -- | Pretty-prints the type of the meta-variable.
 prettyTypeOfMeta :: Rewrite -> InteractionId -> TCM (Inlines, String)

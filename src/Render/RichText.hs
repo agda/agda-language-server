@@ -111,6 +111,8 @@ isEmpty (Inlines elems) = all elemIsEmpty (Seq.viewl elems)
     elemIsEmpty (Parn _) = False
     elemIsEmpty (PrHz _) = False
 
+infixr 6 <+> 
+
 (<+>) :: Inlines -> Inlines -> Inlines
 x <+> y
   | isEmpty x = y
