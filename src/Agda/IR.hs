@@ -1,17 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 -- | Intermediate Representation for Agda's types
 module Agda.IR where
 
 import qualified Agda.Interaction.Response as Agda
-import qualified Agda.Syntax.Position as Agda
 import Agda.TypeChecking.Monad (TCM)
-import qualified Agda.TypeChecking.Monad.Base as Agda
 import Data.Aeson
 import GHC.Generics (Generic)
 import Render
@@ -54,24 +48,13 @@ data Response
 instance ToJSON Response
 
 --------------------------------------------------------------------------------
--- | View items for DisplayInfo
-
-data Item 
-  = Labeled Inlines (Maybe String) (Maybe Agda.Range) String String 
-  | Unlabeled Inlines (Maybe String) (Maybe Agda.Range)
-  | Header String  
-  deriving (Generic)
-
-instance ToJSON Item
-
---------------------------------------------------------------------------------
 
 -- | IR for DisplayInfo
 data DisplayInfo
-  = DisplayInfoGeneric String [Item]
-  | DisplayInfoAllGoalsWarnings String [Item] [Item] [String] [String]
-  | DisplayInfoCurrentGoal Item
-  | DisplayInfoInferredType Item
+  = DisplayInfoGeneric String [Block]
+  | DisplayInfoAllGoalsWarnings String [Block] [Block] [String] [String]
+  | DisplayInfoCurrentGoal Block
+  | DisplayInfoInferredType Block
   | DisplayInfoCompilationOk [String] [String]
   | DisplayInfoAuto String
   | DisplayInfoError String
@@ -116,17 +99,3 @@ data HighlightingInfos = HighlightingInfos Bool [HighlightingInfo]
   deriving (Generic, Show)
 
 instance ToJSON HighlightingInfos
-
---------------------------------------------------------------------------------
-
--- | ToJSON for Agda.TypeChecking.Monad.Base.Polarity
-instance ToJSON Agda.Polarity where
-  toJSON Agda.Covariant = String "Covariant"
-  toJSON Agda.Contravariant = String "Contravariant"
-  toJSON Agda.Invariant = String "Invariant"
-  toJSON Agda.Nonvariant = String "Nonvariant"
-
--- | ToJSON for Agda.TypeChecking.Monad.Base.Comparison
-instance ToJSON Agda.Comparison where
-  toJSON Agda.CmpEq = String "Covariant"
-  toJSON Agda.CmpLeq = String "Contravariant"

@@ -3,7 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Render.RichText
-  ( Inlines (..),
+  ( Block(..),
+    Inlines (..),
     -- LinkTarget (..),
     space,
     text,
@@ -53,12 +54,18 @@ import GHC.Generics (Generic)
 import qualified GHC.IO.Unsafe as UNSAFE
 
 --------------------------------------------------------------------------------
+-- | Block elements
 
--- newtype RichText = RichText (Seq Block)
+data Block 
+  -- for blocks like "Goal" & "Have"
+  = Labeled Inlines (Maybe String) (Maybe Agda.Range) String String 
+  -- for ordinary goals & context
+  | Unlabeled Inlines (Maybe String) (Maybe Agda.Range)
+  -- headers
+  | Header String  
+  deriving (Generic)
 
---------------------------------------------------------------------------------
-
--- newtype Block = Paragraph (Seq Inline)
+instance ToJSON Block
 
 --------------------------------------------------------------------------------
 
