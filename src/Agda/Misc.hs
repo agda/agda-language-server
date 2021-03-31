@@ -48,12 +48,17 @@ runCommandM program = lift $ runTCMPrettyErrors $ do
 
 
 inferTypeOfText :: Range -> FilePath -> Text -> LSP.LspT () ServerM (Either String String)
-inferTypeOfText range filepath text = runCommandM $ do 
+inferTypeOfText range filepath text = runCommandM $ lift $ do 
     -- load first 
-    lift $ cmd_load' filepath [] True Imp.TypeCheck $ \_ -> return ()
+    cmd_load' filepath [] True Imp.TypeCheck $ \_ -> return ()
     -- infer later
     let norm = AsIs 
-    (_time, typ) <- lift $ parseAndDoAtToplevel (typeInCurrent norm) (unpack text)
+    -- localStateCommandM: restore TC state afterwards, do we need this here?
+    typ <- localStateCommandM $ do
+      e <- lift $ runPM $ parse exprParser (unpack text)
+      lift $ atTopLevel $ do
+        concreteToAbstract_ e >>= typeInCurrent norm
+
     render <$> prettyATop typ
 
 onHover :: LSP.Uri -> LSP.Position -> LSP.LspT () ServerM (Maybe LSP.Hover)
