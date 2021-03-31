@@ -6,6 +6,7 @@ module Server (run) where
 -- entry point of the LSP server
 
 import Common
+import qualified Agda.Parser as Parser
 import Control.Monad.Reader
 import qualified Agda
 import Data.Aeson (FromJSON, ToJSON)
@@ -14,12 +15,20 @@ import Data.Text (pack)
 import GHC.Generics (Generic)
 import GHC.IO.IOMode (IOMode (ReadWriteMode))
 import Language.LSP.Server
+import qualified Language.LSP.VFS as VFS
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import qualified Network.Simple.TCP as TCP
 import Network.Socket (socketToHandle)
 import qualified Switchboard
 import Switchboard (Switchboard)
 import Control.Concurrent
+
+-- import Agda.Interaction.Highlighting.Generate
+--     ( generateTokenInfoFromString )
+-- import Agda.Interaction.Highlighting.Generate
+--     ( generateTokenInfoFromString )
+import Agda.Position (makeOffsetTable, toPositionWithoutFile, prettyPositionWithoutFile)
+-- import Agda.Position (fromLSPPosition)
 
 --------------------------------------------------------------------------------
 
@@ -65,11 +74,14 @@ run devMode = do
     syncOptions =
       TextDocumentSyncOptions
         { _openClose = Just True, -- receive open and close notifications from the client
-          _change = Nothing, -- receive change notifications from the client
+          _change = Just changeOptions, -- receive change notifications from the client
           _willSave = Just False, -- receive willSave notifications from the client
           _willSaveWaitUntil = Just False, -- receive willSave notifications from the client
           _save = Just $ InR saveOptions
         }
+
+    changeOptions :: TextDocumentSyncKind
+    changeOptions = TdSyncIncremental
 
     -- includes the document content on save, so that we don't have to read it from the disk
     saveOptions :: SaveOptions
@@ -87,8 +99,26 @@ handlers =
           JSON.Error msg -> return $ CmdRes $ Just $ CmdErrCannotDecodeJSON $ show msg ++ "\n" ++ show params
           JSON.Success request -> handleCommandReq request
         -- respond with the Response
-        responder $ Right $ JSON.toJSON response
+        responder $ Right $ JSON.toJSON response,
+
+      requestHandler STextDocumentHover $ \req responder -> do
+        let RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
+        result <- getVirtualFile (toNormalizedUri uri)
+        case result of 
+          Nothing -> responder (Right Nothing)
+          Just file -> do 
+            let source = VFS.virtualFileText file
+            let offsetTable = makeOffsetTable source
+            let agdaPos = toPositionWithoutFile offsetTable pos
+            lookupResult <- Parser.tokenAt uri source agdaPos
+            case lookupResult of 
+              Nothing -> responder (Right Nothing)
+              Just (token, text) -> do 
+                let range = Range pos pos
+                let content = HoverContents $ markedUpContent "agda-language-server" text
+                responder (Right $ Just $ Hover content (Just range))
     ]
+
 
 --------------------------------------------------------------------------------
 

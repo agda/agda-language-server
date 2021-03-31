@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3d24f2871557cfe989cff5a0e3f85249beec3bd61b435ee364181a13e8adc7bc
+-- hash: 645e24b11cdfb316bddb383703f0d160e698f0db5a5b63caf52ae721dcc3ca96
 
 name:           agda-language-server
 version:        0.0.1.0
@@ -30,6 +30,8 @@ library
       Agda
       Agda.Convert
       Agda.IR
+      Agda.Parser
+      Agda.Position
       Common
       Control.Concurrent.SizedChan
       Render

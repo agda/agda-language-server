@@ -12,7 +12,7 @@ import qualified Server.ResponseController as ResponseController
 import Server.CommandController (CommandController)
 import qualified Server.CommandController as CommandController
 import Control.Monad.Reader
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Language.LSP.Server (LanguageContextEnv, LspT, runLspT)
 
 --------------------------------------------------------------------------------
@@ -44,6 +44,11 @@ writeLog :: (Monad m, MonadIO m) => Text -> ServerM' m ()
 writeLog msg = do
   chan <- asks envLogChan
   liftIO $ writeChan chan msg
+
+writeLog' :: (Monad m, MonadIO m, Show a) => a -> ServerM' m ()
+writeLog' x = do
+  chan <- asks envLogChan
+  liftIO $ writeChan chan $ pack $ show x
 
 -- | Provider
 provideCommand :: (Monad m, MonadIO m) => IOTCM -> ServerM' m ()

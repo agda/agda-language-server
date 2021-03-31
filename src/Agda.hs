@@ -52,7 +52,7 @@ interact = do
 
     _ <- mapReaderT (`runStateT` commandState) (loop env)
 
-    return ""
+    return ()
   -- TODO: we should examine the result
   case result of
     Left _err -> return ()
@@ -90,13 +90,13 @@ parseIOTCM raw = case listToMaybe $ reads raw of
 -- TODO: handle the caught errors
 
 -- | Run a TCM action in IO and throw away all of the errors
-runTCMPrettyErrors :: ServerM' TCM String -> ServerM' IO (Either String String)
+runTCMPrettyErrors :: ServerM' TCM a -> ServerM' IO (Either String a)
 runTCMPrettyErrors = mapReaderT f
   where
-    f :: TCM String -> IO (Either String String)
+    f :: TCM a -> IO (Either String a)
     f p = runTCMTop' ((Right <$> p) `catchError` handleTCErr `catchImpossible` handleImpossible) `catch` catchException
 
-    handleTCErr :: TCErr -> TCM (Either String String)
+    handleTCErr :: TCErr -> TCM (Either String a)
     handleTCErr err = do
       s2s <- prettyTCWarnings' =<< Imp.getAllWarningsOfTCErr err
       s1 <- prettyError err
@@ -104,8 +104,8 @@ runTCMPrettyErrors = mapReaderT f
       let errorMsg = unlines ss
       return (Left errorMsg)
 
-    handleImpossible :: Impossible -> TCM (Either String String)
+    handleImpossible :: Impossible -> TCM (Either String a)
     handleImpossible = return . Left . show
 
-    catchException :: SomeException -> IO (Either String String)
+    catchException :: SomeException -> IO (Either String a)
     catchException e = return $ Left $ show e
