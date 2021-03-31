@@ -28,6 +28,7 @@ import Control.Concurrent
 -- import Agda.Interaction.Highlighting.Generate
 --     ( generateTokenInfoFromString )
 import Agda.Position (makeOffsetTable, toPositionWithoutFile, prettyPositionWithoutFile)
+import Agda.Misc (onHover)
 -- import Agda.Position (fromLSPPosition)
 
 --------------------------------------------------------------------------------
@@ -103,20 +104,26 @@ handlers =
 
       requestHandler STextDocumentHover $ \req responder -> do
         let RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
-        result <- getVirtualFile (toNormalizedUri uri)
-        case result of 
-          Nothing -> responder (Right Nothing)
-          Just file -> do 
-            let source = VFS.virtualFileText file
-            let offsetTable = makeOffsetTable source
-            let agdaPos = toPositionWithoutFile offsetTable pos
-            lookupResult <- Parser.tokenAt uri source agdaPos
-            case lookupResult of 
-              Nothing -> responder (Right Nothing)
-              Just (token, text) -> do 
-                let range = Range pos pos
-                let content = HoverContents $ markedUpContent "agda-language-server" text
-                responder (Right $ Just $ Hover content (Just range))
+
+        result <- onHover uri pos
+        responder $ Right result
+        -- result <- getVirtualFile (toNormalizedUri uri)
+        -- case result of 
+        --   Nothing -> responder (Right Nothing)
+        --   Just file -> do 
+        --     let source = VFS.virtualFileText file
+
+
+
+            -- let offsetTable = makeOffsetTable source
+            -- let agdaPos = toPositionWithoutFile offsetTable pos
+            -- lookupResult <- Parser.tokenAt uri source agdaPos
+            -- case lookupResult of 
+            --   Nothing -> responder (Right Nothing)
+            --   Just (token, text) -> do 
+            --     let range = Range pos pos
+            --     let content = HoverContents $ markedUpContent "agda-language-server" text
+            --     responder (Right $ Just $ Hover content (Just range))
     ]
 
 
