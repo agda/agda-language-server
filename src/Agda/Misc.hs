@@ -2,39 +2,59 @@
 
 module Agda.Misc where
 
-import Agda.Interaction.BasicOps (typeInCurrent, parseExpr)
-import Agda.Interaction.InteractionTop (parseAndDoAtToplevel)
+-- import Agda.Syntax.Position (Range' (Range))
+
+import Agda (runTCMPrettyErrors)
+import Agda.Interaction.Base (CommandM, CommandState (optionsOnReload), Rewrite (AsIs), initCommandState, CommandQueue(..))
+import Agda.Interaction.BasicOps (parseExpr, typeInCurrent, atTopLevel)
+import Agda.Interaction.InteractionTop (parseAndDoAtToplevel, localStateCommandM, cmd_load')
+import Agda.Interaction.Options (CommandLineOptions (optAbsoluteIncludePaths))
 import qualified Agda.Parser as Parser
 import Agda.Position (makeOffsetTable, toPositionWithoutFile)
--- import Agda.Syntax.Position (Range' (Range))
-import qualified Language.LSP.Types as LSP
-import qualified Language.LSP.Server as LSP
-import qualified Language.LSP.VFS as VFS
-import Common (ServerM, ServerM')
-import Agda (runTCMPrettyErrors)
-import Agda.TypeChecking.Monad (TCM)
-import Data.Text (Text, unpack, pack)
-import Control.Monad.State 
-import Control.Monad.Reader
-import Agda.Interaction.Base (CommandState(optionsOnReload), initCommandState, Rewrite (AsIs))
-import Agda.Interaction.Options (CommandLineOptions(optAbsoluteIncludePaths))
-import Agda.Syntax.Position (Range, getRange)
-import Agda.Syntax.Translation.ConcreteToAbstract (concreteToAbstract_)
 import qualified Agda.Syntax.Abstract as A
 import Agda.Syntax.Abstract.Pretty (prettyATop)
+import Agda.Syntax.Parser (parse, exprParser)
+import Agda.Syntax.Position (Range, getRange)
+import Agda.Syntax.Translation.ConcreteToAbstract (concreteToAbstract_)
+import Agda.TypeChecking.Monad (TCM, setInputFile, HasOptions (commandLineOptions), setInteractionOutputCallback)
+import Agda.TypeChecking.Warnings (runPM)
 import Agda.Utils.Pretty (render)
+import Common (ServerM, ServerM')
+import Control.Monad.Reader
+import Control.Monad.State
+import Data.Text (Text, pack, unpack)
+import qualified Language.LSP.Server as LSP
+import qualified Language.LSP.Types as LSP
+import qualified Language.LSP.VFS as VFS
 
--- inferType :: Text -> LSP.LspT () ServerM (Maybe LSP.Hover)
+import Control.Concurrent.STM
+import qualified Agda.Interaction.Imports as Imp
 
-inferTypeOfText :: Range -> Text -> LSP.LspT () ServerM (Either String String)
-inferTypeOfText range text = lift $ runTCMPrettyErrors $ do 
-  lift $ do 
-    expr <- parseExpr range (unpack text)
-    expr' <- concreteToAbstract_ expr
-    typ <- typeInCurrent AsIs expr' 
-    render <$> prettyATop typ 
+initialiseCommandQueue :: IO CommandQueue
+initialiseCommandQueue = CommandQueue <$> newTChanIO <*> newTVarIO Nothing
+
+runCommandM :: ServerM' CommandM a -> LSP.LspT () ServerM (Either String a)
+runCommandM program = lift $ runTCMPrettyErrors $ do
+
+    -- we need to set InteractionOutputCallback else it would panic
+    lift $ setInteractionOutputCallback $ \response -> return ()
+
+    -- setup the command state  
+    commandQueue <- liftIO initialiseCommandQueue
+    opts <- commandLineOptions
+    let commandState = (initCommandState commandQueue) {optionsOnReload = opts {optAbsoluteIncludePaths = []}}
+    -- run the program in TCM 
+    mapReaderT (`evalStateT` commandState) program
 
 
+inferTypeOfText :: Range -> FilePath -> Text -> LSP.LspT () ServerM (Either String String)
+inferTypeOfText range filepath text = runCommandM $ do 
+    -- load first 
+    lift $ cmd_load' filepath [] True Imp.TypeCheck $ \_ -> return ()
+    -- infer later
+    let norm = AsIs 
+    (_time, typ) <- lift $ parseAndDoAtToplevel (typeInCurrent norm) (unpack text)
+    render <$> prettyATop typ
 
 onHover :: LSP.Uri -> LSP.Position -> LSP.LspT () ServerM (Maybe LSP.Hover)
 onHover uri pos = do
@@ -49,13 +69,16 @@ onHover uri pos = do
       case lookupResult of
         Nothing -> return Nothing
         Just (token, text) -> do
-          let range = LSP.Range pos pos
+          case LSP.uriToFilePath uri of 
+            Nothing -> return Nothing
+            Just filepath -> do 
+              let range = LSP.Range pos pos
 
-          inferResult <- inferTypeOfText (getRange token) text 
-          case inferResult of 
-            Left error -> do 
-              let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" ("Error: " <> pack error)
-              return $ Just $ LSP.Hover content (Just range)
-            Right typeString -> do 
-              let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" ("Error: " <> pack typeString)
-              return $ Just $ LSP.Hover content (Just range)
+              inferResult <- inferTypeOfText (getRange token) filepath text
+              case inferResult of
+                Left error -> do
+                  let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" ("Error: " <> pack error)
+                  return $ Just $ LSP.Hover content (Just range)
+                Right typeString -> do
+                  let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" (pack typeString)
+                  return $ Just $ LSP.Hover content (Just range)
