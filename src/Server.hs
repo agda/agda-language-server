@@ -6,7 +6,6 @@ module Server (run) where
 -- entry point of the LSP server
 
 import Common
-import qualified Agda.Parser as Parser
 import Control.Monad.Reader
 import qualified Agda
 import Data.Aeson (FromJSON, ToJSON)
@@ -15,7 +14,6 @@ import Data.Text (pack)
 import GHC.Generics (Generic)
 import GHC.IO.IOMode (IOMode (ReadWriteMode))
 import Language.LSP.Server
-import qualified Language.LSP.VFS as VFS
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import qualified Network.Simple.TCP as TCP
 import Network.Socket (socketToHandle)
@@ -23,13 +21,7 @@ import qualified Switchboard
 import Switchboard (Switchboard)
 import Control.Concurrent
 
--- import Agda.Interaction.Highlighting.Generate
---     ( generateTokenInfoFromString )
--- import Agda.Interaction.Highlighting.Generate
---     ( generateTokenInfoFromString )
-import Agda.Position (makeOffsetTable, toPositionWithoutFile, prettyPositionWithoutFile)
 import Agda.Misc (onHover)
--- import Agda.Position (fromLSPPosition)
 
 --------------------------------------------------------------------------------
 
@@ -61,7 +53,7 @@ run devMode = do
             Switchboard.setupLanguageContextEnv switchboard ctxEnv
             pure $ Right ctxEnv,
           staticHandlers = handlers,
-          interpretHandler = \ctxEnv -> Iso (runServerLSP env ctxEnv) liftIO,
+          interpretHandler = \ctxEnv -> Iso (runLspT ctxEnv . runServerM env) liftIO,
           options = lspOptions
         }
     lspOptions :: Options
@@ -89,62 +81,34 @@ run devMode = do
     saveOptions = SaveOptions (Just True)
 
 -- handlers of the LSP server
-handlers :: Handlers (LspT () ServerM)
-handlers =
-  mconcat
-    [ -- custom methods, not part of LSP
-      requestHandler (SCustomMethod "agda") $ \req responder -> do
-        let RequestMessage _ _i _ params = req
-        -- JSON Value => Request => Response
-        response <- case JSON.fromJSON params of
-          JSON.Error msg -> return $ CmdRes $ Just $ CmdErrCannotDecodeJSON $ show msg ++ "\n" ++ show params
-          JSON.Success request -> handleCommandReq request
-        -- respond with the Response
-        responder $ Right $ JSON.toJSON response,
-
-      requestHandler STextDocumentHover $ \req responder -> do
-        let RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
-
-        result <- onHover uri pos
-        responder $ Right result
-        -- result <- getVirtualFile (toNormalizedUri uri)
-        -- case result of 
-        --   Nothing -> responder (Right Nothing)
-        --   Just file -> do 
-        --     let source = VFS.virtualFileText file
-
-
-
-            -- let offsetTable = makeOffsetTable source
-            -- let agdaPos = toPositionWithoutFile offsetTable pos
-            -- lookupResult <- Parser.tokenAt uri source agdaPos
-            -- case lookupResult of 
-            --   Nothing -> responder (Right Nothing)
-            --   Just (token, text) -> do 
-            --     let range = Range pos pos
-            --     let content = HoverContents $ markedUpContent "agda-language-server" text
-            --     responder (Right $ Just $ Hover content (Just range))
+handlers :: Handlers (ServerM (LspM ()))
+handlers = mconcat
+    [   -- custom methods, not part of LSP
+        requestHandler (SCustomMethod "agda") $ \req responder -> do
+            let RequestMessage _ _i _ params = req
+            -- JSON Value => Request => Response
+            response <- case JSON.fromJSON params of
+                JSON.Error msg -> return $ CmdRes $ Just $ CmdErrCannotDecodeJSON $ show msg ++ "\n" ++ show params
+                JSON.Success request -> handleCommandReq request
+            -- respond with the Response
+            responder $ Right $ JSON.toJSON response,
+        -- hover provider
+        requestHandler STextDocumentHover $ \req responder -> do
+            let RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
+            result <- onHover uri pos
+            responder $ Right result
     ]
-
 
 --------------------------------------------------------------------------------
 
-handleCommandReq :: CommandReq -> LspT () ServerM CommandRes
-handleCommandReq request = do
-  -- -- convert Request to LSP side effects
-  -- toLSPSideEffects i request
-  -- convert Request to Response
-  toCommandRes request
-  where
-    toCommandRes :: CommandReq -> LspT () ServerM CommandRes
-    toCommandRes CmdReqSYN = return $ CmdResACK Agda.getAgdaVersion
-    toCommandRes (CmdReq cmd) = do
-      case Agda.parseIOTCM cmd of
+handleCommandReq :: CommandReq -> ServerM (LspM ()) CommandRes
+handleCommandReq CmdReqSYN = return $ CmdResACK Agda.getAgdaVersion
+handleCommandReq (CmdReq cmd) = do
+    case Agda.parseIOTCM cmd of
         Left err -> do
-          lift $ writeLog $ "[Error] CmdErrCannotParseCommand:\n" <> pack err
-          return $ CmdRes (Just (CmdErrCannotParseCommand err))
+            writeLog $ "[Error] CmdErrCannotParseCommand:\n" <> pack err
+            return $ CmdRes (Just (CmdErrCannotParseCommand err))
         Right iotcm -> do
-          lift $ do
             writeLog $ "[Request] " <> pack (show cmd)
             provideCommand iotcm
             return $ CmdRes Nothing

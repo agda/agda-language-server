@@ -3,6 +3,7 @@
 
 module Agda where
 
+import Agda.Convert (fromResponse)
 import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandM, CommandState (optionsOnReload), IOTCM, initCommandState)
 import qualified Agda.Interaction.Imports as Imp
 import Agda.Interaction.InteractionTop (initialiseCommandQueue, maybeAbort, runInteraction)
@@ -25,18 +26,17 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Data.Maybe (listToMaybe)
 import Data.Text (pack)
-import Agda.Convert (fromResponse)
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
 
-interact :: ServerM ()
+interact :: ServerM IO ()
 interact = do
   env <- ask
 
   writeLog "[Agda] interaction start"
 
-  result <- runTCMPrettyErrors $ do
+  result <- mapReaderT runTCMPrettyErrors $ do
     -- decides how to output Response
     lift $
       setInteractionOutputCallback $ \response -> do
@@ -58,7 +58,7 @@ interact = do
     Left _err -> return ()
     Right _val -> return ()
   where
-    loop :: Env -> ServerM' CommandM ()
+    loop :: Env -> ServerM CommandM ()
     loop env = do
       Bench.reset
       done <- Bench.billTo [] $ do
@@ -90,12 +90,10 @@ parseIOTCM raw = case listToMaybe $ reads raw of
 -- TODO: handle the caught errors
 
 -- | Run a TCM action in IO and throw away all of the errors
-runTCMPrettyErrors :: ServerM' TCM a -> ServerM' IO (Either String a)
-runTCMPrettyErrors = mapReaderT f
+runTCMPrettyErrors :: TCM a -> IO (Either String a)
+runTCMPrettyErrors p =
+  runTCMTop' ((Right <$> p) `catchError` handleTCErr `catchImpossible` handleImpossible) `catch` catchException
   where
-    f :: TCM a -> IO (Either String a)
-    f p = runTCMTop' ((Right <$> p) `catchError` handleTCErr `catchImpossible` handleImpossible) `catch` catchException
-
     handleTCErr :: TCErr -> TCM (Either String a)
     handleTCErr err = do
       s2s <- prettyTCWarnings' =<< Imp.getAllWarningsOfTCErr err
