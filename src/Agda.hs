@@ -19,7 +19,7 @@ import qualified Agda.TypeChecking.Monad.Benchmark as Bench
 import Agda.TypeChecking.Monad.State (setInteractionOutputCallback)
 import Agda.Utils.Impossible (CatchImpossible (catchImpossible), Impossible)
 import Agda.VersionCommit (versionWithCommitInfo)
-import Common
+import Monad
 import Control.Exception
 import Control.Monad.Except (catchError)
 import Control.Monad.Reader

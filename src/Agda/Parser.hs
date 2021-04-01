@@ -6,7 +6,7 @@ import Agda.Syntax.Parser (parseFile, runPMIO, tokensParser)
 import Agda.Syntax.Parser.Tokens (Token)
 import Agda.Syntax.Position (Position' (posPos), PositionWithoutFile, Range, getRange, rEnd', rStart')
 import Agda.Utils.FileName (mkAbsolute)
-import Common
+import Monad ( ServerM )
 import Control.Monad.State
 import Data.List (find)
 import Data.Maybe (fromMaybe)

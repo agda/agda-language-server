@@ -2,7 +2,7 @@
 
 module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy) where
 
-import Common
+import Monad
 import Control.Concurrent
 import qualified Server.ResponseController as ResponseController
 import Control.Monad.Reader

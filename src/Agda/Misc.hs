@@ -16,7 +16,6 @@ import Agda.Syntax.Translation.ConcreteToAbstract (concreteToAbstract_)
 import Agda.TypeChecking.Monad (HasOptions (commandLineOptions), setInteractionOutputCallback)
 import Agda.TypeChecking.Warnings (runPM)
 import Agda.Utils.Pretty (render)
-import Common (ServerM)
 import Control.Concurrent.STM
 import Control.Monad.Reader
 import Control.Monad.State
@@ -25,6 +24,7 @@ import Language.LSP.Server (LspM)
 import qualified Language.LSP.Server as LSP
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.VFS as VFS
+import Monad (ServerM)
 
 initialiseCommandQueue :: IO CommandQueue
 initialiseCommandQueue = CommandQueue <$> newTChanIO <*> newTVarIO Nothing
@@ -57,7 +57,7 @@ inferTypeOfText filepath text = liftIO $
 
     render <$> prettyATop typ
 
-onHover :: LSP.Uri -> LSP.Position -> ServerM (LSP.LspM ()) (Maybe LSP.Hover)
+onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM ()) (Maybe LSP.Hover)
 onHover uri pos = do
   result <- LSP.getVirtualFile (LSP.toNormalizedUri uri)
   case result of

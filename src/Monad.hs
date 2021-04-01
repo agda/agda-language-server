@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Common where
+module Monad where
 
 import Agda.IR
 

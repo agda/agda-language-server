@@ -5,7 +5,7 @@ module Server (run) where
 
 -- entry point of the LSP server
 
-import Common
+import Monad
 import Control.Monad.Reader
 import qualified Agda
 import Data.Aeson (FromJSON, ToJSON)
