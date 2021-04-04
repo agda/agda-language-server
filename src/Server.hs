@@ -22,27 +22,24 @@ import Switchboard (Switchboard)
 import Control.Concurrent
 
 import Agda.Misc (onHover)
+import Data.Maybe (isJust)
 
 --------------------------------------------------------------------------------
 
-run :: Bool -> IO Int
-run devMode = do
-  env <- createInitEnv devMode
+run :: Maybe Int -> IO Int
+run viaTCP = do
+  env <- createInitEnv (isJust viaTCP)
   switchboard <- Switchboard.new env
-
-  if devMode
-    then do
-      let port = "4096"
-
-      void $ TCP.serve (TCP.Host "127.0.0.1") port $ \(sock, _remoteAddr) -> do
+  case viaTCP of 
+    Just port -> do 
+      void $ TCP.serve (TCP.Host "127.0.0.1") (show port) $ \(sock, _remoteAddr) -> do
         writeChan (envLogChan env) "[Server] connection established"
         handle <- socketToHandle sock ReadWriteMode
         _ <- runServerWithHandles handle handle (serverDefn env switchboard)
         return ()
-
       Switchboard.destroy switchboard
       return 0
-    else do
+    Nothing -> do 
       runServer (serverDefn env switchboard)
   where
     serverDefn :: Env -> Switchboard -> ServerDefinition ()
