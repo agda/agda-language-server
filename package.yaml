@@ -1,10 +1,12 @@
 name:                agda-language-server
-version:             0.0.1.0
+version:             0.0.3.0
+category:            Development
+synopsis:            LSP server for Agda
 github:              "banacorn/agda-language-server"
 license:             MIT
-author:              "Ting-Gian LUA"
+author:              "Ting-gan LUA"
 maintainer:          "banacorn@gmail.com"
-copyright:           "2020 Author name here :)"
+copyright:           "2020 Ting-gan LUA"
 
 extra-source-files:
 - README.md

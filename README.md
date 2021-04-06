@@ -8,7 +8,7 @@ To be developed alongside [agda-mode-vscode](https://github.com/banacorn/agda-mo
 
 Yes.
 
-However, this project not available on Hackage for the moment.
+However, this project is not available on Hackage for the moment.
 You will have to pull it from GitHub
 
 ```

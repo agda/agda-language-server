@@ -4,16 +4,18 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 314f82b5ffb4e5a387636eb271948992131d748daaa192fca7c797965b9a397d
+-- hash: 0f24217c91b5f8c3f3d6da5c70694d98b0ef55971a5324a2c460ca48c06c4bb1
 
 name:           agda-language-server
-version:        0.0.1.0
+version:        0.0.3.0
+synopsis:       LSP server for Agda
 description:    Please see the README on GitHub at <https://github.com/banacorn/agda-language-server#readme>
+category:       Development
 homepage:       https://github.com/banacorn/agda-language-server#readme
 bug-reports:    https://github.com/banacorn/agda-language-server/issues
-author:         Ting-Gian LUA
+author:         Ting-gan LUA
 maintainer:     banacorn@gmail.com
-copyright:      2020 Author name here :)
+copyright:      2020 Ting-gan LUA
 license:        MIT
 license-file:   LICENSE
 build-type:     Simple
