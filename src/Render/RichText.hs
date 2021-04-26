@@ -187,7 +187,7 @@ instance Show Inline where
 --------------------------------------------------------------------------------
 
 -- | ToJSON instances for Agda types
-instance ToJSON Agda.Range
+instance {-# OVERLAPS #-} ToJSON Agda.Range
 
 instance ToJSON (Agda.Interval' ()) where
   toJSON (Agda.Interval start end) = toJSON (start, end)
@@ -195,7 +195,7 @@ instance ToJSON (Agda.Interval' ()) where
 instance ToJSON (Agda.Position' ()) where
   toJSON (Agda.Pn () pos line col) = toJSON [line, col, pos]
 
-instance ToJSON Agda.SrcFile where
+instance {-# OVERLAPS #-} ToJSON Agda.SrcFile where
   toJSON Strict.Nothing = Null
   toJSON (Strict.Just path) = toJSON path
 
