@@ -12,7 +12,7 @@ However, this project not available on Hackage for the moment.
 You will have to pull it from GitHub
 
 ```
-git clone git@github.com:banacorn/agda-language-server.git
+git clone https://github.com/banacorn/agda-language-server.git
 ```
 
 Checkout to a version that is compatible with your agda-mode on VS Code
