@@ -2,6 +2,8 @@
 
 module Render.Literal where
 
+import Data.Text (Text)
+import qualified Data.Text as T
 import Agda.Syntax.Literal
 import Render.Class
 import Render.RichText
@@ -12,10 +14,10 @@ import Render.Common ()
 
 -- | Literal
 instance Render Literal where
-  render (LitNat _ n) = text $ show n
-  render (LitWord64 _ n) = text $ show n
-  render (LitFloat _ d) = text $ show d
-  render (LitString _ s) = text $ showString' s ""
-  render (LitChar _ c) = text $ "'" ++ showChar' c "'"
-  render (LitQName _ x) = render x
-  render (LitMeta _ _ x) = render x
+  render (LitNat n) = text $ show n
+  render (LitWord64 n) = text $ show n
+  render (LitFloat d) = text $ show d
+  render (LitString s) = text $ showText s ""
+  render (LitChar c) = text $ "'" ++ showChar' c "'"
+  render (LitQName x) = render x
+  render (LitMeta _ x) = render x

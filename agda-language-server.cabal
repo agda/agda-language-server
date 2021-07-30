@@ -1,14 +1,16 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 314f82b5ffb4e5a387636eb271948992131d748daaa192fca7c797965b9a397d
+-- hash: 6bed4996f6bbd8c75e759d7d86c1a137a38361a7bdc7aa58effc32e99918b6cb
 
 name:           agda-language-server
 version:        0.0.1.0
+synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/banacorn/agda-language-server#readme>
+category:       Development
 homepage:       https://github.com/banacorn/agda-language-server#readme
 bug-reports:    https://github.com/banacorn/agda-language-server/issues
 author:         Ting-Gian LUA
@@ -20,6 +22,8 @@ build-type:     Simple
 extra-source-files:
     README.md
     CHANGELOG.md
+    stack.yaml
+    package.yaml
 
 source-repository head
   type: git
@@ -56,12 +60,12 @@ library
   hs-source-dirs:
       src
   build-depends:
-      Agda
+      Agda ==2.6.2
     , aeson
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp
+    , lsp <2
     , mtl
     , network
     , network-simple
@@ -79,13 +83,13 @@ executable als
       app
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -fno-warn-orphans
   build-depends:
-      Agda
+      Agda ==2.6.2
     , aeson
     , agda-language-server
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp
+    , lsp <2
     , mtl
     , network
     , network-simple
@@ -104,13 +108,13 @@ test-suite als-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      Agda
+      Agda ==2.6.2
     , aeson
     , agda-language-server
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp
+    , lsp <2
     , mtl
     , network
     , network-simple

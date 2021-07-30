@@ -8,7 +8,7 @@ import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandM
 import qualified Agda.Interaction.Imports as Imp
 import Agda.Interaction.InteractionTop (initialiseCommandQueue, maybeAbort, runInteraction)
 import Agda.Interaction.Options (CommandLineOptions (optAbsoluteIncludePaths))
-import Agda.TypeChecking.Errors (prettyError, prettyTCWarnings')
+import Agda.TypeChecking.Errors (getAllWarningsOfTCErr, prettyError, prettyTCWarnings')
 import Agda.TypeChecking.Monad
   ( TCErr,
     commandLineOptions,
@@ -96,7 +96,7 @@ runTCMPrettyErrors p =
   where
     handleTCErr :: TCErr -> TCM (Either String a)
     handleTCErr err = do
-      s2s <- prettyTCWarnings' =<< Imp.getAllWarningsOfTCErr err
+      s2s <- prettyTCWarnings' =<< getAllWarningsOfTCErr err
       s1 <- prettyError err
       let ss = filter (not . null) $ s2s ++ [s1]
       let errorMsg = unlines ss

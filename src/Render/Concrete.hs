@@ -6,16 +6,22 @@
 
 module Render.Concrete where
 
+import qualified Data.Text  as T
+import Data.Maybe (isNothing, maybeToList)
+import qualified Data.Strict.Maybe as Strict
+
 import Agda.Syntax.Common
-import Agda.Syntax.Concrete
-import Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
-import Agda.Syntax.Position (noRange)
+import           Agda.Syntax.Concrete
+import           Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
+import           Agda.Syntax.Position (noRange)
+import           Agda.Utils.List1 as List1 (toList, fromList) 
+import qualified Agda.Utils.List1 as List1
+import qualified Agda.Utils.List2 as List2
 import Agda.Utils.Float (toStringWithoutDotZero)
 import Agda.Utils.Function (applyWhen)
 import Agda.Utils.Functor (dget, (<&>))
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
-import Data.Maybe (isNothing, maybeToList)
-import qualified Data.Strict.Maybe as Strict
+
 import Render.Class
 import Render.Common
 import Render.Literal ()
@@ -50,7 +56,7 @@ instance Render InteractionId where
 instance Render Expr where
   render expr = case expr of
     Ident qname -> render qname
-    Lit lit -> render lit
+    Lit range lit -> render lit
     -- no hole index, use LinkRange instead
     QuestionMark range Nothing -> linkRange range "?"
     QuestionMark _range (Just n) -> linkHole n
@@ -59,15 +65,15 @@ instance Render Expr where
     App _range _ _ ->
       case appView expr of
         AppView e1 args -> fsep $ render e1 : map render args
-    RawApp _ es -> fsep $ map render es
+    RawApp _ es -> fsep $ map render (List2.toList es)
     OpApp _ q _ es -> fsep $ renderOpApp q es
     WithApp _ e es -> fsep $ render e : map ((text' ["delimiter"] "|" <+>) . render) es
     HiddenArg _ e -> braces' $ render e
     InstanceArg _ e -> dbraces $ render e
-    Lam _ bs (AbsurdLam _ h) -> lambda <+> fsep (map render bs) <+> absurd h
-    Lam _ bs e -> sep [lambda <+> fsep (map render bs) <+> arrow, render e]
+    Lam _ bs (AbsurdLam _ h) -> lambda <+> fsep (map render (toList bs)) <+> absurd h
+    Lam _ bs e -> sep [lambda <+> fsep (map render (toList bs)) <+> arrow, render e]
     AbsurdLam _ h -> lambda <+> absurd h
-    ExtendedLam _ pes -> lambda <+> bracesAndSemicolons (map render pes)
+    ExtendedLam range _ pes -> lambda <+> bracesAndSemicolons (map render (toList pes))
     Fun _ e1 e2 ->
       sep
         [ renderCohesion e1 (renderQuantity e1 (render e1)) <+> arrow,
@@ -75,16 +81,12 @@ instance Render Expr where
         ]
     Pi tel e ->
       sep
-        [ render (Tel $ smashTel tel) <+> arrow,
+        [ render (Tel $ smashTel (toList tel)) <+> arrow,
           render e
         ]
-    Set range -> linkRange range "Set"
-    Prop range -> linkRange range "Prop"
-    SetN range n -> linkRange range $ "Set" <> text (showIndex n)
-    PropN range n -> linkRange range $ "Prop" <> text (showIndex n)
     Let _ ds me ->
       sep
-        [ "let" <+> vcat (map render ds),
+        [ "let" <+> vcat (map render (toList ds)),
           maybe mempty (\e -> "in" <+> render e) me
         ]
     Paren _ e -> parens $ render e
@@ -93,7 +95,7 @@ instance Render Expr where
         [] -> emptyIdiomBrkt
         [e] -> leftIdiomBrkt <+> render e <+> rightIdiomBrkt
         e : es -> leftIdiomBrkt <+> render e <+> fsep (map (("|" <+>) . render) es) <+> rightIdiomBrkt
-    DoBlock _ ss -> "do" <+> vcat (map render ss)
+    DoBlock _ ss -> "do" <+> vcat (map render (toList ss))
     As _ x e -> render x <> "@" <> render e
     Dot _ e -> "." <> render e
     DoubleDot _ e -> ".." <> render e
@@ -132,11 +134,10 @@ instance Render ModuleAssignment where
   render (ModuleAssignment m es i) = fsep (render m : map render es) <+> render i
 
 instance Render LamClause where
-  render (LamClause lhs rhs wh _) =
+  render (LamClause lhs rhs _) =
     sep
       [ render lhs,
-        render' rhs,
-        render wh
+        render' rhs
       ]
     where
       render' (RHS e) = arrow <+> render e
@@ -193,9 +194,9 @@ instance Render LamBinding where
 
 -- | TypedBinding
 instance Render TypedBinding where
-  render (TLet _ ds) = parens $ "let" <+> vcat (map render ds)
+  render (TLet _ ds) = parens $ "let" <+> vcat (map render (toList ds))
   render (TBind _ xs (Underscore _ Nothing)) =
-    fsep (map (render . NamedBinding True) xs)
+    fsep (map (render . NamedBinding True) (toList xs))
   render (TBind _ binders e) =
     fsep
       [ renderRelevance y $
@@ -207,7 +208,7 @@ instance Render TypedBinding where
                     [ fsep (map (render . NamedBinding False) ys),
                       ":" <+> render e
                     ]
-        | ys@(y : _) <- groupBinds binders
+        | ys@(y : _) <- groupBinds (toList binders)
       ]
     where
       groupBinds [] = []
@@ -232,7 +233,7 @@ smashTel
       : TBind _ ys e'
       : tel
     )
-    | show e == show e' = smashTel (TBind r (xs ++ ys) e : tel)
+    | show e == show e' = smashTel (TBind r (fromList (toList xs ++ toList ys)) e : tel)
 smashTel (b : tel) = b : smashTel tel
 smashTel [] = []
 
@@ -242,11 +243,11 @@ instance Render RHS where
 
 instance Render WhereClause where
   render NoWhere = mempty
-  render (AnyWhere [Module _ x [] ds])
+  render (AnyWhere _range [Module _ x [] ds])
     | isNoName (unqualify x) =
       vcat ["where", vcat $ map render ds]
-  render (AnyWhere ds) = vcat ["where", vcat $ map render ds]
-  render (SomeWhere m a ds) =
+  render (AnyWhere _range ds) = vcat ["where", vcat $ map render ds]
+  render (SomeWhere _range m a ds) =
     vcat
       [ hsep $
           applyWhen
@@ -257,12 +258,19 @@ instance Render WhereClause where
       ]
 
 instance Render LHS where
-  render (LHS p eqs es _) =
+  render (LHS p eqs es) =
     sep
       [ render p,
         if null eqs then mempty else fsep $ map render eqs,
-        prefixedThings "with" (map render es)
+        prefixedThings "with" (map renderWithd es)
       ]
+    where
+      renderWithd :: WithExpr -> Inlines
+      renderWithd (Named nm wh) =
+        let e = render wh in
+        case nm of
+          Nothing -> e
+          Just n  -> render n <+> ":" <+> e
 
 instance Render LHSCore where
   render (LHSHead f ps) = sep $ render f : map (parens . render) ps
@@ -290,7 +298,7 @@ instance Render DoStmt where
       prCs [] = mempty
       prCs cs' = fsep ["where", vcat (map render cs')]
   render (DoThen e) = render e
-  render (DoLet _ ds) = "let" <+> vcat (map render ds)
+  render (DoLet _ ds) = "let" <+> vcat (map render $ toList ds)
 
 instance Render Declaration where
   render d =
@@ -374,11 +382,11 @@ instance Render Declaration where
                 render e
               ]
           ]
-      Record _ x ind eta con tel e cs ->
-        pRecord x ind eta con tel (Just e) cs
-      RecordDef _ x ind eta con tel cs ->
-        pRecord x ind eta con tel Nothing cs
-      Infix f xs -> render f <+> fsep (punctuate "," $ map render xs)
+      Record _ x dir tel e cs ->
+        pRecord x dir tel (Just e) cs
+      RecordDef _ x dir tel cs ->
+        pRecord x dir tel Nothing cs
+      Infix f xs -> render f <+> fsep (punctuate "," $ map render (toList xs))
       Syntax n _ -> "syntax" <+> render n <+> "..."
       PatternSyn _ n as p ->
         "pattern" <+> render n <+> fsep (map render as)
@@ -439,14 +447,12 @@ instance Render Declaration where
 
 pRecord ::
   Name ->
-  Maybe (Ranged Induction) ->
-  Maybe HasEta ->
-  Maybe (Name, IsInstance) ->
+  RecordDirectives ->
   [LamBinding] ->
   Maybe Expr ->
   [Declaration] ->
   Inlines
-pRecord x ind eta con tel me cs =
+pRecord x (RecordDirectives ind eta pat con) tel me cs =
   sep
     [ hsep
         [ "record",
@@ -474,7 +480,7 @@ pRecord x ind eta con tel me cs =
       maybeToList $
         eta <&> \case
           YesEta -> "eta-equality"
-          NoEta -> "no-eta-equality"
+          NoEta _ -> "no-eta-equality"
     pCon = maybeToList $ (("constructor" <+>) . render) . fst <$> con
 
 instance Render OpenShortHand where
@@ -498,8 +504,8 @@ instance Render Pragma where
     hsep ["INLINE", render i]
   render (InlinePragma _ False i) =
     hsep ["NOINLINE", render i]
-  render (ImpossiblePragma _) =
-    hsep ["IMPOSSIBLE"]
+  render (ImpossiblePragma _ strs) =
+    hsep $ "IMPOSSIBLE" : map text strs
   render (EtaPragma _ x) =
     hsep ["ETA", render x]
   render (TerminationCheckPragma _ tc) =
@@ -510,8 +516,8 @@ instance Render Pragma where
       Terminating -> "TERMINATING"
       TerminationMeasure _ x -> hsep ["MEASURE", render x]
   render (NoCoverageCheckPragma _) = "NON_COVERING"
-  render (WarningOnUsage _ nm str) = hsep ["WARNING_ON_USAGE", render nm, text str]
-  render (WarningOnImport _ str) = hsep ["WARNING_ON_IMPORT", text str]
+  render (WarningOnUsage _ nm str) = hsep ["WARNING_ON_USAGE", render nm, text $ T.unpack str]
+  render (WarningOnImport _ str) = hsep ["WARNING_ON_IMPORT", text $ T.unpack str]
   render (CatchallPragma _) = "CATCHALL"
   render (DisplayPragma _ lhs rhs) = "DISPLAY" <+> fsep [render lhs <+> "=", render rhs]
   render (NoPositivityCheckPragma _) = "NO_POSITIVITY_CHECK"
@@ -560,7 +566,7 @@ instance Render Pattern where
   render = \case
     IdentP x -> render x
     AppP p1 p2 -> fsep [render p1, render p2]
-    RawAppP _ ps -> fsep $ map render ps
+    RawAppP _ ps -> fsep $ map render (List2.toList ps)
     OpAppP _ q _ ps -> fsep $ renderOpApp q (fmap (fmap (fmap (NoPlaceholder Strict.Nothing))) ps)
     HiddenP _ p -> braces' $ render p
     InstanceP _ p -> dbraces $ render p
@@ -569,11 +575,11 @@ instance Render Pattern where
     AsP _ x p -> render x <> "@" <> render p
     DotP _ p -> "." <> render p
     AbsurdP _ -> "()"
-    LitP l -> render l
+    LitP _ l -> render l
     QuoteP _ -> "quote"
     RecP _ fs -> sep ["record", bracesAndSemicolons (map render fs)]
     EqualP _ es -> sep $ [parens (sep [render e1, "=", render e2]) | (e1, e2) <- es]
-    EllipsisP _ -> "..."
+    EllipsisP _ mp -> "..."
     WithP _ p -> "|" <+> render p
 
 bracesAndSemicolons :: [Inlines] -> Inlines
@@ -589,10 +595,10 @@ renderOpApp ::
 renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
   where
     -- ms: the module part of the name.
-    moduleNames = init (qnameParts q)
+    moduleNames = List1.init (qnameParts q)
     -- xs: the concrete name (alternation of @Id@ and @Hole@)
     concreteNames = case unqualify q of
-      Name _ _ xs -> xs
+      Name _ _ xs -> List1.toList xs
       NoName {} -> __IMPOSSIBLE__
 
     prOp :: Render a => [Name] -> [NamePart] -> [NamedArg (MaybePlaceholder a)] -> [(Inlines, Maybe PositionInName)]
@@ -603,7 +609,7 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
     -- Module qualifier needs to go on section holes (#3072)
     prOp _ (Hole : _) [] = __IMPOSSIBLE__
     prOp ms (Id x : xs) es =
-      ( qual ms $ render $ Name noRange InScope [Id x],
+      ( qual ms $ render $ simpleName x,
         Nothing
       ) :
       prOp [] xs es

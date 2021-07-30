@@ -2,6 +2,9 @@
 
 module Render.Interaction where
 
+import qualified Data.Set as Set
+
+import Agda.Syntax.Internal (Blocker(..))
 import Agda.Interaction.Base
 import Agda.TypeChecking.Monad
 import Render.Class
@@ -14,11 +17,19 @@ import Render.TypeChecking ()
 
 -- | OutputForm
 instance (Render a, Render b) => Render (OutputForm a b) where
-  render (OutputForm r pids c) = fsep [render c, prange r, prPids pids]
+  render (OutputForm r pids unblock c) = fsep [ prange r, parens (sep [blockedOn unblock, prPids pids]) ]
     where
       prPids [] = mempty
-      prPids [pid] = parens $ "problem" <+> render pid
-      prPids pids' = parens $ "problems" <+> fsep (punctuate "," $ map render pids')
+      prPids [pid] = parens $ "belongs to problem" <+> render pid
+      prPids pids' = parens $ "belongs to problems" <+> fsep (punctuate "," $ map render pids')
+
+      comma | null pids = mempty
+            | otherwise = ","
+
+      blockedOn (UnblockOnAll bs) | Set.null bs = mempty
+      blockedOn (UnblockOnAny bs) | Set.null bs = "stuck" <> comma
+      blockedOn u = undefined -- "blocked on" <+> (render u <> comma)
+
       prange rr
         | null s = mempty
         | otherwise = text $ " [ at " ++ s ++ " ]"
@@ -73,11 +84,6 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
       <> render cmp
       <> " "
       <> render name2
-  render (Guard x (ProblemId pid)) =
-    fsep
-      [ render x
-          <> parens ("blocked by problem " <> render pid)
-      ]
   render (Assign name expr) =
     render name <> " := " <> render expr
   render (TypedAssign name expr1 expr2) =
@@ -95,7 +101,7 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
   render (SizeLtSat expr) =
     "Not empty type of sizes: " <> render expr
   render (FindInstanceOF name expr exprs) =
-    let exprs' = map (\(e, t) -> render e <> " : " <> render t) exprs
+    let exprs' = (\(q, e, t) -> render q <> "=" <> render e <> " : " <> render t) <$> exprs
      in fsep
           [ "Resolve instance argument ",
             render name <> " : " <> render expr,
@@ -108,7 +114,7 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
       <> ", "
       <> render name2
       <> ")"
-  render (PostponedCheckFunDef name expr) =
+  render (PostponedCheckFunDef name expr _err) =
     "Check definition of "
       <> render name
       <> " : "

@@ -4,10 +4,25 @@
 module Render.Common where
 
 import Agda.Syntax.Common
+    ( Hiding(NotHidden, Hidden, Instance),
+      LensHiding(getHiding),
+      RewriteEqn'(..),
+      MetaId(MetaId),
+      LensQuantity(getQuantity),
+      Quantity(..),
+      LensRelevance(getRelevance),
+      Relevance(..),
+      Cohesion(..),
+      QωOrigin(..),
+      LensCohesion(getCohesion),
+      NameId(..),
+      namedThing)
 import qualified Agda.Utils.Null as Agda
+import           Agda.Utils.List1 (toList)
+import           Agda.Utils.Functor ((<&>))
+
 import Render.Class
 import Render.RichText
-import Agda.Utils.Functor ((<&>))
 
 --------------------------------------------------------------------------------
 
@@ -33,7 +48,7 @@ instance Render Quantity where
        in if Agda.null o
             then "@0"
             else text s
-    Quantity1 o -> 
+    Quantity1 o ->
       let s = show o
        in if Agda.null o
             then "@1"
@@ -79,10 +94,10 @@ renderCohesion a d =
 --------------------------------------------------------------------------------
 
 
-instance (Render p, Render e) => Render (RewriteEqn' qn p e) where
+instance (Render p, Render e) => Render (RewriteEqn' qn nm p e) where
   render = \case
-    Rewrite es   -> prefixedThings (text "rewrite") (render . snd <$> es)
-    Invert _ pes -> prefixedThings (text "invert") (pes <&> \ (p, e) -> render p <+> "<-" <+> render e)
+    Rewrite es   -> prefixedThings (text "rewrite") (render . snd <$> toList es)
+    Invert _ pes -> prefixedThings (text "invert") (toList pes <&> (\ (p, e) -> render p <+> "<-" <+> render e) . namedThing)
 
 prefixedThings :: Inlines -> [Inlines] -> Inlines
 prefixedThings kw = \case

@@ -38,19 +38,22 @@ module Render.RichText
   )
 where
 
-import qualified Agda.Interaction.Options.IORefs as Agda
-import qualified Agda.Syntax.Position as Agda
-import qualified Agda.Utils.FileName as Agda
-import qualified Agda.Utils.Null as Agda
-import Agda.Utils.Suffix (subscriptAllowed, toSubscriptDigit)
-import Data.Aeson (ToJSON (toJSON), Value (Null))
-import Data.Foldable (toList)
-import Data.IORef (readIORef)
-import Data.Sequence (Seq (..))
-import qualified Data.Sequence as Seq
+import qualified Agda.Interaction.Options   as Agda
+import qualified Agda.Syntax.Concrete.Glyph as Agda
+import qualified Agda.Syntax.Position       as Agda
+import qualified Agda.Utils.FileName        as Agda
+import qualified Agda.Utils.Null            as Agda
+import           Agda.Utils.Suffix (toSubscriptDigit)
+
+import           Data.Aeson (ToJSON (toJSON), Value (Null))
+import           Data.Foldable (toList)
+import           Data.IORef (readIORef)
+import           Data.Sequence (Seq (..))
+import qualified Data.Sequence     as Seq
+import           Data.String (IsString (..))
 import qualified Data.Strict.Maybe as Strict
-import Data.String (IsString (..))
-import GHC.Generics (Generic)
+
+import           GHC.Generics (Generic)
 import qualified GHC.IO.Unsafe as UNSAFE
 
 --------------------------------------------------------------------------------
@@ -186,7 +189,7 @@ instance Show Inline where
 
 --------------------------------------------------------------------------------
 
--- | ToJSON instances for Agda types
+-- | ToJSON instances for A.types
 instance {-# OVERLAPS #-} ToJSON Agda.Range
 
 instance ToJSON (Agda.Interval' ()) where
@@ -287,12 +290,10 @@ braces' d =
 -- | Shows a non-negative integer using the characters ₀-₉ instead of
 -- 0-9 unless the user explicitly asked us to not use any unicode characters.
 showIndex :: (Show i, Integral i) => i -> String
-showIndex = case subscriptAllowed of
-  Agda.UnicodeOk -> map toSubscriptDigit . show
-  Agda.AsciiOnly -> show
+showIndex = map toSubscriptDigit . show
 
 --------------------------------------------------------------------------------
-
+-- 
 -- | Picking the appropriate set of special characters depending on
 -- whether we are allowed to use unicode or have to limit ourselves
 -- to ascii.
@@ -309,25 +310,12 @@ data SpecialCharacters = SpecialCharacters
 {-# NOINLINE specialCharacters #-}
 specialCharacters :: SpecialCharacters
 specialCharacters =
-  let opt = UNSAFE.unsafePerformIO (readIORef Agda.unicodeOrAscii)
-   in case opt of
-        Agda.UnicodeOk ->
-          SpecialCharacters
-            { _dbraces = ("\x2983 " <>) . (<> " \x2984"),
-              _lambda = "\x03bb",
-              _arrow = "\x2192",
-              _forallQ = "\x2200",
-              _leftIdiomBrkt = "\x2987",
-              _rightIdiomBrkt = "\x2988",
-              _emptyIdiomBrkt = "\x2987\x2988"
-            }
-        Agda.AsciiOnly ->
-          SpecialCharacters
-            { _dbraces = braces . braces',
-              _lambda = "\\",
-              _arrow = "->",
-              _forallQ = "forall",
-              _leftIdiomBrkt = "(|",
-              _rightIdiomBrkt = "|)",
-              _emptyIdiomBrkt = "(|)"
-            }
+  SpecialCharacters
+    { _dbraces = ("\x2983 " <>) . (<> " \x2984"),
+      _lambda = "\x03bb",
+      _arrow = "\x2192",
+      _forallQ = "\x2200",
+      _leftIdiomBrkt = "\x2987",
+      _rightIdiomBrkt = "\x2988",
+      _emptyIdiomBrkt = "\x2987\x2988"
+    }

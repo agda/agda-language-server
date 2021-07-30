@@ -11,18 +11,18 @@ import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand (Lisp)
 import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
-import Agda.Interaction.Highlighting.Precise (Aspects (..), CompressedFile (ranges), DefinitionSite (..), HighlightingInfo, TokenBased (..))
+import Agda.Interaction.Highlighting.Precise (Aspects (..), DefinitionSite (..), HighlightingInfo, TokenBased (..))
 import qualified Agda.Interaction.Highlighting.Range as Highlighting
-import Agda.Interaction.Imports (getAllWarningsOfTCErr)
 import Agda.Interaction.InteractionTop (localStateCommandM)
 import Agda.Interaction.Response as R
 import Agda.Syntax.Abstract as A
 import Agda.Syntax.Abstract.Pretty (prettyATop)
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete as C
+import Agda.Syntax.Internal (alwaysUnblock)
 import Agda.Syntax.Position (HasRange (getRange), Range, noRange)
 import Agda.Syntax.Scope.Base
-import Agda.TypeChecking.Errors (prettyError)
+import Agda.TypeChecking.Errors (getAllWarningsOfTCErr, prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
 import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
@@ -35,6 +35,7 @@ import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Agda.Utils.Maybe (catMaybes)
 import Agda.Utils.Null (empty)
 import Agda.Utils.Pretty hiding (render)
+import Agda.Utils.RangeMap ( IsBasicRangeMap(toList) ) 
 import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit (versionWithCommitInfo)
@@ -116,7 +117,7 @@ fromHighlightingInfo h remove method modFile =
           (filePath (Map.findWithDefault __IMPOSSIBLE__ moduleName modFile), offset)
 
     infos :: [IR.HighlightingInfo]
-    infos = map fromAspects (ranges h)
+    infos = map fromAspects (toList h)
 
     keepHighlighting :: Bool
     keepHighlighting =
@@ -190,11 +191,11 @@ fromDisplayInfo info = case info of
       convertGoal i = do
         -- output constrain
         goal <-
-          withInteractionId (outputFormId $ OutputForm noRange [] i) $
+          withInteractionId (outputFormId $ OutputForm noRange [] alwaysUnblock i) $
             renderATop i
 
         serialized <-
-          withInteractionId (outputFormId $ OutputForm noRange [] i) $
+          withInteractionId (outputFormId $ OutputForm noRange [] alwaysUnblock i) $
             prettyATop i
         return $ Unlabeled goal (Just $ show serialized) Nothing
   Info_Auto s -> return $ IR.DisplayInfoAuto s

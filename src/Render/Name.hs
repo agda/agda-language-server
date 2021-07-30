@@ -4,10 +4,11 @@ module Render.Name where
 
 import qualified Agda.Syntax.Abstract as A
 import qualified Agda.Syntax.Concrete as C
+import qualified Agda.Syntax.Common   as C
+import qualified Agda.Utils.List1     as Agda
+
 import Render.Class
 import Render.RichText
-import qualified Agda.Syntax.Common as C
-
 
 --------------------------------------------------------------------------------
 
@@ -18,7 +19,7 @@ instance Render C.NamePart where
 
 -- glueing name parts together 
 instance Render C.Name where
-  render (C.Name range _inScope xs) = linkRange range $ mconcat (map render xs)
+  render (C.Name range _inScope xs) = linkRange range $ mconcat (map render $ Agda.toList xs)
   render (C.NoName _ _) = "_"
 
 instance Render C.QName where
@@ -35,4 +36,4 @@ instance Render A.Name where
   render = render . A.nameConcrete
 
 instance Render A.QName where
-  render = hcat . punctuate "." . map render . A.qnameToList
+  render = hcat . punctuate "." . map render . Agda.toList . A.qnameToList

@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Render.Class
@@ -10,11 +11,12 @@ module Render.Class
   )
 where
 
-import Agda.Syntax.Fixity (Precedence (TopCtx))
-import qualified Agda.Syntax.Translation.AbstractToConcrete as Agda
-import qualified Agda.TypeChecking.Monad.Base as Agda
-import Agda.Utils.Pretty (Doc)
+import           Agda.Syntax.Fixity (Precedence (TopCtx))
+import qualified Agda.Syntax.Translation.AbstractToConcrete as A
+import qualified Agda.TypeChecking.Monad.Base               as A
+import           Agda.Utils.Pretty (Doc)
 import qualified Agda.Utils.Pretty as Doc
+
 import Data.Int (Int32)
 import Render.RichText
 
@@ -41,12 +43,12 @@ renderP :: (Applicative m, Doc.Pretty a) => a -> m Inlines
 renderP = pure . text . Doc.render . Doc.pretty
 
 -- | like 'prettyA'
-renderA :: (Render c, Agda.ToConcrete a c) => a -> Agda.TCM Inlines
-renderA x = render <$> Agda.abstractToConcrete_ x 
+renderA :: (Render c, A.ToConcrete a, A.ConOfAbs a ~ c) => a -> A.TCM Inlines
+renderA x = render <$> A.abstractToConcrete_ x 
 
 -- | like 'prettyATop'
-renderATop :: (Render c, Agda.ToConcrete a c) => a -> Agda.TCM Inlines
-renderATop x = render <$> Agda.abstractToConcreteCtx TopCtx x
+renderATop :: (Render c, A.ToConcrete a, A.ConOfAbs a ~ c) => a -> A.TCM Inlines
+renderATop x = render <$> A.abstractToConcreteCtx TopCtx x
 
 --------------------------------------------------------------------------------
 

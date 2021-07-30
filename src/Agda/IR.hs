@@ -89,7 +89,7 @@ data HighlightingInfo
       Int -- ending offset
       [String] -- list of names of aspects
       Bool -- is token based?
-      (Maybe String) -- note
+      String -- note
       (Maybe (FilePath, Int)) -- the defining module of the token and its position in that module
   deriving (Generic, Show)
 

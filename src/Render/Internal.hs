@@ -113,13 +113,14 @@ instance Render Level where
 instance Render PlusLevel where
   renderPrec p (Plus n a) = renderPrecLevelSucs p n $ \p' -> renderPrec p' a
 
-instance Render LevelAtom where
-  renderPrec p a =
-    case a of
-      MetaLevel x els -> renderPrec p (MetaV x els)
-      BlockedLevel _ v -> renderPrec p v
-      NeutralLevel _ v -> renderPrec p v
-      UnreducedLevel v -> renderPrec p v
+--instance Render LevelAtom where
+-- LevelAtom is just Term
+--  renderPrec p a =
+--    case a of
+--      MetaLevel x els -> renderPrec p (MetaV x els)
+--      BlockedLevel _ v -> renderPrec p v
+--      NeutralLevel _ v -> renderPrec p v
+--      UnreducedLevel v -> renderPrec p v
 
 instance Render Sort where
   renderPrec p srt =
@@ -130,15 +131,18 @@ instance Render Sort where
       Prop (ClosedLevel 0) -> "Prop"
       Prop (ClosedLevel n) -> text $ "Prop" ++ show n
       Prop l -> mparens (p > 9) $ "Prop" <+> renderPrec 10 l
-      Inf -> "Setω"
+      Inf f 0 -> "Setω"
+      Inf f n -> text $ "Setω" ++ show n
+      SSet l -> mparens (p > 9) $ "SSet" <+> renderPrec 10 l
       SizeUniv -> "SizeUniv"
-      PiSort a b ->
+      LockUniv -> "LockUniv"
+      PiSort a s1 s2 ->
         mparens (p > 9) $
-          "piSort" <+> renderDom (domInfo a) (text (absName b) <+> ":" <+> render (unDom a))
+          "piSort" <+> renderDom (domInfo a) (text (absName s2) <+> ":" <+> render (unDom a))
             <+> parens
               ( fsep
-                  [ text ("λ " ++ absName b ++ " ->"),
-                    render (unAbs b)
+                  [ text ("λ " ++ absName s2 ++ " ->"),
+                    render (unAbs s2)
                   ]
               )
       FunSort a b ->

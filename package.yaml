@@ -9,10 +9,12 @@ copyright:           "2020 Author name here :)"
 extra-source-files:
 - README.md
 - CHANGELOG.md
+- stack.yaml
+- package.yaml
 
 # Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis:            An implementation of language server protocal (LSP) for Agda 2. 
+category:            Development
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
@@ -21,11 +23,11 @@ description:         Please see the README on GitHub at <https://github.com/bana
 
 dependencies:
   - base >= 4.7 && < 5
-  - Agda
+  - Agda == 2.6.2
   - aeson
   - bytestring
   - containers
-  - lsp
+  - lsp < 2
   - mtl
   - network
   - network-simple
