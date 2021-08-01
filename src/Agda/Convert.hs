@@ -78,12 +78,12 @@ fromResponse (Resp_RunningInfo n s) = return $ IR.ResponseRunningInfo n s
 fromResponse (Resp_Status s) = return $ IR.ResponseStatus (sChecked s) (sShowImplicitArguments s)
 fromResponse (Resp_JumpToError f p) = return $ IR.ResponseJumpToError f (fromIntegral p)
 fromResponse (Resp_InteractionPoints is) =
-  return $ IR.ResponseInteractionPoints (map interactionId is)
+  return $ IR.ResponseInteractionPoints (fmap interactionId is)
 fromResponse (Resp_GiveAction (InteractionId i) giveAction) =
   return $ IR.ResponseGiveAction i (fromAgda giveAction)
 fromResponse (Resp_MakeCase _ Function pcs) = return $ IR.ResponseMakeCaseFunction pcs
 fromResponse (Resp_MakeCase _ ExtendedLambda pcs) = return $ IR.ResponseMakeCaseExtendedLambda pcs
-fromResponse (Resp_SolveAll ps) = return $ IR.ResponseSolveAll (map prn ps)
+fromResponse (Resp_SolveAll ps) = return $ IR.ResponseSolveAll (fmap prn ps)
   where
     prn (InteractionId i, e) = (i, prettyShow e)
 
@@ -114,7 +114,7 @@ fromHighlightingInfo h remove method modFile =
           (filePath (Map.findWithDefault __IMPOSSIBLE__ moduleName modFile), offset)
 
     infos :: [IR.HighlightingInfo]
-    infos = map fromAspects (toList h)
+    infos = fmap fromAspects (toList h)
 
     keepHighlighting :: Bool
     keepHighlighting =
@@ -137,14 +137,14 @@ fromDisplayInfo info = case info of
     -- serializes
     warnings <- mapM prettyTCM filteredWarnings
     errors <- mapM prettyTCM filteredErrors
-    return $ IR.DisplayInfoCompilationOk (map show warnings) (map show errors)
+    return $ IR.DisplayInfoCompilationOk (fmap show warnings) (fmap show errors)
   Info_Constraints s -> do
     -- constraints <- forM s $ \e -> do
     --   rendered <- renderTCM e
     --   let raw = show (pretty e)
     --   return $ Unlabeled rendered (Just raw)
     -- return $ IR.DisplayInfoGeneric "Constraints" constraints
-    return $ IR.DisplayInfoGeneric "Constraints" [Unlabeled (Render.text $ show $ vcat $ map pretty s) Nothing Nothing]
+    return $ IR.DisplayInfoGeneric "Constraints" [Unlabeled (Render.text $ show $ vcat $ fmap pretty s) Nothing Nothing]
   Info_AllGoalsWarnings (ims, hms) ws -> do
     -- visible metas (goals)
     goals <- mapM convertGoal ims
@@ -171,7 +171,7 @@ fromDisplayInfo info = case info of
                 " Done" <$ guard (not (isG || isW || isE))
               ]
 
-    return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas (map show warnings) (map show errors)
+    return $ IR.DisplayInfoAllGoalsWarnings ("*All" ++ title ++ "*") goals metas (fmap show warnings) (fmap show errors)
     where
       convertHiddenMeta :: OutputConstraint A.Expr NamedMeta -> TCM Block
       convertHiddenMeta m = do
@@ -241,7 +241,7 @@ fromDisplayInfo info = case info of
       return $
         vcat
           [ "Modules",
-            nest 2 $ vcat $ map pretty modules,
+            nest 2 $ vcat $ fmap pretty modules,
             "Names",
             nest 2 $ align 10 typeDocs
           ]
@@ -306,14 +306,14 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
                 then []
                 else
                   Header "Boundary" :
-                  map (\boundary -> Unlabeled (render boundary) (Just $ show $ pretty boundary) Nothing) boundaries
+                  fmap (\boundary -> Unlabeled (render boundary) (Just $ show $ pretty boundary) Nothing) boundaries
         contextSect <- reverse . concat <$> mapM (renderResponseContext ii) resCtxs
         let constraintSect =
                 if null constraints
                   then []
                   else
                     Header "Constraints" :
-                    map (\constraint -> Unlabeled (render constraint) (Just $ show $ pretty constraint) Nothing) constraints
+                    fmap (\constraint -> Unlabeled (render constraint) (Just $ show $ pretty constraint) Nothing) constraints
 
         return $
           IR.DisplayInfoGeneric "Goal type etc" $ goalSect ++ auxSect ++ boundarySect ++ contextSect ++ constraintSect
@@ -401,8 +401,8 @@ explainWhyInScope s _ v xs ms =
         shadowing :: LocalVar -> TCM Doc
         shadowing (LocalVar _ _ []) = "shadowing"
         shadowing _ = "in conflict with"
-    names = TCP.vcat . map pName
-    modules = TCP.vcat . map pMod
+    names = TCP.vcat . fmap pName
+    modules = TCP.vcat . fmap pMod
 
     pKind = \case
       ConName -> "constructor"

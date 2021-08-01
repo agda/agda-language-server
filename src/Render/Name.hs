@@ -17,7 +17,7 @@ instance Render C.NamePart where
 
 -- glueing name parts together 
 instance Render C.Name where
-  render (C.Name range _inScope xs) = linkRange range $ mconcat (map render $ Agda.toList xs)
+  render (C.Name range _inScope xs) = linkRange range $ mconcat (fmap render $ Agda.toList xs)
   render (C.NoName _ _) = "_"
 
 instance Render C.QName where
@@ -34,4 +34,4 @@ instance Render A.Name where
   render = render . A.nameConcrete
 
 instance Render A.QName where
-  render = hcat . punctuate "." . map render . Agda.toList . A.qnameToList
+  render = hcat . punctuate "." . fmap render . Agda.toList . A.qnameToList

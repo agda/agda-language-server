@@ -99,4 +99,4 @@ instance (Render p, Render e) => Render (RewriteEqn' qn nm p e) where
 prefixedThings :: Inlines -> [Inlines] -> Inlines
 prefixedThings kw = \case
   [] -> mempty
-  (doc : docs) -> fsep $ (kw <+> doc) : map ("|" <+>) docs
+  (doc : docs) -> fsep $ (kw <+> doc) : fmap ("|" <+>) docs

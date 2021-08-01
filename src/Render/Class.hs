@@ -71,7 +71,7 @@ instance Render Doc where
   render = text . Doc.render
 
 instance Render a => Render [a] where
-  render xs = "[" <> fsep (punctuate "," (map render xs)) <> "]"
+  render xs = "[" <> fsep (punctuate "," (fmap render xs)) <> "]"
 instance Render a => Render (List1 a) where
   render = render . toList
 

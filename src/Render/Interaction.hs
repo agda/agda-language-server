@@ -19,7 +19,7 @@ instance (Render a, Render b) => Render (OutputForm a b) where
     where
       prPids [] = mempty
       prPids [pid] = parens $ "belongs to problem" <+> render pid
-      prPids pids' = parens $ "belongs to problems" <+> fsep (punctuate "," $ map render pids')
+      prPids pids' = parens $ "belongs to problems" <+> fsep (punctuate "," $ fmap render pids')
 
       comma | null pids = mempty
             | otherwise = ","
@@ -87,7 +87,7 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
   render (TypedAssign name expr1 expr2) =
     render name <> " := " <> render expr1 <> " :? " <> render expr2
   render (PostponedCheckArgs name exprs expr1 expr2) =
-    let exprs' = map (parens . render) exprs
+    let exprs' = fmap (parens . render) exprs
      in render name <> " := "
           <> parens ("_ : " <> render expr1)
           <> " "
@@ -121,7 +121,7 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
 -- | IPBoundary'
 instance Render c => Render (IPBoundary' c) where
   render (IPBoundary eqs val meta over) = do
-    let xs = map (\(l, r) -> render l <+> "=" <+> render r) eqs
+    let xs = fmap (\(l, r) -> render l <+> "=" <+> render r) eqs
         rhs = case over of
           Overapplied -> "=" <+> render meta
           NotOverapplied -> mempty

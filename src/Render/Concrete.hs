@@ -63,16 +63,16 @@ instance Render Expr where
     -- '_range' is almost always 'NoRange' :(
     App _range _ _ ->
       case appView expr of
-        AppView e1 args -> fsep $ render e1 : map render args
-    RawApp _ es -> fsep $ map render (List2.toList es)
+        AppView e1 args -> fsep $ render e1 : fmap render args
+    RawApp _ es -> fsep $ fmap render (List2.toList es)
     OpApp _ q _ es -> fsep $ renderOpApp q es
-    WithApp _ e es -> fsep $ render e : map ((text' ["delimiter"] "|" <+>) . render) es
+    WithApp _ e es -> fsep $ render e : fmap ((text' ["delimiter"] "|" <+>) . render) es
     HiddenArg _ e -> braces' $ render e
     InstanceArg _ e -> dbraces $ render e
-    Lam _ bs (AbsurdLam _ h) -> lambda <+> fsep (map render (toList bs)) <+> absurd h
-    Lam _ bs e -> sep [lambda <+> fsep (map render (toList bs)) <+> arrow, render e]
+    Lam _ bs (AbsurdLam _ h) -> lambda <+> fsep (fmap render (toList bs)) <+> absurd h
+    Lam _ bs e -> sep [lambda <+> fsep (fmap render (toList bs)) <+> arrow, render e]
     AbsurdLam _ h -> lambda <+> absurd h
-    ExtendedLam range _ pes -> lambda <+> bracesAndSemicolons (map render (toList pes))
+    ExtendedLam range _ pes -> lambda <+> bracesAndSemicolons (fmap render (toList pes))
     Fun _ e1 e2 ->
       sep
         [ renderCohesion e1 (renderQuantity e1 (render e1)) <+> arrow,
@@ -85,7 +85,7 @@ instance Render Expr where
         ]
     Let _ ds me ->
       sep
-        [ "let" <+> vcat (map render (toList ds)),
+        [ "let" <+> vcat (fmap render (toList ds)),
           maybe mempty (\e -> "in" <+> render e) me
         ]
     Paren _ e -> parens $ render e
@@ -93,17 +93,17 @@ instance Render Expr where
       case exprs of
         [] -> emptyIdiomBrkt
         [e] -> leftIdiomBrkt <+> render e <+> rightIdiomBrkt
-        e : es -> leftIdiomBrkt <+> render e <+> fsep (map (("|" <+>) . render) es) <+> rightIdiomBrkt
-    DoBlock _ ss -> "do" <+> vcat (map render (toList ss))
+        e : es -> leftIdiomBrkt <+> render e <+> fsep (fmap (("|" <+>) . render) es) <+> rightIdiomBrkt
+    DoBlock _ ss -> "do" <+> vcat (fmap render (toList ss))
     As _ x e -> render x <> "@" <> render e
     Dot _ e -> "." <> render e
     DoubleDot _ e -> ".." <> render e
     Absurd _ -> "()"
-    Rec _ xs -> sep ["record", bracesAndSemicolons (map render xs)]
+    Rec _ xs -> sep ["record", bracesAndSemicolons (fmap render xs)]
     RecUpdate _ e xs ->
-      sep ["record" <+> render e, bracesAndSemicolons (map render xs)]
+      sep ["record" <+> render e, bracesAndSemicolons (fmap render xs)]
     ETel [] -> "()"
-    ETel tel -> fsep $ map render tel
+    ETel tel -> fsep $ fmap render tel
     Quote _ -> "quote"
     QuoteTerm _ -> "quoteTerm"
     Unquote _ -> "unquote"
@@ -130,7 +130,7 @@ instance Render a => Render (FieldAssignment' a) where
   render (FieldAssignment x e) = sep [render x <+> "=", render e]
 
 instance Render ModuleAssignment where
-  render (ModuleAssignment m es i) = fsep (render m : map render es) <+> render i
+  render (ModuleAssignment m es i) = fsep (render m : fmap render es) <+> render i
 
 instance Render LamClause where
   render (LamClause lhs rhs _) =
@@ -193,9 +193,9 @@ instance Render LamBinding where
 
 -- | TypedBinding
 instance Render TypedBinding where
-  render (TLet _ ds) = parens $ "let" <+> vcat (map render (toList ds))
+  render (TLet _ ds) = parens $ "let" <+> vcat (fmap render (toList ds))
   render (TBind _ xs (Underscore _ Nothing)) =
-    fsep (map (render . NamedBinding True) (toList xs))
+    fsep (fmap (render . NamedBinding True) (toList xs))
   render (TBind _ binders e) =
     fsep
       [ renderRelevance y $
@@ -204,7 +204,7 @@ instance Render TypedBinding where
               renderQuantity y $
                 renderTactic (binderName $ namedArg y) $
                   sep
-                    [ fsep (map (render . NamedBinding False) ys),
+                    [ fsep (fmap (render . NamedBinding False) ys),
                       ":" <+> render e
                     ]
         | ys@(y : _) <- groupBinds (toList binders)
@@ -220,8 +220,8 @@ instance Render TypedBinding where
 
 instance Render Tel where
   render (Tel tel)
-    | any isMeta tel = forallQ <+> fsep (map render tel)
-    | otherwise = fsep (map render tel)
+    | any isMeta tel = forallQ <+> fsep (fmap render tel)
+    | otherwise = fsep (fmap render tel)
     where
       isMeta (TBind _ _ (Underscore _ Nothing)) = True
       isMeta _ = False
@@ -244,8 +244,8 @@ instance Render WhereClause where
   render NoWhere = mempty
   render (AnyWhere _range [Module _ x [] ds])
     | isNoName (unqualify x) =
-      vcat ["where", vcat $ map render ds]
-  render (AnyWhere _range ds) = vcat ["where", vcat $ map render ds]
+      vcat ["where", vcat $ fmap render ds]
+  render (AnyWhere _range ds) = vcat ["where", vcat $ fmap render ds]
   render (SomeWhere _range m a ds) =
     vcat
       [ hsep $
@@ -253,15 +253,15 @@ instance Render WhereClause where
             (a == PrivateAccess UserWritten)
             ("private" :)
             ["module", render m, "where"],
-        vcat $ map render ds
+        vcat $ fmap render ds
       ]
 
 instance Render LHS where
   render (LHS p eqs es) =
     sep
       [ render p,
-        if null eqs then mempty else fsep $ map render eqs,
-        prefixedThings "with" (map renderWithd es)
+        if null eqs then mempty else fsep $ fmap render eqs,
+        prefixedThings "with" (fmap renderWithd es)
       ]
     where
       renderWithd :: WithExpr -> Inlines
@@ -272,22 +272,22 @@ instance Render LHS where
           Just n  -> render n <+> ":" <+> e
 
 instance Render LHSCore where
-  render (LHSHead f ps) = sep $ render f : map (parens . render) ps
+  render (LHSHead f ps) = sep $ render f : fmap (parens . render) ps
   render (LHSProj d ps lhscore ps') =
     sep $
       render d :
-      map (parens . render) ps
+      fmap (parens . render) ps
         ++ parens (render lhscore) :
-      map (parens . render) ps'
+      fmap (parens . render) ps'
   render (LHSWith h wps ps) =
     if null ps
       then doc
-      else sep $ parens doc : map (parens . render) ps
+      else sep $ parens doc : fmap (parens . render) ps
     where
-      doc = sep $ render h : map (("|" <+>) . render) wps
+      doc = sep $ render h : fmap (("|" <+>) . render) wps
 
 instance Render ModuleApplication where
-  render (SectionApp _ bs e) = fsep (map render bs) <+> "=" <+> render e
+  render (SectionApp _ bs e) = fsep (fmap render bs) <+> "=" <+> render e
   render (RecordModuleInstance _ rec) = "=" <+> render rec <+> "{{...}}"
 
 instance Render DoStmt where
@@ -295,9 +295,9 @@ instance Render DoStmt where
     fsep [render p <+> "←", render e, prCs cs]
     where
       prCs [] = mempty
-      prCs cs' = fsep ["where", vcat (map render cs')]
+      prCs cs' = fsep ["where", vcat (fmap render cs')]
   render (DoThen e) = render e
-  render (DoLet _ ds) = "let" <+> vcat (map render $ toList ds)
+  render (DoLet _ ds) = "let" <+> vcat (fmap render $ toList ds)
 
 instance Render Declaration where
   render d =
@@ -325,7 +325,7 @@ instance Render Declaration where
       Field _ fs ->
         sep
           [ "field",
-            vcat (map render fs)
+            vcat (fmap render fs)
           ]
       FunClause lhs rhs wh _ ->
         sep
@@ -338,7 +338,7 @@ instance Render Declaration where
           [ hsep
               [ "data",
                 render x,
-                fcat (map render tel)
+                fcat (fmap render tel)
               ],
             hsep
               [ ":",
@@ -350,31 +350,31 @@ instance Render Declaration where
           [ hsep
               [ "data",
                 render x,
-                fcat (map render tel)
+                fcat (fmap render tel)
               ],
             hsep
               [ ":",
                 render e,
                 "where"
               ],
-            vcat $ map render cs
+            vcat $ fmap render cs
           ]
       DataDef _ x tel cs ->
         sep
           [ hsep
               [ "data",
                 render x,
-                fcat (map render tel)
+                fcat (fmap render tel)
               ],
             "where",
-            vcat $ map render cs
+            vcat $ fmap render cs
           ]
       RecordSig _ x tel e ->
         sep
           [ hsep
               [ "record",
                 render x,
-                fcat (map render tel)
+                fcat (fmap render tel)
               ],
             hsep
               [ ":",
@@ -385,10 +385,10 @@ instance Render Declaration where
         pRecord x dir tel (Just e) cs
       RecordDef _ x dir tel cs ->
         pRecord x dir tel Nothing cs
-      Infix f xs -> render f <+> fsep (punctuate "," $ map render (toList xs))
+      Infix f xs -> render f <+> fsep (punctuate "," $ fmap render (toList xs))
       Syntax n _ -> "syntax" <+> render n <+> "..."
       PatternSyn _ n as p ->
-        "pattern" <+> render n <+> fsep (map render as)
+        "pattern" <+> render n <+> fsep (fmap render as)
           <+> "="
           <+> render p
       Mutual _ ds -> namedBlock "mutual" ds
@@ -404,10 +404,10 @@ instance Render Declaration where
           [ hsep
               [ "module",
                 render x,
-                fcat (map render tel),
+                fcat (fmap render tel),
                 "where"
               ],
-            vcat $ map render ds
+            vcat $ fmap render ds
           ]
       ModuleMacro _ x (SectionApp _ [] e) DoOpen i
         | isNoName x ->
@@ -418,7 +418,7 @@ instance Render Declaration where
             ]
       ModuleMacro _ x (SectionApp _ tel e) open i ->
         fsep
-          [ render open <+> "module" <+> render x <+> fcat (map render tel),
+          [ render open <+> "module" <+> render x <+> fcat (fmap render tel),
             "=" <+> render e <+> render i
           ]
       ModuleMacro _ x (RecordModuleInstance _ rec) open _ ->
@@ -433,15 +433,15 @@ instance Render Declaration where
           as Nothing = mempty
           as (Just y) = "as" <+> render (asName y)
       UnquoteDecl _ xs t ->
-        fsep ["unquoteDecl" <+> fsep (map render xs) <+> "=", render t]
+        fsep ["unquoteDecl" <+> fsep (fmap render xs) <+> "=", render t]
       UnquoteDef _ xs t ->
-        fsep ["unquoteDef" <+> fsep (map render xs) <+> "=", render t]
+        fsep ["unquoteDef" <+> fsep (fmap render xs) <+> "=", render t]
       Pragma pr -> sep ["{-#" <+> render pr, "#-}"]
     where
       namedBlock s ds =
         fsep
           [ text s,
-            vcat $ map render ds
+            vcat $ fmap render ds
           ]
 
 pRecord ::
@@ -456,14 +456,14 @@ pRecord x (RecordDirectives ind eta pat con) tel me cs =
     [ hsep
         [ "record",
           render x,
-          fcat (map render tel)
+          fcat (fmap render tel)
         ],
       pType me,
       vcat $
         pInd
           ++ pEta
           ++ pCon
-          ++ map render cs
+          ++ fmap render cs
     ]
   where
     pType (Just e) =
@@ -487,14 +487,14 @@ instance Render OpenShortHand where
   render DontOpen = mempty
 
 instance Render Pragma where
-  render (OptionsPragma _ opts) = fsep $ map text $ "OPTIONS" : opts
+  render (OptionsPragma _ opts) = fsep $ fmap text $ "OPTIONS" : opts
   render (BuiltinPragma _ b x) = hsep ["BUILTIN", text (rangedThing b), render x]
   render (RewritePragma _ _ xs) =
-    hsep ["REWRITE", hsep $ map render xs]
+    hsep ["REWRITE", hsep $ fmap render xs]
   render (CompilePragma _ b x e) =
     hsep ["COMPILE", text (rangedThing b), render x, text e]
   render (ForeignPragma _ b s) =
-    vcat $ text ("FOREIGN " ++ rangedThing b) : map text (lines s)
+    vcat $ text ("FOREIGN " ++ rangedThing b) : fmap text (lines s)
   render (StaticPragma _ i) =
     hsep ["STATIC", render i]
   render (InjectivePragma _ i) =
@@ -504,7 +504,7 @@ instance Render Pragma where
   render (InlinePragma _ False i) =
     hsep ["NOINLINE", render i]
   render (ImpossiblePragma _ strs) =
-    hsep $ "IMPOSSIBLE" : map text strs
+    hsep $ "IMPOSSIBLE" : fmap text strs
   render (EtaPragma _ x) =
     hsep ["ETA", render x]
   render (TerminationCheckPragma _ tc) =
@@ -521,7 +521,7 @@ instance Render Pragma where
   render (DisplayPragma _ lhs rhs) = "DISPLAY" <+> fsep [render lhs <+> "=", render rhs]
   render (NoPositivityCheckPragma _) = "NO_POSITIVITY_CHECK"
   render (PolarityPragma _ q occs) =
-    hsep ("POLARITY" : render q : map render occs)
+    hsep ("POLARITY" : render q : fmap render occs)
   render (NoUniverseCheckPragma _) = "NO_UNIVERSE_CHECK"
 
 instance Render Fixity where
@@ -565,7 +565,7 @@ instance Render Pattern where
   render = \case
     IdentP x -> render x
     AppP p1 p2 -> fsep [render p1, render p2]
-    RawAppP _ ps -> fsep $ map render (List2.toList ps)
+    RawAppP _ ps -> fsep $ fmap render (List2.toList ps)
     OpAppP _ q _ ps -> fsep $ renderOpApp q (fmap (fmap (fmap (NoPlaceholder Strict.Nothing))) ps)
     HiddenP _ p -> braces' $ render p
     InstanceP _ p -> dbraces $ render p
@@ -576,14 +576,14 @@ instance Render Pattern where
     AbsurdP _ -> "()"
     LitP _ l -> render l
     QuoteP _ -> "quote"
-    RecP _ fs -> sep ["record", bracesAndSemicolons (map render fs)]
+    RecP _ fs -> sep ["record", bracesAndSemicolons (fmap render fs)]
     EqualP _ es -> sep $ [parens (sep [render e1, "=", render e2]) | (e1, e2) <- es]
     EllipsisP _ mp -> "..."
     WithP _ p -> "|" <+> render p
 
 bracesAndSemicolons :: [Inlines] -> Inlines
 bracesAndSemicolons [] = "{}"
-bracesAndSemicolons (d : ds) = sep (["{" <+> d] ++ map (";" <+>) ds ++ ["}"])
+bracesAndSemicolons (d : ds) = sep (["{" <+> d] ++ fmap (";" <+>) ds ++ ["}"])
 
 renderOpApp ::
   forall a.
@@ -615,9 +615,9 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
     -- Qualify the name part with the module.
     -- We then clear @ms@ such that the following name parts will not be qualified.
 
-    prOp _ [] es = map (\e -> (render e, Nothing)) es
+    prOp _ [] es = fmap (\e -> (render e, Nothing)) es
 
-    qual ms' doc = hcat $ punctuate "." $ map render ms' ++ [doc]
+    qual ms' doc = hcat $ punctuate "." $ fmap render ms' ++ [doc]
 
     -- Section underscores should be printed without surrounding
     -- whitespace. This function takes care of that.
@@ -653,19 +653,19 @@ instance (Render a, Render b) => Render (ImportDirective' a b) where
       public Nothing = mempty
 
       renderHiding' [] = mempty
-      renderHiding' xs = "hiding" <+> parens (fsep $ punctuate ";" $ map render xs)
+      renderHiding' xs = "hiding" <+> parens (fsep $ punctuate ";" $ fmap render xs)
 
       rename [] = mempty
       rename xs =
         hsep
           [ "renaming",
-            parens $ fsep $ punctuate ";" $ map render xs
+            parens $ fsep $ punctuate ";" $ fmap render xs
           ]
 
 instance (Render a, Render b) => Render (Using' a b) where
   render UseEverything = mempty
   render (Using xs) =
-    "using" <+> parens (fsep $ punctuate ";" $ map render xs)
+    "using" <+> parens (fsep $ punctuate ";" $ fmap render xs)
 
 instance (Render a, Render b) => Render (Renaming' a b) where
   render (Renaming from to mfx _r) =

@@ -57,7 +57,7 @@ instance Render Term where
     where
       pApp d els =
         mparens (not (null els) && p > 9) $
-          fsep [d, fsep (map (renderPrec 10) els)]
+          fsep [d, fsep (fmap (renderPrec 10) els)]
 
 instance (Render t, Render e) => Render (Dom' t e) where
   render dom = pTac <+> renderDom dom (render $ unDom dom)
@@ -78,7 +78,7 @@ instance Render Clause where
     sep
       [ render tel <+> "|-",
         fsep
-          [ fsep (map (renderPrec 10) ps) <+> "=",
+          [ fsep (fmap (renderPrec 10) ps) <+> "=",
             pBody body ty
           ]
       ]
@@ -105,7 +105,7 @@ instance Render Level where
       _ ->
         mparens (p > 9) $
           List.foldr1 (\a b -> "lub" <+> a <+> b) $
-            [renderN | n > 0] ++ map (renderPrec 10) as
+            [renderN | n > 0] ++ fmap (renderPrec 10) as
     where
       renderN = renderPrecLevelSucs p n (const "lzero")
 
@@ -168,20 +168,20 @@ instance Render a => Render (Pattern' a) where
   renderPrec _ (DotP _o t) = "." <> renderPrec 10 t
   renderPrec n (ConP c i nps) =
     mparens (n > 0 && not (null nps)) $
-      (lazy <> render (conName c)) <+> fsep (map (renderPrec 10) ps)
+      (lazy <> render (conName c)) <+> fsep (fmap (renderPrec 10) ps)
     where
-      ps = map (fmap namedThing) nps
+      ps = fmap (fmap namedThing) nps
       lazy
         | conPLazy i = "~"
         | otherwise = mempty
   renderPrec n (DefP _ q nps) =
     mparens (n > 0 && not (null nps)) $
-      render q <+> fsep (map (renderPrec 10) ps)
+      render q <+> fsep (fmap (renderPrec 10) ps)
     where
-      ps = map (fmap namedThing) nps
+      ps = fmap (fmap namedThing) nps
   -- -- Version with printing record type:
   -- renderPrec _ (ConP c i ps) = (if b then braces else parens) $ prTy $
-  --   text (show $ conName c) <+> fsep (map (render . namedArg) ps)
+  --   text (show $ conName c) <+> fsep (fmap (render . namedArg) ps)
   --   where
   --     b = maybe False (== ConOSystem) $ conPRecord i
   --     prTy d = caseMaybe (conPType i) d $ \ t -> d  <+> ":" <+> render t
