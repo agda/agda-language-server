@@ -13,10 +13,13 @@ where
 import           Agda.Syntax.Fixity (Precedence (TopCtx))
 import qualified Agda.Syntax.Translation.AbstractToConcrete as A
 import qualified Agda.TypeChecking.Monad.Base               as A
+import           Agda.Utils.List1 (List1)
+import           Agda.Utils.List2 (List2)
 import           Agda.Utils.Pretty (Doc)
 import qualified Agda.Utils.Pretty as Doc
 
-import Data.Int (Int32)
+import           Data.Int (Int32)
+import           GHC.Exts ( IsList(toList) )
 import Render.RichText
 
 --------------------------------------------------------------------------------
@@ -69,3 +72,8 @@ instance Render Doc where
 
 instance Render a => Render [a] where
   render xs = "[" <> fsep (punctuate "," (map render xs)) <> "]"
+instance Render a => Render (List1 a) where
+  render = render . toList
+
+instance Render a => Render (List2 a) where
+  render = render . toList
