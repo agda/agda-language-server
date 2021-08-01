@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Render.Interaction where
 
 import qualified Data.Set as Set

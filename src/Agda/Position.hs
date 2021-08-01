@@ -1,6 +1,3 @@
--- {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-
 module Agda.Position
   ( OffsetTable,
     makeOffsetTable,

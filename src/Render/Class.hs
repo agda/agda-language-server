@@ -1,6 +1,5 @@
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 module Render.Class
   ( Render (..),
     -- RenderTCM (..),

@@ -38,6 +38,10 @@ dependencies:
 
 library:
   source-dirs: src
+  default-extensions:
+  - PatternSynonyms
+  - LambdaCase
+  - OverloadedStrings
 
 executables:
   als:

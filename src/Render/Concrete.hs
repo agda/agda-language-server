@@ -1,12 +1,11 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Render.Concrete where
 
-import qualified Data.Text  as T
+import qualified Data.Sequence as Seq
+import qualified Data.Text     as T
 import Data.Maybe (isNothing, maybeToList)
 import qualified Data.Strict.Maybe as Strict
 

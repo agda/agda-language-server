@@ -1,6 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-
 module Agda.Convert where
 
 import Render ( Block(..), Inlines, renderATop, Render(..) )

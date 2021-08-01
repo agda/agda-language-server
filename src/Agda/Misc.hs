@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Agda.Misc where
 
 import Agda (runTCMPrettyErrors)

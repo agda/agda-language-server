@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Render.Name where
 
 import qualified Agda.Syntax.Abstract as A

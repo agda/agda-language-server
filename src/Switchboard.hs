@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy) where
 
 import Monad
