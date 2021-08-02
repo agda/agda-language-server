@@ -38,6 +38,16 @@ dependencies:
 
 library:
   source-dirs: src
+  ghc-options:
+  - -Wincomplete-patterns
+  - -Wunused-do-bind
+  - -Wunused-foralls
+  - -Wwarnings-deprecations
+  - -Wwrong-do-bind
+  - -Wmissing-fields
+  - -Wmissing-methods
+  - -Wmissing-pattern-synonym-signatures
+  - -Wmissing-signatures
   default-extensions:
   - PatternSynonyms
   - LambdaCase

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4e4b79681afb4d14a156b2da4e8106eaa62fee25dfb5cd99ec1104116da6fe31
+-- hash: 5787defbc506de1670cd403d6ccbe0c621d5b429e489aa76c34a6d46f98dbbd9
 
 name:           agda-language-server
 version:        0.0.1.0
@@ -63,6 +63,7 @@ library
       PatternSynonyms
       LambdaCase
       OverloadedStrings
+  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures
   build-depends:
       Agda ==2.6.2
     , aeson
