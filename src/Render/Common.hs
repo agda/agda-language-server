@@ -1,7 +1,8 @@
 module Render.Common where
 
 import Agda.Syntax.Common
-    ( Hiding(NotHidden, Hidden, Instance),
+    ( Named(namedThing),
+      Hiding(NotHidden, Hidden, Instance),
       LensHiding(getHiding),
       RewriteEqn'(..),
       MetaId(MetaId),
@@ -9,11 +10,11 @@ import Agda.Syntax.Common
       Quantity(..),
       LensRelevance(getRelevance),
       Relevance(..),
+      Induction(..),
       Cohesion(..),
       QωOrigin(..),
       LensCohesion(getCohesion),
-      NameId(..),
-      namedThing)
+      NameId(..) )
 import qualified Agda.Utils.Null as Agda
 import           Agda.Utils.List1 (toList)
 import           Agda.Utils.Functor ((<&>))
@@ -100,3 +101,7 @@ prefixedThings :: Inlines -> [Inlines] -> Inlines
 prefixedThings kw = \case
   [] -> mempty
   (doc : docs) -> fsep $ (kw <+> doc) : fmap ("|" <+>) docs
+
+instance Render Induction where
+  render Inductive   = "inductive"
+  render CoInductive = "coinductive"

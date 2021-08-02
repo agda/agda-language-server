@@ -6,6 +6,7 @@ import Agda.Syntax.Internal (Blocker(..))
 import Agda.Interaction.Base
 import Agda.TypeChecking.Monad
 import Render.Class
+import Render.Concrete ()
 import Render.Name ()
 import Render.Position ()
 import Render.RichText
@@ -117,6 +118,8 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
       <> render name
       <> " : "
       <> render expr
+  render (CheckLock t lk)    = "Check lock" <+> render lk <+> "allows" <+> render t
+  render (UsableAtMod mod t) = "Is usable at" <+> render mod <+> render t
 
 -- | IPBoundary'
 instance Render c => Render (IPBoundary' c) where

@@ -33,6 +33,13 @@ import Render.TypeChecking ()
 instance Render a => Render (WithHiding a) where
   render w = renderHiding w id $ render $ dget w
 
+instance Render Modality where
+  render mod = hsep
+    [ render (getRelevance mod)
+    , render (getQuantity mod)
+    , render (getCohesion mod)
+    ]
+
 -- | OpApp
 instance Render (OpApp Expr) where
   render (Ordinary e) = render e
@@ -285,6 +292,7 @@ instance Render LHSCore where
       else sep $ parens doc : fmap (parens . render) ps
     where
       doc = sep $ render h : fmap (("|" <+>) . render) wps
+  render (LHSEllipsis r p) = "..."
 
 instance Render ModuleApplication where
   render (SectionApp _ bs e) = fsep (fmap render bs) <+> "=" <+> render e
@@ -385,6 +393,7 @@ instance Render Declaration where
         pRecord x dir tel (Just e) cs
       RecordDef _ x dir tel cs ->
         pRecord x dir tel Nothing cs
+      RecordDirective r -> pRecordDirective r
       Infix f xs -> render f <+> fsep (punctuate "," $ fmap render (toList xs))
       Syntax n _ -> "syntax" <+> render n <+> "..."
       PatternSyn _ n as p ->
@@ -392,6 +401,8 @@ instance Render Declaration where
           <+> "="
           <+> render p
       Mutual _ ds -> namedBlock "mutual" ds
+      InterleavedMutual _ ds  -> namedBlock "interleaved mutual" ds
+      LoneConstructor _ ds -> namedBlock "constructor" ds
       Abstract _ ds -> namedBlock "abstract" ds
       Private _ _ ds -> namedBlock "private" ds
       InstanceB _ ds -> namedBlock "instance" ds
@@ -443,6 +454,24 @@ instance Render Declaration where
           [ text s,
             vcat $ fmap render ds
           ]
+
+pHasEta0 :: HasEta0 -> Inlines
+pHasEta0 = \case
+  YesEta   -> "eta-equality"
+  NoEta () -> "no-eta-equality"
+
+pRecordDirective :: 
+  RecordDirective ->
+  Inlines
+pRecordDirective = \case
+  Induction ind -> render (rangedThing ind)
+  Constructor n inst -> hsep [ pInst, "constructor", render n ] where
+    pInst = case inst of
+      InstanceDef{} -> "instance"
+      NotInstanceDef{} -> mempty
+  Eta eta -> pHasEta0 (rangedThing eta)
+  PatternOrCopattern{} -> "pattern"
+
 
 pRecord ::
   Name ->
