@@ -1,6 +1,6 @@
-resolver: lts-18.4
+resolver: lts-18.5
 # Allow a newer minor version of GHC than the snapshot specifies
-compiler-check: newer-minor
+compiler-check: match-exact
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
