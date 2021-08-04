@@ -10,10 +10,9 @@ where
 
 import Agda.Syntax.Position
 import Agda.Utils.FileName (AbsolutePath (AbsolutePath))
-import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import qualified Data.Strict.Maybe as Strict
-import Data.Text (Text, foldl')
+import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Language.LSP.Types as LSP
 

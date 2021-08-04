@@ -4,7 +4,7 @@ module Agda where
 
 import Agda.Convert (fromResponse)
 import Agda.Interaction.Base (Command, Command' (Command, Done, Error), CommandM, CommandState (optionsOnReload), IOTCM, initCommandState)
-import qualified Agda.Interaction.Imports as Imp
+--import qualified Agda.Interaction.Imports as Imp
 import Agda.Interaction.InteractionTop (initialiseCommandQueue, maybeAbort, runInteraction)
 import Agda.Interaction.Options (CommandLineOptions (optAbsoluteIncludePaths))
 import Agda.TypeChecking.Errors (getAllWarningsOfTCErr, prettyError, prettyTCWarnings')

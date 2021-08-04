@@ -4,7 +4,6 @@
 
 module Render.Concrete where
 
-import qualified Data.Sequence as Seq
 import qualified Data.Text     as T
 import Data.Maybe (isNothing, maybeToList)
 import qualified Data.Strict.Maybe as Strict
@@ -12,7 +11,7 @@ import qualified Data.Strict.Maybe as Strict
 import Agda.Syntax.Common
 import           Agda.Syntax.Concrete
 import           Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
-import           Agda.Syntax.Position (noRange)
+--import           Agda.Syntax.Position (noRange)
 import           Agda.Utils.List1 as List1 (toList, fromList) 
 import qualified Agda.Utils.List1 as List1
 import qualified Agda.Utils.List2 as List2

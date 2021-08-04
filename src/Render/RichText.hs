@@ -37,8 +37,8 @@ module Render.RichText
   )
 where
 
-import qualified Agda.Interaction.Options   as Agda
-import qualified Agda.Syntax.Concrete.Glyph as Agda
+-- import qualified Agda.Interaction.Options   as Agda
+-- import qualified Agda.Syntax.Concrete.Glyph as Agda
 import qualified Agda.Syntax.Position       as Agda
 import qualified Agda.Utils.FileName        as Agda
 import qualified Agda.Utils.Null            as Agda
@@ -46,14 +46,12 @@ import           Agda.Utils.Suffix (toSubscriptDigit)
 
 import           Data.Aeson (ToJSON (toJSON), Value (Null))
 import           Data.Foldable (toList)
-import           Data.IORef (readIORef)
 import           Data.Sequence (Seq (..))
 import qualified Data.Sequence     as Seq
 import           Data.String (IsString (..))
 import qualified Data.Strict.Maybe as Strict
 
 import           GHC.Generics (Generic)
-import qualified GHC.IO.Unsafe as UNSAFE
 
 --------------------------------------------------------------------------------
 -- | Block elements
