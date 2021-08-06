@@ -1,0 +1,13 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "agda-language-server:lib"
+
+    - path: "./app/Main.hs"
+      component: "agda-language-server:exe:als"
+
+    - path: "./app/Paths_agda_language_server.hs"
+      component: "agda-language-server:exe:als"
+
+    - path: "./test"
+      component: "agda-language-server:test:als-test"
