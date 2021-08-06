@@ -14,3 +14,7 @@ compiler-check: match-exact
 packages:
 - .
 
+flags:
+  Agda:
+    optimise-heavily: true
+    enable-cluster-counting: true
