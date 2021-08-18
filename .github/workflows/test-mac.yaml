@@ -69,11 +69,37 @@ jobs:
 
     # artifacts:
 
-    - name: 📦 Install & Gather executables
-      id: exes
+    - name: 📦 Install the executable
+      id: install
       run: |
         stack install
         cp ~/.local/bin/als .
+
+    - name: 📦 Some linker shit
+      id: link
+      env:
+        ICU_VER: '69'
+        ICU_DIR: '/usr/local/opt/icu4c/lib'
+      run: |
+        # Change the path to the dynamic library icu4c to the run-time search path:
+        #
+        # 1. the same directory of executable, i.e. @executable_path
+        # 2. @executable_path/../lib
+        # 3. the default location of system-wide icu4c installed by homebrew, ie. /usr/local/opt/icu4c/lib
+        #
+        ls ${ICU_DIR}
+        mkdir lib
+        cp ${ICU_DIR}/libicuuc.${ICU_VER}.dylib ${ICU_DIR}/libicui18n.${ICU_VER}.dylib ${ICU_DIR}/libicudata.${ICU_VER}.dylib lib
+        ls lib
+        install_name_tool -change ${ICU_DIR}/libicuuc.${ICU_VER}.dylib @rpath/libicuuc.${ICU_VER}.dylib als
+        install_name_tool -change ${ICU_DIR}/libicui18n.${ICU_VER}.dylib @rpath/libicui18n.${ICU_VER}.dylib als
+        install_name_tool -add_rpath @executable_path -add_rpath @executable_path/../lib -add_rpath ${ICU_DIR} als
+        otool -L als
+        file als 
+
+    - name: 📦 Zip the executable
+      id: zip
+      run: |
         zip -r als als
         mv als.zip als-macos.zip
 
