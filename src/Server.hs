@@ -44,7 +44,8 @@ run viaTCP = do
     serverDefn :: Env -> Switchboard -> ServerDefinition ()
     serverDefn env switchboard =
       ServerDefinition
-        { onConfigurationChange = const $ pure $ Right (),
+        { defaultConfig = (),
+          onConfigurationChange = const $ pure $ Right (),
           doInitialize = \ctxEnv _req -> do
             Switchboard.setupLanguageContextEnv switchboard ctxEnv
             pure $ Right ctxEnv,
