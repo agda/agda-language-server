@@ -68,6 +68,11 @@ jobs:
       run: |
         ./stack --no-terminal setup --install-ghc
 
+    - name: Install the icu library
+      if: ${{ runner.os == 'Windows' }}
+      run: |
+        stack exec -- pacman -S --noconfirm "mingw-w64-x86_64-icu"
+
     - name: 📸 Build Snapshot
       run: |
         ./stack build --no-terminal --bench --only-snapshot
