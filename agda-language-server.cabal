@@ -1,13 +1,13 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5787defbc506de1670cd403d6ccbe0c621d5b429e489aa76c34a6d46f98dbbd9
+-- hash: 7a8436d062f0282114deea0760e6916246b921eb5e16e606b2d3e99adb2582d7
 
 name:           agda-language-server
-version:        0.0.1.0
+version:        0.1.0.2
 synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/banacorn/agda-language-server#readme>
 category:       Development
@@ -59,10 +59,7 @@ library
       Paths_agda_language_server
   hs-source-dirs:
       src
-  default-extensions:
-      PatternSynonyms
-      LambdaCase
-      OverloadedStrings
+  default-extensions: PatternSynonyms LambdaCase OverloadedStrings
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures
   build-depends:
       Agda ==2.6.2
