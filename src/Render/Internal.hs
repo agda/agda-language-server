@@ -9,6 +9,7 @@ import Render.Class
 import Render.Common (renderHiding)
 import Render.Concrete ()
 import Render.RichText
+import qualified Data.Set as Set
 
 --------------------------------------------------------------------------------
 
@@ -130,12 +131,14 @@ instance Render Sort where
       Prop (ClosedLevel 0) -> "Prop"
       Prop (ClosedLevel n) -> text $ "Prop" ++ show n
       Prop l -> mparens (p > 9) $ "Prop" <+> renderPrec 10 l
-      Inf f 0 -> "Setω"
-      Inf f n -> text $ "Setω" ++ show n
+      Inf IsFibrant 0 -> "Setω"
+      Inf IsStrict 0 -> "SSetω"
+      Inf IsFibrant n -> text $ "Setω" ++ show n
+      Inf IsStrict n -> text $ "SSetω" ++ show n
       SSet l -> mparens (p > 9) $ "SSet" <+> renderPrec 10 l
       SizeUniv -> "SizeUniv"
       LockUniv -> "LockUniv"
-      PiSort a s1 s2 ->
+      PiSort a _s1 s2 ->
         mparens (p > 9) $
           "piSort" <+> renderDom (domInfo a) (text (absName s2) <+> ":" <+> render (unDom a))
             <+> parens
@@ -188,3 +191,12 @@ instance Render a => Render (Pattern' a) where
   renderPrec _ (LitP _ l) = render l
   renderPrec _ (ProjP _o q) = "." <> render q
   renderPrec n (IApplyP _o _ _ x) = renderPrec n x
+
+--------------------------------------------------------------------------------
+-- Agda.Syntax.Internal.Blockers
+
+instance Render Blocker where
+  render (UnblockOnAll us)      = "all" <> parens (fsep $ punctuate "," $ map render $ Set.toList us)
+  render (UnblockOnAny us)      = "any" <> parens (fsep $ punctuate "," $ map render $ Set.toList us)
+  render (UnblockOnMeta m)      = render m
+  render (UnblockOnProblem pid) = "problem" <+> render pid

@@ -30,7 +30,7 @@ initialiseCommandQueue = CommandQueue <$> newTChanIO <*> newTVarIO Nothing
 runCommandM :: CommandM a -> IO (Either String a)
 runCommandM program = runTCMPrettyErrors $ do
   -- we need to set InteractionOutputCallback else it would panic
-  setInteractionOutputCallback $ \response -> return ()
+  setInteractionOutputCallback $ \_response -> return ()
 
   -- setup the command state
   commandQueue <- liftIO initialiseCommandQueue
@@ -71,7 +71,7 @@ onHover uri pos = do
           agdaPos
       case lookupResult of
         Nothing -> return Nothing
-        Just (token, text) -> do
+        Just (_token, text) -> do
           case LSP.uriToFilePath uri of
             Nothing -> return Nothing
             Just filepath -> do
@@ -79,8 +79,8 @@ onHover uri pos = do
 
               inferResult <- inferTypeOfText filepath text
               case inferResult of
-                Left error -> do
-                  let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" ("Error: " <> pack error)
+                Left err -> do
+                  let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" ("Error: " <> pack err)
                   return $ Just $ LSP.Hover content (Just range)
                 Right typeString -> do
                   let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" (pack typeString)
