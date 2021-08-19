@@ -73,6 +73,7 @@ jobs:
       id: install
       run: |
         stack install
+        stack path 
         cp ~/.local/bin/als .
 
     # - name: 📦 Some linker shit
