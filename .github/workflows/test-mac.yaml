@@ -54,9 +54,14 @@ jobs:
         # brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
         if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
         stack --version
+
     - name: ⏬ Install GHC
       run: |
         stack setup --install-ghc
+
+    - name: 📦 Specify `Agda_datadir`
+      run: |
+        export Agda_datadir=$PWD/data
 
     - name: ⏬ Install haskell deps
       run: |
@@ -66,14 +71,10 @@ jobs:
       run: |
         stack test
 
-
-    # artifacts:
-
-    - name: 📦 Install the executable
+    - name: 📦 Install
       id: install
       run: |
         stack install
-        stack path 
         cp ~/.local/bin/als .
 
     # - name: 📦 Some linker shit
@@ -98,9 +99,11 @@ jobs:
     #     otool -L als
     #     file als 
 
-    - name: 📦 Zip the executable
+    - name: 📦 Compress files
       id: zip
       run: |
+        ls 
+        ls $(stack path --snapshot-install-root)
         zip -r als als
         mv als.zip als-macos.zip
 
