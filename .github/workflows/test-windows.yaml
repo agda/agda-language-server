@@ -75,7 +75,7 @@ jobs:
 
     - name: 📸 Build Snapshot
       run: |
-        ./stack build --no-terminal --bench --only-snapshot --jobs=1
+        ./stack build --no-terminal --bench --only-snapshot --jobs=1 --ghc-options="+RTS -M2G -RTS"
 
     - name: 🧰 Build Dependencies
       run: |
