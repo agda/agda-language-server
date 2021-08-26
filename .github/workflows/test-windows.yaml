@@ -75,7 +75,7 @@ jobs:
 
     - name: 📸 Build Snapshot
       run: |
-        ./stack build --no-terminal --bench --only-snapshot
+        ./stack build --no-terminal --bench --only-snapshot --jobs=1
 
     - name: 🧰 Build Dependencies
       run: |
