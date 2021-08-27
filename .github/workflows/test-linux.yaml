@@ -70,11 +70,20 @@ jobs:
         stack test
 
     # artifacts:
-    - name: 📦 Install & Gather executables
-      id: exes
+
+
+    - name: 📦 Install
+      id: install
       run: |
         stack install
-        cp ~/.local/bin/als .
+
+    - name: 📦 Compress files
+      id: zip
+      run: |
+        mkdir als 
+        cp ~/.local/bin/als als/
+        find $(stack path --snapshot-install-root)/share -type d -name "Agda-*" 
+        cp -r $(find $(stack path --snapshot-install-root)/share -type d -name "Agda-*") als/data
         zip -r als als
         mv als.zip als-ubuntu.zip
 
