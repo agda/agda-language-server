@@ -71,11 +71,25 @@ jobs:
     - name: Install the icu library
       if: ${{ runner.os == 'Windows' }}
       run: |
-        stack exec -- pacman -S --noconfirm "mingw-w64-x86_64-icu"
+        ./stack exec -- pacman -S --noconfirm "mingw-w64-x86_64-icu"
 
     - name: 📸 Build Snapshot
       run: |
-        ./stack build --no-terminal --bench --only-snapshot --ghc-options="+RTS -M3G -RTS -j" -j1
+        ./stack build --no-terminal --bench regex-tdfa
+        ./stack build --no-terminal --bench attoparsec
+        ./stack build --no-terminal --bench text-icu 
+        ./stack build --no-terminal --bench time-compat
+        ./stack build --no-terminal --bench comonad
+        ./stack build --no-terminal --bench unordered-containers
+        ./stack build --no-terminal --bench vector
+        ./stack build --no-terminal --bench hashtables
+        ./stack build --no-terminal --bench aeson
+        ./stack build --no-terminal --bench basement
+        ./stack build --no-terminal --bench cereal
+        ./stack build --no-terminal --bench network-simple
+        ./stack build --no-terminal Agda --ghc-options="+RTS -MˋG -RTS -j" -j1
+        ./stack build --no-terminal --bench lsp
+        ./stack build --no-terminal --bench --only-snapshot
 
     - name: 🧰 Build Dependencies
       run: |
