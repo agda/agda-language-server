@@ -61,7 +61,7 @@ jobs:
         stack setup --install-ghc
         df -h
 
-    - name: ⏬ Install haskell deps
+    - name: ⏬ Install dependencies
       run: |
         stack build --only-dependencies
 
@@ -69,23 +69,26 @@ jobs:
       run: |
         stack test
 
-    # artifacts:
-
-
-    - name: 📦 Install
-      id: install
-      run: |
-        stack install
-
     - name: 📦 Compress files
       id: zip
       run: |
-        mkdir als 
-        cp ~/.local/bin/als als/
-        find $(stack path --snapshot-install-root)/share -type d -name "Agda-*" 
-        cp -r $(find $(stack path --snapshot-install-root)/share -type d -name "Agda-*") als/data
-        zip -r als als
-        mv als.zip als-ubuntu.zip
+        # locate the data-dir
+        datadir=$(find $(stack path --snapshot-install-root)/share -type d -name "Agda-*")
+        
+        # locate the executable 
+        executable=$(find $(stack path --local-install-root)/bin -name "als")
+
+        # make a temporary directory for compresssing
+        mkdir zip
+        cp -r $datadir zip/
+        cp $executable zip/
+        
+        # compress
+        cd zip 
+        zip -r als-ubuntu.zip *
+        cd .. 
+        mv zip/als-ubuntu.zip .
+
 
     - name: 🚢 Release Artifacts
       uses: softprops/action-gh-release@v1
