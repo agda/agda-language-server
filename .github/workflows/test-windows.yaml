@@ -1,0 +1,118 @@
+# modified from https://github.com/simonmichael/hledger/blob/master/.github/workflows/windows.yml
+
+name: CI (Windows)
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v2
+
+    # things to be cached/restored:
+
+    - name: 💾 Cache stack global package db
+      id:   stack-global-package-db
+      uses: actions/cache@v2
+      with:
+        path: C:\Users\runneradmin\AppData\Roaming\stack\
+        key: ${{ runner.os }}-appdata-roaming-stack-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-appdata-roaming-stack
+    - name: 💾 Cache stack programs dir   # ghc, ghc-included packages and their haddocks, mingw, msys2
+      id:   stack-programs-dir
+      uses: actions/cache@v2
+      with:
+        path: C:\Users\runneradmin\AppData\Local\Programs\stack\
+        # which files signal a change in stack's global db ?
+        # **.yaml includes */package.yaml and stack.yaml* (too many), and hopefully no other changing yamls
+        key: ${{ runner.os }}-appdata-local-programs-stack-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-appdata-local-programs-stack
+    - name: 💾 Cache .stack-work
+      uses: actions/cache@v2
+      with:
+        path: .stack-work
+        key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-work
+    - name: 💾 Cache agda-language-server/.stack-work
+      uses: actions/cache@v2
+      with:
+        path: agda-language-server/.stack-work
+        key: ${{ runner.os }}-agda-language-server-stack-work-${{ hashFiles('agda-language-server/package.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-agda-language-server-stack-work
+
+    # actions 
+    
+    - name: ⏬ Install stack
+      #if: steps.stack-programs-dir.outputs.cache-hit != 'true'
+      # this step is needed to get stack.exe into PATH, for now
+      run: |
+        curl -sL https://get.haskellstack.org/stable/windows-x86_64.zip -o stack.zip
+        7z x stack.zip stack.exe
+        which stack
+        stack --version
+        which ./stack
+        ./stack --version
+      # must avoid GHC versions broken on windows such as 8.8.3 with https://gitlab.haskell.org/ghc/ghc/issues/17926
+      # current default stack.yaml uses GHC 8.8.4 which hopefully is ok
+
+    - name: ⏬ Install GHC
+      # if: steps.stack-programs-dir.outputs.cache-hit != 'true'
+      # set PATH=C:\Users\runneradmin\AppData\Local\Programs\stack\local\bin;%PATH%
+      run: |
+        ./stack --no-terminal setup --install-ghc
+
+    - name: Install the icu library
+      run: |
+        ./stack exec -- pacman -S --noconfirm "mingw-w64-x86_64-icu"
+
+    - name: 📸 Build Snapshot
+      run: |
+        ./stack build --no-terminal --only-snapshot -j1
+
+    - name: 🧰 Build Dependencies
+      run: |
+        ./stack build --no-terminal --only-dependencies
+
+    - name: 🔨 Build and run tests
+      run: |
+        ./stack test
+
+    # artifacts:
+    
+    - name: 📦 Compress executable and data files
+      run: |
+        # locate the data-dir
+        $snapshot = (stack path --snapshot-install-root)
+        $datadir = (ls $snapshot\share *Agda-* -Recurse -Directory).FullName
+
+        # locate the executable 
+        $local = (stack path --local-install-root)
+        $executable = (ls $local\bin *als.exe* -Recurse -File).FullName
+
+        # make a temporary directory for compresssing
+        mkdir zip
+        cp -r $datadir zip/data
+        cp $executable zip/
+
+        # compress
+        cd zip 
+        Compress-Archive * als-windows.zip
+        cd .. 
+        mv zip/als-windows.zip .
+             
+    - name: 🚢 Release Artifacts
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/') # so that only commits with a git tag would upload artifacts
+      with:
+        files: als-windows.zip
+        draft: true
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

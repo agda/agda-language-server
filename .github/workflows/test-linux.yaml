@@ -80,7 +80,7 @@ jobs:
 
         # make a temporary directory for compresssing
         mkdir zip
-        cp -r $datadir zip/
+        cp -r $datadir zip/data
         cp $executable zip/
         
         # compress

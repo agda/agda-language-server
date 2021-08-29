@@ -16,5 +16,5 @@ packages:
 
 flags:
   Agda:
-    optimise-heavily: true
+    # optimise-heavily: true
     enable-cluster-counting: true
