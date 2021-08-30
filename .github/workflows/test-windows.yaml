@@ -101,6 +101,14 @@ jobs:
         cp -r $datadir zip/data
         cp $executable zip/
 
+        # include text-icu DLLs
+        $mingw64bin = (stack path --extra-library-dirs).split(", ") -match "\\bin"
+        ls $mingw64bin
+        cp (ls $mingw64bin *libicudt*) zip/
+        cp (ls $mingw64bin *libicuin*) zip/
+        cp (ls $mingw64bin *libicuuc*) zip/
+        ls zip
+
         # compress
         cd zip 
         Compress-Archive * als-windows.zip
