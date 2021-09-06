@@ -26,8 +26,8 @@ import           Network.Socket                 ( socketToHandle )
 import qualified Switchboard
 import           Switchboard                    ( Switchboard )
 
-import qualified Server.Handler as Handler
 import           Data.Maybe                     ( isJust )
+import qualified Server.Handler                as Handler
 
 --------------------------------------------------------------------------------
 
@@ -110,7 +110,8 @@ handlers = mconcat
   -- , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
   --   logText "<-- Syntax Highlighting"
   --   let uri = req ^. (params . textDocument . uri)
-  --   Highlighting.handler uri responder
+  --   result <- Handler.onHighlight uri
+  --   responder $ Right result
   ]
 
 --------------------------------------------------------------------------------

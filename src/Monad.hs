@@ -81,7 +81,7 @@ signalCommandFinish = do
 sendResponse :: (Monad m, MonadIO m) => Env -> Response -> TCMT m ()
 sendResponse env response = do
   case response of
-    -- NOTE: highlighting-releated reponses are intercepted and converted to 
+    -- NOTE: highlighting-releated reponses are intercepted for later use of semantic highlighting
     ResponseHighlightingInfoDirect{} -> return ()
     ResponseHighlightingInfoIndirect{} -> return ()
     ResponseClearHighlightingTokenBased {} -> return ()
