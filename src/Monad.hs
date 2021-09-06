@@ -1,30 +1,33 @@
 module Monad where
 
-import Agda.IR
+import           Agda.IR
 
-import Agda.Interaction.Base (IOTCM)
-import Agda.TypeChecking.Monad (TCMT)
-import Control.Concurrent
-import Server.ResponseController (ResponseController)
-import qualified Server.ResponseController as ResponseController
-import Server.CommandController (CommandController)
-import qualified Server.CommandController as CommandController
-import Control.Monad.Reader
-import Data.Text (Text, pack)
+import           Agda.Interaction.Base          ( IOTCM )
+import           Agda.TypeChecking.Monad        ( TCMT )
+import           Control.Concurrent
+import           Control.Monad.Reader
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
+import           Server.CommandController       ( CommandController )
+import qualified Server.CommandController      as CommandController
+import           Server.ResponseController      ( ResponseController )
+import qualified Server.ResponseController     as ResponseController
 
 --------------------------------------------------------------------------------
 
 data Env = Env
-  { envLogChan :: Chan Text,
-    envCommandController :: CommandController,
-    envResponseChan :: Chan Response,
-    envResponseController :: ResponseController,
-    envDevMode :: Bool
+  { envLogChan            :: Chan Text
+  , envCommandController  :: CommandController
+  , envResponseChan       :: Chan Response
+  , envResponseController :: ResponseController
+  , envDevMode            :: Bool
   }
 
 createInitEnv :: Bool -> IO Env
 createInitEnv devMode =
-  Env <$> newChan
+  Env
+    <$> newChan
     <*> CommandController.new
     <*> newChan
     <*> ResponseController.new
@@ -74,6 +77,14 @@ signalCommandFinish = do
   -- allow the next Command to be consumed
   liftIO $ CommandController.release (envCommandController env)
 
+-- | Sends a Response to the client via "envResponseChan"
 sendResponse :: (Monad m, MonadIO m) => Env -> Response -> TCMT m ()
-sendResponse env reaction = do
-  liftIO $ writeChan (envResponseChan env) reaction
+sendResponse env response = do
+  case response of
+    -- NOTE: highlighting-releated reponses are intercepted and converted to 
+    ResponseHighlightingInfoDirect{} -> return ()
+    ResponseHighlightingInfoIndirect{} -> return ()
+    ResponseClearHighlightingTokenBased {} -> return ()
+    ResponseClearHighlightingNotOnlyTokenBased {} -> return ()
+    -- other kinds of responses
+    _ -> liftIO $ writeChan (envResponseChan env) response

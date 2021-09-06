@@ -1,4 +1,4 @@
-module Agda.Misc where
+module Server.Handler where
 
 import Agda (runTCMPrettyErrors)
 import Agda.Interaction.Base (CommandM, CommandQueue (..), CommandState (optionsOnReload), Rewrite (AsIs), initCommandState)
@@ -57,6 +57,37 @@ inferTypeOfText filepath text = liftIO $
 
 onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM ()) (Maybe LSP.Hover)
 onHover uri pos = do
+  result <- LSP.getVirtualFile (LSP.toNormalizedUri uri)
+  case result of
+    Nothing -> return Nothing
+    Just file -> do
+      let source = VFS.virtualFileText file
+      let offsetTable = makeOffsetTable source
+      let agdaPos = toPositionWithoutFile offsetTable pos
+      lookupResult <-
+        Parser.tokenAt
+          uri
+          source
+          agdaPos
+      case lookupResult of
+        Nothing -> return Nothing
+        Just (_token, text) -> do
+          case LSP.uriToFilePath uri of
+            Nothing -> return Nothing
+            Just filepath -> do
+              let range = LSP.Range pos pos
+
+              inferResult <- inferTypeOfText filepath text
+              case inferResult of
+                Left err -> do
+                  let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" ("Error: " <> pack err)
+                  return $ Just $ LSP.Hover content (Just range)
+                Right typeString -> do
+                  let content = LSP.HoverContents $ LSP.markedUpContent "agda-language-server" (pack typeString)
+                  return $ Just $ LSP.Hover content (Just range)
+
+onHighlight :: LSP.Uri -> LSP.Position -> ServerM (LspM ()) (Maybe LSP.Hover)
+onHighlight uri pos = do
   result <- LSP.getVirtualFile (LSP.toNormalizedUri uri)
   case result of
     Nothing -> return Nothing

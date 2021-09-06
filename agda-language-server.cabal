@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           agda-language-server
-version:        0.1.0.3
+version:        0.1.1
 synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/banacorn/agda-language-server#readme>
 category:       Development
@@ -32,7 +32,6 @@ library
       Agda
       Agda.Convert
       Agda.IR
-      Agda.Misc
       Agda.Parser
       Agda.Position
       Control.Concurrent.SizedChan
@@ -51,6 +50,7 @@ library
       Render.Utils
       Server
       Server.CommandController
+      Server.Handler
       Server.ResponseController
       Switchboard
   other-modules:
