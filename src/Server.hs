@@ -29,6 +29,12 @@ import           Switchboard                    ( Switchboard )
 import           Data.Maybe                     ( isJust )
 import qualified Server.Handler                as Handler
 
+import           Agda.Utils.Lens                ( (^.) )
+import           Language.LSP.Types.Lens hiding ( options
+                                                , textDocumentSync
+                                                )
+
+
 --------------------------------------------------------------------------------
 
 run :: Maybe Int -> IO Int
@@ -107,11 +113,9 @@ handlers = mconcat
     result <- Handler.onHover uri pos
     responder $ Right result
   -- syntax highlighting 
-  -- , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
-  --   logText "<-- Syntax Highlighting"
-  --   let uri = req ^. (params . textDocument . uri)
-  --   result <- Handler.onHighlight uri
-  --   responder $ Right result
+  , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
+    result <- Handler.onHighlight (req ^. (params . textDocument . uri))
+    responder result
   ]
 
 --------------------------------------------------------------------------------

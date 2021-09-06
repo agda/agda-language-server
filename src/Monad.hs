@@ -14,6 +14,12 @@ import qualified Server.CommandController      as CommandController
 import           Server.ResponseController      ( ResponseController )
 import qualified Server.ResponseController     as ResponseController
 
+import           Data.IORef                     ( IORef
+                                                , newIORef
+                                                , readIORef, writeIORef, modifyIORef'
+                                                )
+import qualified Language.LSP.Types            as LSP
+
 --------------------------------------------------------------------------------
 
 data Env = Env
@@ -22,6 +28,7 @@ data Env = Env
   , envResponseChan       :: Chan Response
   , envResponseController :: ResponseController
   , envDevMode            :: Bool
+  , envHighlightingInfos   :: IORef [HighlightingInfo]
   }
 
 createInitEnv :: Bool -> IO Env
@@ -32,6 +39,7 @@ createInitEnv devMode =
     <*> newChan
     <*> ResponseController.new
     <*> pure devMode
+    <*> newIORef []
 
 --------------------------------------------------------------------------------
 
@@ -82,9 +90,24 @@ sendResponse :: (Monad m, MonadIO m) => Env -> Response -> TCMT m ()
 sendResponse env response = do
   case response of
     -- NOTE: highlighting-releated reponses are intercepted for later use of semantic highlighting
-    ResponseHighlightingInfoDirect{} -> return ()
+    ResponseHighlightingInfoDirect (HighlightingInfos _ highlightingInfos) -> do
+      appendHighlightingInfos env highlightingInfos
     ResponseHighlightingInfoIndirect{} -> return ()
-    ResponseClearHighlightingTokenBased {} -> return ()
-    ResponseClearHighlightingNotOnlyTokenBased {} -> return ()
+    ResponseClearHighlightingTokenBased{} -> removeHighlightingInfos env 
+    ResponseClearHighlightingNotOnlyTokenBased{} -> removeHighlightingInfos env 
     -- other kinds of responses
     _ -> liftIO $ writeChan (envResponseChan env) response
+
+-- | Get highlighting informations 
+getHighlightingInfos :: (Monad m, MonadIO m) => ServerM m [HighlightingInfo]
+getHighlightingInfos = do
+  ref <- asks envHighlightingInfos
+  liftIO (readIORef ref)
+
+appendHighlightingInfos :: (Monad m, MonadIO m) => Env -> [HighlightingInfo] -> TCMT m ()
+appendHighlightingInfos env highlightingInfos = 
+  liftIO (modifyIORef' (envHighlightingInfos env) (<> highlightingInfos))
+
+removeHighlightingInfos :: (Monad m, MonadIO m) => Env -> TCMT m ()
+removeHighlightingInfos env =
+  liftIO (writeIORef (envHighlightingInfos env) [])
