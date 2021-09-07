@@ -44,12 +44,12 @@ import           Data.Text                      ( Text
                                                 , pack
                                                 , unpack
                                                 )
+import qualified Data.Text                     as Text
 import           Language.LSP.Server            ( LspM )
 import qualified Language.LSP.Server           as LSP
 import qualified Language.LSP.Types            as LSP
 import qualified Language.LSP.VFS              as VFS
 import           Monad
-import qualified Data.Text as Text
 
 initialiseCommandQueue :: IO CommandQueue
 initialiseCommandQueue = CommandQueue <$> newTChanIO <*> newTVarIO Nothing
@@ -132,7 +132,8 @@ onHighlight uri = do
             legend
             (map fromHighlightingInfo highlightingInfos)
       -- writeLog $ "[Handler] Semantic Highlighting " <> Text.pack (show highlightingInfos)
-      writeLog $ "[Handler][Highlighting] length " <> Text.pack (show (length $ map fromHighlightingInfo highlightingInfos))
+      writeLog $ "[Handler][Highlighting] length " <> Text.pack
+        (show (length $ map fromHighlightingInfo highlightingInfos))
       case tokens of
         Left t -> return $ Left $ LSP.ResponseError LSP.InternalError t Nothing
         Right tokens' -> return $ Right $ Just tokens'
@@ -142,7 +143,8 @@ onHighlight uri = do
 
 
 fromHighlightingInfo :: IR.HighlightingInfo -> LSP.SemanticTokenAbsolute
-fromHighlightingInfo (IR.HighlightingInfo start end aspects isTokenBased note defSrc) = LSP.SemanticTokenAbsolute 1 1 3 LSP.SttKeyword []
+fromHighlightingInfo (IR.HighlightingInfo start end aspects isTokenBased note defSrc)
+  = LSP.SemanticTokenAbsolute 1 1 3 LSP.SttKeyword []
 
 -- HighlightingInfo
 --       Int -- starting offset

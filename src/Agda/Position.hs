@@ -53,33 +53,43 @@ prettyPositionWithoutFile pos@(Pn () offset _line _col) =
 --------------------------------------------------------------------------------
 -- | Positon => Offset convertion
 
--- | TODO: implement ToOffset with IntMap instead 
-newtype ToOffset = ToOffset [Int]
+-- Keeps record of offsets of every line break ("\n", "\r" and "\r\n")
+--
+--  Example text      corresponding entry of IntMap        
+--  >abc\n               (1, 4)
+--  >def123\r\n          (2, 11)
+--  >ghi\r               (3, 15)
+--
+newtype ToOffset = ToOffset { unToOffset :: IntMap Int }
 
-data AccumToOffset = AccumT
-  { accumPreviousCharT  :: Maybe Char
-  , accumCurrentOffsetT :: Int
-  , accumResultT        :: [Int]
+data Accum = Accum
+  { accumPreviousChar  :: Maybe Char
+  , accumCurrentOffset :: Int
+  , accumCurrentLine   :: Int
+  , accumResult        :: IntMap Int
   }
 
 -- | Return a list of offsets of linebreaks ("\n", "\r" or "\r\n")
 makeToOffset :: Text -> ToOffset
-makeToOffset = ToOffset . reverse . accumResultT . Text.foldl' go initAccum
+makeToOffset = ToOffset . accumResult . Text.foldl' go initAccum
  where
-  initAccum :: AccumToOffset
-  initAccum = AccumT Nothing 0 [0]
+  initAccum :: Accum
+  initAccum = Accum Nothing 0 0 IntMap.empty
 
-  go :: AccumToOffset -> Char -> AccumToOffset
-  go (AccumT (Just '\r') n []) '\n' = AccumT (Just '\n') (1 + n) [1] -- impossible case
-  go (AccumT (Just '\r') n (m : acc)) '\n' =
-    AccumT (Just '\n') (1 + n) (1 + m : acc)
-  go (AccumT previous n acc) '\n' = AccumT (Just '\n') (1 + n) (1 + n : acc)
-  go (AccumT previous n acc) '\r' = AccumT (Just '\r') (1 + n) (1 + n : acc)
-  go (AccumT previous n acc) char = AccumT (Just char) (1 + n) acc
+  go :: Accum -> Char -> Accum
+  go (Accum (Just '\r') n l table) '\n' =
+    Accum (Just '\n') (1 + n) l (IntMap.updateMax (Just . succ) table)
+  go (Accum previous n l table) '\n' =
+    Accum (Just '\n') (1 + n) (1 + l) (IntMap.insert (1 + l) (1 + n) table)
+  go (Accum previous n l table) '\r' =
+    Accum (Just '\r') (1 + n) (1 + l) (IntMap.insert (1 + l) (1 + n) table)
+  go (Accum previous n l table) char = Accum (Just char) (1 + n) l table
 
 -- | (line, col) => offset (zero-based)
 toOffset :: ToOffset -> (Int, Int) -> Int
-toOffset (ToOffset offsets) (line, col) = offsets !! line + col
+toOffset (ToOffset table) (line, col) = case IntMap.lookup line table of
+  Nothing     -> col
+  Just offset -> offset + col
 
 --------------------------------------------------------------------------------
 -- | Offset => Position convertion
@@ -92,7 +102,7 @@ toOffset (ToOffset offsets) (line, col) = offsets !! line + col
 --  >def123\r\n          (11, 2)
 --  >ghi\r               (15, 3)
 --
-newtype FromOffset = FromOffset {unFromOffset :: IntMap Int }
+newtype FromOffset = FromOffset { unFromOffset :: IntMap Int }
 
 fromOffset :: FromOffset -> Int -> (Int, Int)
 fromOffset (FromOffset table) offset = case IntMap.lookupLE offset table of
@@ -100,28 +110,21 @@ fromOffset (FromOffset table) offset = case IntMap.lookupLE offset table of
   Just (offsetOfFirstChar, lineNo) -> (lineNo, offset - offsetOfFirstChar)
 
 makeFromOffset :: Text -> FromOffset
-makeFromOffset = FromOffset . accumResultF . Text.foldl'
+makeFromOffset = FromOffset . accumResult . Text.foldl'
   go
-  (AccumF Nothing 0 0 IntMap.empty)
+  (Accum Nothing 0 0 IntMap.empty)
  where
-  go :: AccumFromOffset -> Char -> AccumFromOffset
+  go :: Accum -> Char -> Accum
   -- encountered a "\r\n", update the latest entry 
-  go (AccumF (Just '\r') n l table) '\n' = case IntMap.deleteFindMax table of
+  go (Accum (Just '\r') n l table) '\n' = case IntMap.deleteFindMax table of
     ((offset, lineNo), table') ->
-      AccumF (Just '\n') (1 + n) l (IntMap.insert (1 + offset) lineNo table')
+      Accum (Just '\n') (1 + n) l (IntMap.insert (1 + offset) lineNo table')
   -- encountered a line break, add a new entry 
-  go (AccumF previous n l table) '\n' =
-    AccumF (Just '\n') (1 + n) (1 + l) (IntMap.insert (1 + n) (1 + l) table)
-  go (AccumF previous n l table) '\r' =
-    AccumF (Just '\r') (1 + n) (1 + l) (IntMap.insert (1 + n) (1 + l) table)
-  go (AccumF previous n l table) char = AccumF (Just char) (1 + n) l table
-
-data AccumFromOffset = AccumF
-  { accumPreviousCharF  :: Maybe Char
-  , accumCurrentOffsetF :: Int
-  , accumCurrentLineF   :: Int
-  , accumResultF        :: IntMap Int
-  }
+  go (Accum previous n l table) '\n' =
+    Accum (Just '\n') (1 + n) (1 + l) (IntMap.insert (1 + n) (1 + l) table)
+  go (Accum previous n l table) '\r' =
+    Accum (Just '\r') (1 + n) (1 + l) (IntMap.insert (1 + n) (1 + l) table)
+  go (Accum previous n l table) char = Accum (Just char) (1 + n) l table
 
 -- --------------------------------------------------------------------------------
 -- -- | Agda Highlighting Range -> Agda Range

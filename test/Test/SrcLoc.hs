@@ -16,7 +16,8 @@ positionToOffsetTests :: TestTree
 positionToOffsetTests =
   testGroup
     "Position => Offset"
-    [ testCase "line 0" $ run [(0, 0), (0, 1), (0, 2), (0, 3)] @?= [0, 1, 2, 3]
+    [ testCase "cached table" $ IntMap.toList (unToOffset table) @?= [(1, 4), (2, 9), (3, 12)]
+    , testCase "line 0" $ run [(0, 0), (0, 1), (0, 2), (0, 3)] @?= [0, 1, 2, 3]
     , testCase "line 1" $ run [(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)] @?= [4, 5, 6, 7, 8]
     , testCase "line 2" $ run [(2, 0), (2, 1)] @?= [9, 10]
     , testCase "line 3" $ run [(3, 0), (3, 1)] @?= [12, 13]
