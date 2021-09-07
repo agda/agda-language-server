@@ -9,7 +9,6 @@ import Agda.TypeChecking.Monad (TCM)
 import Data.Aeson
 import GHC.Generics (Generic)
 import Render
-import Agda.Syntax.Position (Range)
 
 --------------------------------------------------------------------------------
 

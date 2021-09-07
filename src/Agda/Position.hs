@@ -1,7 +1,10 @@
 module Agda.Position
-  ( ToOffset
+  ( ToOffset(..)
   , makeToOffset
   , toOffset
+  , FromOffset(..)
+  , makeFromOffset
+  , fromOffset
   , toAgdaPositionWithoutFile
   , toAgdaRange
   , prettyPositionWithoutFile
@@ -44,12 +47,11 @@ toAgdaPositionWithoutFile table (LSP.Position line col) = Pn
   (fromIntegral col + 1)
 
 prettyPositionWithoutFile :: PositionWithoutFile -> String
-prettyPositionWithoutFile pos@(Pn () offset line col) =
+prettyPositionWithoutFile pos@(Pn () offset _line _col) =
   "[" <> show pos <> "-" <> show offset <> "]"
 
 --------------------------------------------------------------------------------
 -- | Positon => Offset convertion
--- Line break charactors ("\n", "\r" amd "\r\n") all have width of 1 
 
 -- | TODO: implement ToOffset with IntMap instead 
 newtype ToOffset = ToOffset [Int]
@@ -90,12 +92,12 @@ toOffset (ToOffset offsets) (line, col) = offsets !! line + col
 --  >def123\r\n          (11, 2)
 --  >ghi\r               (15, 3)
 --
-newtype FromOffset = FromOffset (IntMap Int)
+newtype FromOffset = FromOffset {unFromOffset :: IntMap Int }
 
 fromOffset :: FromOffset -> Int -> (Int, Int)
-fromOffset (FromOffset table) offset = case IntMap.lookupLT offset table of
+fromOffset (FromOffset table) offset = case IntMap.lookupLE offset table of
   Nothing                          -> (0, offset) -- no previous lines
-  Just (offsetOfFirstChar, lineNo) -> (lineNo, offset - offsetOfFirstChar - 1)
+  Just (offsetOfFirstChar, lineNo) -> (lineNo, offset - offsetOfFirstChar)
 
 makeFromOffset :: Text -> FromOffset
 makeFromOffset = FromOffset . accumResultF . Text.foldl'
@@ -103,8 +105,10 @@ makeFromOffset = FromOffset . accumResultF . Text.foldl'
   (AccumF Nothing 0 0 IntMap.empty)
  where
   go :: AccumFromOffset -> Char -> AccumFromOffset
-  -- encountered "\r\n", ignore "\n" as if it's just "\r"
-  go (AccumF (Just '\r') n l table) '\n' = AccumF (Just '\r') n l table
+  -- encountered a "\r\n", update the latest entry 
+  go (AccumF (Just '\r') n l table) '\n' = case IntMap.deleteFindMax table of
+    ((offset, lineNo), table') ->
+      AccumF (Just '\n') (1 + n) l (IntMap.insert (1 + offset) lineNo table')
   -- encountered a line break, add a new entry 
   go (AccumF previous n l table) '\n' =
     AccumF (Just '\n') (1 + n) (1 + l) (IntMap.insert (1 + n) (1 + l) table)

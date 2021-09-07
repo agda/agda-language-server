@@ -48,8 +48,9 @@ library:
   - -Wmissing-methods
   - -Wmissing-pattern-synonym-signatures
   - -Wmissing-signatures
+  - -Werror=incomplete-patterns
+  - -fno-warn-orphans
   default-extensions:
-  - PatternSynonyms
   - LambdaCase
   - OverloadedStrings
 
@@ -58,21 +59,62 @@ executables:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
-    - -Wall
+    - -Wincomplete-patterns
+    - -Wunused-do-bind
+    - -Wunused-foralls
+    - -Wwarnings-deprecations
+    - -Wwrong-do-bind
+    - -Wmissing-fields
+    - -Wmissing-methods
+    - -Wmissing-pattern-synonym-signatures
+    - -Wmissing-signatures
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Werror=incomplete-patterns
     - -fno-warn-orphans
     dependencies:
     - agda-language-server
 
 tests:
   als-test:
-    main:                Spec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+    main: Test.hs
+    source-dirs:
+      - test
+      - src
     dependencies:
-    - agda-language-server
+      - tasty
+      - tasty-hunit
+      - tasty-golden
+      - tasty-quickcheck
+
+    ghc-options:
+      - -Wincomplete-patterns
+      - -Wunused-do-bind
+      - -Wunused-foralls
+      - -Wwarnings-deprecations
+      - -Wwrong-do-bind
+      - -Wmissing-fields
+      - -Wmissing-methods
+      - -Wmissing-pattern-synonym-signatures
+      - -Wmissing-signatures
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -Werror=incomplete-patterns
+      - -fno-warn-orphans
+
+    default-extensions:
+      - LambdaCase
+      - OverloadedStrings
+
+# tests:
+#   als-test:
+#     main:                Spec.hs
+#     source-dirs:         test
+#     ghc-options:
+#     - -threaded
+#     - -rtsopts
+#     - -with-rtsopts=-N
+#     dependencies:
+#     - agda-language-server

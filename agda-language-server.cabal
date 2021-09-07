@@ -58,10 +58,9 @@ library
   hs-source-dirs:
       src
   default-extensions:
-      PatternSynonyms
       LambdaCase
       OverloadedStrings
-  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures
+  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
       Agda ==2.6.2
     , aeson
@@ -84,7 +83,7 @@ executable als
       Paths_agda_language_server
   hs-source-dirs:
       app
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -fno-warn-orphans
+  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
       Agda ==2.6.2
     , aeson
@@ -104,16 +103,44 @@ executable als
 
 test-suite als-test
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
+  main-is: Test.hs
   other-modules:
+      Test.SrcLoc
+      Agda
+      Agda.Convert
+      Agda.IR
+      Agda.Parser
+      Agda.Position
+      Control.Concurrent.SizedChan
+      Monad
+      Render
+      Render.Class
+      Render.Common
+      Render.Concrete
+      Render.Interaction
+      Render.Internal
+      Render.Literal
+      Render.Name
+      Render.Position
+      Render.RichText
+      Render.TypeChecking
+      Render.Utils
+      Server
+      Server.CommandController
+      Server.Handler
+      Server.ResponseController
+      Switchboard
       Paths_agda_language_server
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+      src
+  default-extensions:
+      LambdaCase
+      OverloadedStrings
+  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
       Agda ==2.6.2
     , aeson
-    , agda-language-server
     , base >=4.7 && <5
     , bytestring
     , containers
@@ -124,5 +151,9 @@ test-suite als-test
     , process
     , stm
     , strict
+    , tasty
+    , tasty-golden
+    , tasty-hunit
+    , tasty-quickcheck
     , text
   default-language: Haskell2010
