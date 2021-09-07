@@ -1,7 +1,7 @@
 module Agda.Position
-  ( OffsetTable
-  , makeOffsetTable
-  , lookupOffsetTable
+  ( ToOffset
+  , makeToOffset
+  , toOffset
   , toAgdaPositionWithoutFile
   , toAgdaRange
   , prettyPositionWithoutFile
@@ -11,6 +11,8 @@ module Agda.Position
 
 import           Agda.Syntax.Position
 import           Agda.Utils.FileName            ( AbsolutePath(AbsolutePath) )
+import           Data.IntMap                    ( IntMap )
+import qualified Data.IntMap                   as IntMap
 import qualified Data.Sequence                 as Seq
 import qualified Data.Strict.Maybe             as Strict
 import           Data.Text                      ( Text )
@@ -21,10 +23,10 @@ import qualified Language.LSP.Types            as LSP
 --        Agda srclocs are 1-base
 
 --------------------------------------------------------------------------------
--- | LSP locations -> Agda locations
+-- | LSP source locations => Agda source locations
 
 -- | LSP Range -> Agda Range
-toAgdaRange :: OffsetTable -> Text -> LSP.Range -> Range
+toAgdaRange :: ToOffset -> Text -> LSP.Range -> Range
 toAgdaRange table path (LSP.Range start end) = Range
   (Strict.Just (AbsolutePath path))
   (Seq.singleton interval)
@@ -34,10 +36,10 @@ toAgdaRange table path (LSP.Range start end) = Range
                       (toAgdaPositionWithoutFile table end)
 
 -- | LSP Position -> Agda PositionWithoutFile
-toAgdaPositionWithoutFile :: OffsetTable -> LSP.Position -> PositionWithoutFile
+toAgdaPositionWithoutFile :: ToOffset -> LSP.Position -> PositionWithoutFile
 toAgdaPositionWithoutFile table (LSP.Position line col) = Pn
   ()
-  (fromIntegral (lookupOffsetTable table line col) + 1)
+  (fromIntegral (toOffset table (line, col)) + 1)
   (fromIntegral line + 1)
   (fromIntegral col + 1)
 
@@ -46,36 +48,76 @@ prettyPositionWithoutFile pos@(Pn () offset line col) =
   "[" <> show pos <> "-" <> show offset <> "]"
 
 --------------------------------------------------------------------------------
--- | Positon -> Offset convertion
+-- | Positon => Offset convertion
+-- Line break charactors ("\n", "\r" amd "\r\n") all have width of 1 
 
--- | A list of offsets of linebreaks ("\n", "\r" or "\r\n")
-newtype OffsetTable = OffsetTable [Int]
+-- | TODO: implement ToOffset with IntMap instead 
+newtype ToOffset = ToOffset [Int]
 
-data Accum = Accum
-  { accumPreviousChar  :: Maybe Char
-  , accumCurrentOffset :: Int
-  , accumOffsetTable   :: [Int]
+data AccumToOffset = AccumT
+  { accumPreviousCharT  :: Maybe Char
+  , accumCurrentOffsetT :: Int
+  , accumResultT        :: [Int]
   }
 
-initAccum :: Accum
-initAccum = Accum Nothing 0 [0]
-
 -- | Return a list of offsets of linebreaks ("\n", "\r" or "\r\n")
-makeOffsetTable :: Text -> OffsetTable
-makeOffsetTable =
-  OffsetTable . reverse . accumOffsetTable . Text.foldl' go initAccum
+makeToOffset :: Text -> ToOffset
+makeToOffset = ToOffset . reverse . accumResultT . Text.foldl' go initAccum
  where
-  go :: Accum -> Char -> Accum
-  go (Accum (Just '\r') n []) '\n' = Accum (Just '\n') (1 + n) [1] -- impossible case
-  go (Accum (Just '\r') n (m : acc)) '\n' =
-    Accum (Just '\n') (1 + n) (1 + m : acc)
-  go (Accum previous n acc) '\n' = Accum (Just '\n') (1 + n) (1 + n : acc)
-  go (Accum previous n acc) '\r' = Accum (Just '\r') (1 + n) (1 + n : acc)
-  go (Accum previous n acc) char = Accum (Just char) (1 + n) acc
+  initAccum :: AccumToOffset
+  initAccum = AccumT Nothing 0 [0]
 
--- | Zero-based
-lookupOffsetTable :: OffsetTable -> Int -> Int -> Int
-lookupOffsetTable (OffsetTable offsets) line col = offsets !! line + col
+  go :: AccumToOffset -> Char -> AccumToOffset
+  go (AccumT (Just '\r') n []) '\n' = AccumT (Just '\n') (1 + n) [1] -- impossible case
+  go (AccumT (Just '\r') n (m : acc)) '\n' =
+    AccumT (Just '\n') (1 + n) (1 + m : acc)
+  go (AccumT previous n acc) '\n' = AccumT (Just '\n') (1 + n) (1 + n : acc)
+  go (AccumT previous n acc) '\r' = AccumT (Just '\r') (1 + n) (1 + n : acc)
+  go (AccumT previous n acc) char = AccumT (Just char) (1 + n) acc
+
+-- | (line, col) => offset (zero-based)
+toOffset :: ToOffset -> (Int, Int) -> Int
+toOffset (ToOffset offsets) (line, col) = offsets !! line + col
+
+--------------------------------------------------------------------------------
+-- | Offset => Position convertion
+
+-- An IntMap for speeding up Offset => Position convertion
+-- Keeps record of offsets of every line break ("\n", "\r" and "\r\n")
+--
+--  Example text      corresponding entry of IntMap        
+--  >abc\n               (4, 1)
+--  >def123\r\n          (11, 2)
+--  >ghi\r               (15, 3)
+--
+newtype FromOffset = FromOffset (IntMap Int)
+
+fromOffset :: FromOffset -> Int -> (Int, Int)
+fromOffset (FromOffset table) offset = case IntMap.lookupLT offset table of
+  Nothing                          -> (0, offset) -- no previous lines
+  Just (offsetOfFirstChar, lineNo) -> (lineNo, offset - offsetOfFirstChar - 1)
+
+makeFromOffset :: Text -> FromOffset
+makeFromOffset = FromOffset . accumResultF . Text.foldl'
+  go
+  (AccumF Nothing 0 0 IntMap.empty)
+ where
+  go :: AccumFromOffset -> Char -> AccumFromOffset
+  -- encountered "\r\n", ignore "\n" as if it's just "\r"
+  go (AccumF (Just '\r') n l table) '\n' = AccumF (Just '\r') n l table
+  -- encountered a line break, add a new entry 
+  go (AccumF previous n l table) '\n' =
+    AccumF (Just '\n') (1 + n) (1 + l) (IntMap.insert (1 + n) (1 + l) table)
+  go (AccumF previous n l table) '\r' =
+    AccumF (Just '\r') (1 + n) (1 + l) (IntMap.insert (1 + n) (1 + l) table)
+  go (AccumF previous n l table) char = AccumF (Just char) (1 + n) l table
+
+data AccumFromOffset = AccumF
+  { accumPreviousCharF  :: Maybe Char
+  , accumCurrentOffsetF :: Int
+  , accumCurrentLineF   :: Int
+  , accumResultF        :: IntMap Int
+  }
 
 -- --------------------------------------------------------------------------------
 -- -- | Agda Highlighting Range -> Agda Range

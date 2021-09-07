@@ -23,7 +23,7 @@ import           Agda.Interaction.Options       ( CommandLineOptions
                                                   )
                                                 )
 import qualified Agda.Parser                   as Parser
-import           Agda.Position                  ( makeOffsetTable
+import           Agda.Position                  ( makeToOffset
                                                 , toAgdaPositionWithoutFile
                                                 )
 import           Agda.Syntax.Abstract.Pretty    ( prettyATop )
@@ -89,7 +89,7 @@ onHover uri pos = do
     Nothing   -> return Nothing
     Just file -> do
       let source      = VFS.virtualFileText file
-      let offsetTable = makeOffsetTable source
+      let offsetTable = makeToOffset source
       let agdaPos     = toAgdaPositionWithoutFile offsetTable pos
       lookupResult <- Parser.tokenAt uri source agdaPos
       case lookupResult of
