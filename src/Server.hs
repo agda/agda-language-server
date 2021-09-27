@@ -112,10 +112,10 @@ handlers = mconcat
         = req
     result <- Handler.onHover uri pos
     responder $ Right result
-  -- syntax highlighting 
-  , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
-    result <- Handler.onHighlight (req ^. (params . textDocument . uri))
-    responder result
+  -- -- syntax highlighting 
+  -- , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
+  --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
+  --   responder result
   ]
 
 --------------------------------------------------------------------------------
