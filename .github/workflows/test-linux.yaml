@@ -1,101 +1,101 @@
-# # modified from https://github.com/simonmichael/hledger/blob/master/.github/workflows/linux.yml
+# modified from https://github.com/simonmichael/hledger/blob/master/.github/workflows/linux.yml
 
-# name: CI (Linux)
+name: CI (Linux)
 
-# on: [push, pull_request]
+on: [push, pull_request]
 
-# jobs:
-#   build:
-#     runs-on: ubuntu-latest
-#     steps:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
 
-#     - name: 📥 Checkout repository
-#       uses: actions/checkout@v2
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v2
 
-#     # things to be cached/restored:
+    # things to be cached/restored:
 
-#     - name: 💾 Cache stack global package db
-#       id:   stack-global
-#       uses: actions/cache@v2
-#       with:
-#         path: ~/.stack
-#         key: ${{ runner.os }}-stack-global-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
-#         restore-keys: |
-#              ${{ runner.os }}-stack-global-${{ matrix.plan.ghc }}
-#     - name: 💾 Cache stack-installed programs in ~/.local/bin
-#       id:   stack-programs
-#       uses: actions/cache@v2
-#       with:
-#         path: ~/.local/bin
-#         key: ${{ runner.os }}-stack-programs-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
-#         restore-keys: |
-#              ${{ runner.os }}-stack-programs-${{ matrix.plan.ghc }}
-#     - name: 💾 Cache .stack-work
-#       uses: actions/cache@v2
-#       with:
-#         path: .stack-work
-#         key: ${{ runner.os }}-stack-work-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
-#         restore-keys: |
-#              ${{ runner.os }}-stack-work-${{ matrix.plan.ghc }}
-#     - name: 💾 Cache agda-language-server/.stack-work
-#       uses: actions/cache@v2
-#       with:
-#         path: agda-language-server/.stack-work
-#         key: ${{ runner.os }}-agda-language-server-stack-work-${{ matrix.plan.ghc }}-${{ hashFiles('agda-language-server/package.yaml') }}
-#         restore-keys: |
-#              ${{ runner.os }}-agda-language-server-stack-work-${{ matrix.plan.ghc }}
+    - name: 💾 Cache stack global package db
+      id:   stack-global
+      uses: actions/cache@v2
+      with:
+        path: ~/.stack
+        key: ${{ runner.os }}-stack-global-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-global-${{ matrix.plan.ghc }}
+    - name: 💾 Cache stack-installed programs in ~/.local/bin
+      id:   stack-programs
+      uses: actions/cache@v2
+      with:
+        path: ~/.local/bin
+        key: ${{ runner.os }}-stack-programs-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-programs-${{ matrix.plan.ghc }}
+    - name: 💾 Cache .stack-work
+      uses: actions/cache@v2
+      with:
+        path: .stack-work
+        key: ${{ runner.os }}-stack-work-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-work-${{ matrix.plan.ghc }}
+    - name: 💾 Cache agda-language-server/.stack-work
+      uses: actions/cache@v2
+      with:
+        path: agda-language-server/.stack-work
+        key: ${{ runner.os }}-agda-language-server-stack-work-${{ matrix.plan.ghc }}-${{ hashFiles('agda-language-server/package.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-agda-language-server-stack-work-${{ matrix.plan.ghc }}
 
 
-#     # actions:
+    # actions:
 
-#     - name: ⏬ Install stack
-#       run: |
-#         mkdir -p ~/.local/bin
-#         export PATH=~/.local/bin:$PATH
-#         # curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
-#         if [[ ! -x ~/.local/bin/stack ]]; then curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
-#         stack --version
-#     - name: ⏬ Install GHC
-#       run: |
-#         df -h
-#         stack setup --install-ghc
-#         df -h
+    - name: ⏬ Install stack
+      run: |
+        mkdir -p ~/.local/bin
+        export PATH=~/.local/bin:$PATH
+        # curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
+        if [[ ! -x ~/.local/bin/stack ]]; then curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
+        stack --version
+    - name: ⏬ Install GHC
+      run: |
+        df -h
+        stack setup --install-ghc
+        df -h
 
-#     - name: ⏬ Install dependencies
-#       run: |
-#         stack build --only-dependencies
+    - name: ⏬ Install dependencies
+      run: |
+        stack build --only-dependencies
 
-#     - name: 🔨 Build and run tests
-#       run: |
-#         stack test
+    - name: 🔨 Build and run tests
+      run: |
+        stack test
 
-#     - name: 📦 Compress files
-#       id: zip
-#       run: |
-#         # locate the data-dir
-#         datadir=$(find $(stack path --snapshot-install-root)/share -type d -name "Agda-*")
+    - name: 📦 Compress files
+      id: zip
+      run: |
+        # locate the data-dir
+        datadir=$(find $(stack path --snapshot-install-root)/share -type d -name "Agda-*")
         
-#         # locate the executable 
-#         executable=$(find $(stack path --local-install-root)/bin -name "als")
+        # locate the executable 
+        executable=$(find $(stack path --local-install-root)/bin -name "als")
 
-#         # make a temporary directory for compresssing
-#         mkdir zip
-#         cp -r $datadir zip/data
-#         cp $executable zip/
+        # make a temporary directory for compresssing
+        mkdir zip
+        cp -r $datadir zip/data
+        cp $executable zip/
         
-#         # compress
-#         cd zip 
-#         zip -r als-ubuntu.zip *
-#         cd .. 
-#         mv zip/als-ubuntu.zip .
+        # compress
+        cd zip 
+        zip -r als-ubuntu.zip *
+        cd .. 
+        mv zip/als-ubuntu.zip .
 
 
-#     - name: 🚢 Release Artifacts
-#       uses: softprops/action-gh-release@v1
-#       if: startsWith(github.ref, 'refs/tags/') # so that only commits with a git tag would upload artifacts
-#       with:
-#         files: als-ubuntu.zip
-#         draft: true
-#         prerelease: true
-#       env:
-#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: 🚢 Release Artifacts
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/') # so that only commits with a git tag would upload artifacts
+      with:
+        files: als-ubuntu.zip
+        draft: true
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

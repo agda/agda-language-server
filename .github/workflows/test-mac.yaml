@@ -69,6 +69,8 @@ jobs:
 
     - name: 🔗 Bundle ICU4C DLLs
       run: |        
+        # Bundle ICU4C DLLs
+
         # locate the executable 
         executable=$(find $(stack path --local-install-root)/bin -name "als")
 
@@ -92,11 +94,6 @@ jobs:
         cp $icuuc_path lib/
         cp $icui18n_path lib/
         cp $icudata_path lib/
-
-        echo "[linker] IDs of DLLs:"
-        echo $icuuc_id
-        echo $icui18n_id
-        echo $icudata_id
 
         # use "install_name_tool" to update ALS to search for DDLs in "lib/" instead
         echo "[linker] before changing LC_LOAD_DYLIB of icuuc in ALS:"
