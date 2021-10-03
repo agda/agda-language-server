@@ -67,6 +67,21 @@ jobs:
       run: |
         stack test
 
+    - name: 🔗 Bundle ICU4C DLLs
+      run: |
+        # dependency tree:
+        # - al
+        #   - libicuuc
+        #      - libicudata
+        #   - libicui18n
+        #      - libicudata
+
+        
+        # locate the executable 
+        executable=$(find $(stack path --local-install-root)/bin -name "als")
+
+        otool -L $executable
+
     - name: 📦 Compress files
       id: zip
       run: |
