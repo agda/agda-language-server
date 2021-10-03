@@ -94,22 +94,22 @@ jobs:
         cp $icudata_path lib/
 
         echo "[linker] IDs of DLLs:"
-        echo icuuc_id
-        echo icui18n_id
-        echo icudata_id
+        echo $icuuc_id
+        echo $icui18n_id
+        echo $icudata_id
 
         # use "install_name_tool" to update ALS to search for DDLs in "lib/" instead
         echo "[linker] before changing LC_LOAD_DYLIB of icuuc in ALS:"
-        otool -l als | grep icuuc -B2
+        otool -l $executable | grep icuuc -B2
         echo "[linker] after changing LC_LOAD_DYLIB of icuuc in ALS:"
         install_name_tool -change $icuuc_id @loader_path/lib/$(basename $icuuc_id) $executable 
-        otool -l als | grep icuuc -B2
+        otool -l $executable | grep icuuc -B2
 
         echo "[linker] before changing LC_LOAD_DYLIB of icui18n in ALS:"
-        otool -l als | grep icui18n -B2
+        otool -l $executable | grep icui18n -B2
         echo "[linker] after changing LC_LOAD_DYLIB of icui18n in ALS:"
         install_name_tool -change $icui18n_id @loader_path/lib/$(basename $icui18n_id) $executable 
-        otool -l als | grep icui18n -B2
+        otool -l $executable | grep icui18n -B2
         
 
     - name: 📦 Compress files
