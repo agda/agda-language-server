@@ -68,7 +68,10 @@ jobs:
         stack test
 
     - name: 🔗 Bundle ICU4C DLLs
-      run: |
+      run: |        
+        # locate the executable 
+        executable=$(find $(stack path --local-install-root)/bin -name "als")
+
         # locate "libicuuc", the ID should also be its absolute path
         icuuc_id=$(otool -L $executable | grep icuuc | awk '{print $1}')
         icuuc_path=$icuuc_id
@@ -108,6 +111,7 @@ jobs:
         install_name_tool -change $icui18n_id @loader_path/lib/$(basename $icui18n_id) $executable 
         otool -l als | grep icui18n -B2
         
+
     - name: 📦 Compress files
       id: zip
       run: |
