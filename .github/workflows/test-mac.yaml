@@ -69,28 +69,45 @@ jobs:
 
     - name: 🔗 Bundle ICU4C DLLs
       run: |
-        # dependency tree:
-        # - al
-        #   - libicuuc
-        #      - libicudata
-        #   - libicui18n
-        #      - libicudata
+        # locate "libicuuc", the ID should also be its absolute path
+        icuuc_id=$(otool -L $executable | grep icuuc | awk '{print $1}')
+        icuuc_path=$icuuc_id
 
-        
-        # locate the executable 
-        executable=$(find $(stack path --local-install-root)/bin -name "als")
+        # locate "libicui18n", the ID should also be its absolute path
+        icui18n_id=$(otool -L $executable | grep icui18n | awk '{print $1}')
+        icui18n_path=$icui18n_id
 
         # locate the directory of ICU4C DLLs
-        lib=$(otool -L $executable | grep icuuc | awk '{print $1}' | awk -F'/[^/]*$' '{print $1}')
+        libdir=$(dirname $icui18n_id)
 
-        # copy "libicui18n", "libicudata" and "libicuuc" to lib/ 
-        mkdir lib 
-        cp $(find $lib -name libicui18n.dylib) lib
-        cp $(find $lib -name libicudata.dylib) lib
-        cp $(find $lib -name libicuuc.dylib) lib
+        # locate "libicudata"
+        icudata_id=$(otool -L $icui18n_id | grep icudata | awk '{print $1}')
+        icudata_path=$libdir/$(basename $icudata_id)
 
-        ls lib
+        # copy DDLs into "lib/"
+        mkdir lib/
+        cp $icuuc_path lib/
+        cp $icui18n_path lib/
+        cp $icudata_path lib/
 
+        echo "[linker] IDs of DLLs:"
+        echo icuuc_id
+        echo icui18n_id
+        echo icudata_id
+
+        # use "install_name_tool" to update ALS to search for DDLs in "lib/" instead
+        echo "[linker] before changing LC_LOAD_DYLIB of icuuc in ALS:"
+        otool -l als | grep icuuc -B2
+        echo "[linker] after changing LC_LOAD_DYLIB of icuuc in ALS:"
+        install_name_tool -change $icuuc_id @loader_path/lib/$(basename $icuuc_id) $executable 
+        otool -l als | grep icuuc -B2
+
+        echo "[linker] before changing LC_LOAD_DYLIB of icui18n in ALS:"
+        otool -l als | grep icui18n -B2
+        echo "[linker] after changing LC_LOAD_DYLIB of icui18n in ALS:"
+        install_name_tool -change $icui18n_id @loader_path/lib/$(basename $icui18n_id) $executable 
+        otool -l als | grep icui18n -B2
+        
     - name: 📦 Compress files
       id: zip
       run: |
