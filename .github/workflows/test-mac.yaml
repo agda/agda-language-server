@@ -80,7 +80,16 @@ jobs:
         # locate the executable 
         executable=$(find $(stack path --local-install-root)/bin -name "als")
 
-        otool -L $executable
+        # locate the directory of ICU4C DLLs
+        lib=$(otool -L $executable | grep icuuc | awk '{print $1}' | awk -F'/[^/]*$' '{print $1}')
+
+        # copy "libicui18n", "libicudata" and "libicuuc" to lib/ 
+        mkdir lib 
+        cp $(find $lib -name libicui18n.dylib) lib
+        cp $(find $lib -name libicudata.dylib) lib
+        cp $(find $lib -name libicuuc.dylib) lib
+
+        ls lib
 
     - name: 📦 Compress files
       id: zip
