@@ -113,31 +113,6 @@ onHover uri pos = do
                         (pack typeString)
                   return $ Just $ LSP.Hover content (Just range)
 
-onHighlight
-  :: LSP.Uri
-  -> ServerM (LspM ()) (Either LSP.ResponseError (Maybe LSP.SemanticTokens))
-onHighlight uri = do
-  result <- LSP.getVirtualFile (LSP.toNormalizedUri uri)
-  case result of
-    Nothing   -> return $ Right Nothing
-    Just file -> do
-      let source = VFS.virtualFileText file
-      let legend = LSP.SemanticTokensLegend
-            (LSP.List LSP.knownSemanticTokenTypes)
-            (LSP.List LSP.knownSemanticTokenModifiers)
-
-      highlightingInfos <- getHighlightingInfos
-      -- writeLog $ "[Handler] Semantic Highlighting " <> Text.pack (show highlightingInfos)
-      let tokens = LSP.makeSemanticTokens
-            legend
-            (map fromHighlightingInfo highlightingInfos)
-      -- writeLog $ "[Handler] Semantic Highlighting " <> Text.pack (show highlightingInfos)
-      writeLog $ "[Handler][Highlighting] length " <> Text.pack
-        (show (length $ map fromHighlightingInfo highlightingInfos))
-      case tokens of
-        Left t -> return $ Left $ LSP.ResponseError LSP.InternalError t Nothing
-        Right tokens' -> return $ Right $ Just tokens'
-
 --------------------------------------------------------------------------------
 -- Helper functions for converting stuff to SemanticTokenAbsolute
 
