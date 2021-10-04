@@ -121,6 +121,7 @@ jobs:
         # make a temporary directory for compresssing
         mkdir zip
         cp -r $datadir zip/data
+        cp -r lib zip/lib
         cp $executable zip/
         
         # compress
