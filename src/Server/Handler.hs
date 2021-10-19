@@ -1,6 +1,8 @@
 module Server.Handler where
 
-import           Agda                           ( runTCMPrettyErrors )
+import           Agda                           ( parseCommandLineOptions
+                                                , runTCMPrettyErrors
+                                                )
 import qualified Agda.IR                       as IR
 import           Agda.Interaction.Base          ( CommandM
                                                 , CommandQueue(..)
@@ -50,26 +52,38 @@ import qualified Language.LSP.Server           as LSP
 import qualified Language.LSP.Types            as LSP
 import qualified Language.LSP.VFS              as VFS
 import           Monad
+import           Options                        ( Options(optAgdaOptions) )
 
 initialiseCommandQueue :: IO CommandQueue
 initialiseCommandQueue = CommandQueue <$> newTChanIO <*> newTVarIO Nothing
 
-runCommandM :: CommandM a -> IO (Either String a)
-runCommandM program = runTCMPrettyErrors $ do
-  -- we need to set InteractionOutputCallback else it would panic
-  setInteractionOutputCallback $ \_response -> return ()
+runCommandM :: CommandM a -> ServerM (LspM ()) (Either String a)
+runCommandM program = do
+  env <- ask
+  liftIO $ runTCMPrettyErrors $ do
 
-  -- setup the command state
-  commandQueue <- liftIO initialiseCommandQueue
-  opts         <- commandLineOptions
-  let commandState = (initCommandState commandQueue)
-        { optionsOnReload = opts { optAbsoluteIncludePaths = [] }
-        }
+    -- get command line options 
+    options <- do
+      result <- liftIO
+        $ parseCommandLineOptions (optAgdaOptions (envOptions env))
+      case result of
+        -- something bad happened, use the default options instead 
+        Left  _    -> commandLineOptions
+        Right opts -> return opts
 
-  evalStateT program commandState
+    -- we need to set InteractionOutputCallback else it would panic
+    setInteractionOutputCallback $ \_response -> return ()
+
+    -- setup the command state
+    commandQueue <- liftIO initialiseCommandQueue
+    let commandState = (initCommandState commandQueue)
+          { optionsOnReload = options { optAbsoluteIncludePaths = [] }
+          }
+
+    evalStateT program commandState
 
 inferTypeOfText :: FilePath -> Text -> ServerM (LspM ()) (Either String String)
-inferTypeOfText filepath text = liftIO $ runCommandM $ do
+inferTypeOfText filepath text = runCommandM $ do
     -- load first
   cmd_load' filepath [] True Imp.TypeCheck $ \_ -> return ()
   -- infer later
