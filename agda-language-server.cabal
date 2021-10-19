@@ -36,6 +36,7 @@ library
       Agda.Position
       Control.Concurrent.SizedChan
       Monad
+      Options
       Render
       Render.Class
       Render.Common
@@ -113,6 +114,7 @@ test-suite als-test
       Agda.Position
       Control.Concurrent.SizedChan
       Monad
+      Options
       Render
       Render.Class
       Render.Common
