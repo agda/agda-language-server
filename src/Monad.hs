@@ -15,29 +15,33 @@ import           Server.ResponseController      ( ResponseController )
 import qualified Server.ResponseController     as ResponseController
 
 import           Data.IORef                     ( IORef
+                                                , modifyIORef'
                                                 , newIORef
-                                                , readIORef, writeIORef, modifyIORef'
+                                                , readIORef
+                                                , writeIORef
                                                 )
+import           Data.Maybe                     ( isJust )
 import qualified Language.LSP.Types            as LSP
+import           Options
 
 --------------------------------------------------------------------------------
 
 data Env = Env
-  { envLogChan            :: Chan Text
+  { envOptions            :: Options
+  , envDevMode            :: Bool
+  , envLogChan            :: Chan Text
   , envCommandController  :: CommandController
   , envResponseChan       :: Chan Response
   , envResponseController :: ResponseController
-  , envDevMode            :: Bool
   }
 
-createInitEnv :: Bool -> IO Env
-createInitEnv devMode =
-  Env
+createInitEnv :: Options -> IO Env
+createInitEnv options =
+  Env options (isJust (optViaTCP options))
     <$> newChan
     <*> CommandController.new
     <*> newChan
     <*> ResponseController.new
-    <*> pure devMode
 
 --------------------------------------------------------------------------------
 

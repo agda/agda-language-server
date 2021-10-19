@@ -12,5 +12,5 @@ main = do
   if optHelp options
     then putStrLn usageMessage
     else do
-      _ <- run (optViaTCP options)
+      _ <- run options
       return ()

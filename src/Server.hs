@@ -17,8 +17,9 @@ import qualified Data.Aeson                    as JSON
 import           Data.Text                      ( pack )
 import           GHC.Generics                   ( Generic )
 import           GHC.IO.IOMode                  ( IOMode(ReadWriteMode) )
-import           Language.LSP.Server
-import           Language.LSP.Types      hiding ( TextDocumentSyncClientCapabilities(..)
+import           Language.LSP.Server     hiding ( Options )
+import           Language.LSP.Types      hiding ( Options(..)
+                                                , TextDocumentSyncClientCapabilities(..)
                                                 )
 import           Monad
 import qualified Network.Simple.TCP            as TCP
@@ -30,18 +31,21 @@ import           Data.Maybe                     ( isJust )
 import qualified Server.Handler                as Handler
 
 import           Agda.Utils.Lens                ( (^.) )
-import           Language.LSP.Types.Lens hiding ( options
+import qualified Language.LSP.Server           as LSP
+import           Language.LSP.Types.Lens hiding ( Options(..)
+                                                , options
                                                 , textDocumentSync
                                                 )
+import           Options
 
 
 --------------------------------------------------------------------------------
 
-run :: Maybe Int -> IO Int
-run viaTCP = do
-  env         <- createInitEnv (isJust viaTCP)
+run :: Options -> IO Int
+run alsOptions = do
+  env         <- createInitEnv alsOptions
   switchboard <- Switchboard.new env
-  case viaTCP of
+  case optViaTCP alsOptions of
     Just port -> do
       void
         $ TCP.serve (TCP.Host "127.0.0.1") (show port)
@@ -66,7 +70,8 @@ run viaTCP = do
     , interpretHandler = \ctxEnv -> Iso (runLspT ctxEnv . runServerM env) liftIO
     , options               = lspOptions
     }
-  lspOptions :: Options
+
+  lspOptions :: LSP.Options
   lspOptions = defaultOptions { textDocumentSync = Just syncOptions }
 
   -- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
