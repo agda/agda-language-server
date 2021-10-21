@@ -10,12 +10,13 @@ import qualified Data.Text.IO as Text
 import Language.LSP.Server
 import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Data.IORef
+import Options (Config)
 
 data Switchboard = Switchboard 
   { sbPrintLog :: ThreadId
   , sbSendResponse :: ThreadId
   , sbRunAgda :: ThreadId
-  , sbLanguageContextEnv :: IORef (Maybe (LanguageContextEnv ()))
+  , sbLanguageContextEnv :: IORef (Maybe (LanguageContextEnv Config))
   }
 
 -- | All channels go in and out from here
@@ -29,7 +30,7 @@ new env = do
     <*> pure ctxEnvIORef
 
 -- | For sending reactions to the client 
-setupLanguageContextEnv :: Switchboard -> LanguageContextEnv () -> IO ()
+setupLanguageContextEnv :: Switchboard -> LanguageContextEnv Config -> IO ()
 setupLanguageContextEnv switchboard ctxEnv = do 
   writeIORef (sbLanguageContextEnv switchboard) (Just ctxEnv)
 
@@ -50,7 +51,7 @@ keepPrintingLog env = forever $ do
 
 -- | Keep sending reactions
 -- Consumer of `envResponseChan`
-keepSendindResponse :: Env -> IORef (Maybe (LanguageContextEnv ())) -> IO ()
+keepSendindResponse :: Env -> IORef (Maybe (LanguageContextEnv Config)) -> IO ()
 keepSendindResponse env ctxEnvIORef = forever $ do
   response <- readChan (envResponseChan env)
 

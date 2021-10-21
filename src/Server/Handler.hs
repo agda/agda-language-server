@@ -52,12 +52,14 @@ import qualified Language.LSP.Server           as LSP
 import qualified Language.LSP.Types            as LSP
 import qualified Language.LSP.VFS              as VFS
 import           Monad
-import           Options                        ( Options(optAgdaOptions) )
+import           Options                        ( Config
+                                                , Options(optAgdaOptions)
+                                                )
 
 initialiseCommandQueue :: IO CommandQueue
 initialiseCommandQueue = CommandQueue <$> newTChanIO <*> newTVarIO Nothing
 
-runCommandM :: CommandM a -> ServerM (LspM ()) (Either String a)
+runCommandM :: CommandM a -> ServerM (LspM Config) (Either String a)
 runCommandM program = do
   env <- ask
   liftIO $ runTCMPrettyErrors $ do
@@ -82,7 +84,8 @@ runCommandM program = do
 
     evalStateT program commandState
 
-inferTypeOfText :: FilePath -> Text -> ServerM (LspM ()) (Either String String)
+inferTypeOfText
+  :: FilePath -> Text -> ServerM (LspM Config) (Either String String)
 inferTypeOfText filepath text = runCommandM $ do
     -- load first
   cmd_load' filepath [] True Imp.TypeCheck $ \_ -> return ()
@@ -96,7 +99,7 @@ inferTypeOfText filepath text = runCommandM $ do
 
   render <$> prettyATop typ
 
-onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM ()) (Maybe LSP.Hover)
+onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM Config) (Maybe LSP.Hover)
 onHover uri pos = do
   result <- LSP.getVirtualFile (LSP.toNormalizedUri uri)
   case result of

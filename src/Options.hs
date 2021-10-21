@@ -1,11 +1,18 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Options
   ( Options(..)
   , getOptions
   , usageMessage
+  , Config(..)
+  , initConfig
   ) where
+import           Data.Aeson.Types        hiding ( Options
+                                                , defaultOptions
+                                                )
+import           GHC.Generics                   ( Generic )
 import           System.Console.GetOpt
 import           System.Environment             ( getArgs )
-import Text.Read (readMaybe)
+import           Text.Read                      ( readMaybe )
 
 getOptions :: IO Options
 getOptions = do
@@ -16,7 +23,7 @@ getOptions = do
   -- save options for Agda back
   return $ opts { optAgdaOptions = argvForAgda }
 
-usageMessage :: String 
+usageMessage :: String
 usageMessage = usageInfo usage options ++ usageAboutAgdaOptions
 
 --------------------------------------------------------------------------------
@@ -55,7 +62,8 @@ usage :: String
 usage = "Agda Language Server v0.0.3.0 \nUsage: als [Options...]\n"
 
 usageAboutAgdaOptions :: String
-usageAboutAgdaOptions = "\n\
+usageAboutAgdaOptions =
+  "\n\
       \  +AGDA [Options for Agda ...] -AGDA\n\
       \    To pass command line options to Agda, put them in between '+AGDA' and '-AGDA'\n\
       \    For example:\n\
@@ -85,3 +93,19 @@ extractAgdaOpts argv =
       forALS           = before ++ dropWhile (== "-AGDA") after
       forAgda'         = dropWhile (== "+AGDA") forAgda
   in  (forALS, forAgda')
+
+--------------------------------------------------------------------------------
+
+newtype Config = Config { commandLineOptions :: [String] }
+  deriving (Eq, Show, Generic)
+
+instance FromJSON Config where
+  parseJSON (Object v) = Config <$> v .: "commandLineOptions"
+  -- We do not expect a non-Object value here.
+  -- We could use empty to fail, but typeMismatch
+  -- gives a much more informative error message.
+  parseJSON invalid =
+    prependFailure "parsing Config failed, " (typeMismatch "Object" invalid)
+
+initConfig :: Config
+initConfig = Config []

@@ -59,10 +59,12 @@ run alsOptions = do
     Nothing -> do
       runServer (serverDefn env switchboard)
  where
-  serverDefn :: Env -> Switchboard -> ServerDefinition ()
+  serverDefn :: Env -> Switchboard -> ServerDefinition Config
   serverDefn env switchboard = ServerDefinition
-    { defaultConfig         = ()
-    , onConfigurationChange = const $ pure $ Right ()
+    { defaultConfig         = initConfig
+    , onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
+      JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
+      JSON.Success new -> Right new
     , doInitialize          = \ctxEnv _req -> do
                                 Switchboard.setupLanguageContextEnv switchboard ctxEnv
                                 pure $ Right ctxEnv
@@ -91,11 +93,15 @@ run alsOptions = do
   saveOptions = SaveOptions (Just True)
 
 -- handlers of the LSP server
-handlers :: Handlers (ServerM (LspM ()))
+handlers :: Handlers (ServerM (LspM Config))
 handlers = mconcat
-  [   -- custom methods, not part of LSP
+  [ -- custom methods, not part of LSP
     requestHandler (SCustomMethod "agda") $ \req responder -> do
     let RequestMessage _ _i _ params = req
+
+    config <- getConfig
+    writeLog $ "[config] " <> pack (show config)
+
     -- JSON Value => Request => Response
     response <- case JSON.fromJSON params of
       JSON.Error msg ->
@@ -126,7 +132,7 @@ handlers = mconcat
 --------------------------------------------------------------------------------
 
 -- | Convert "CommandReq" to "CommandRes"
-handleCommandReq :: CommandReq -> ServerM (LspM ()) CommandRes
+handleCommandReq :: CommandReq -> ServerM (LspM Config) CommandRes
 handleCommandReq CmdReqSYN    = return $ CmdResACK Agda.getAgdaVersion
 handleCommandReq (CmdReq cmd) = do
   case Agda.parseIOTCM cmd of

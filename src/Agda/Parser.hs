@@ -14,10 +14,11 @@ import Data.Text (Text, unpack)
 import qualified Data.Text as Text
 import Language.LSP.Server (LspM)
 import qualified Language.LSP.Types as LSP
+import Options (Config)
 
 --------------------------------------------------------------------------------
 
-tokenAt :: LSP.Uri -> Text -> PositionWithoutFile -> ServerM (LspM ()) (Maybe (Token, Text))
+tokenAt :: LSP.Uri -> Text -> PositionWithoutFile -> ServerM (LspM Config) (Maybe (Token, Text))
 tokenAt uri source position = case LSP.uriToFilePath uri of
   Nothing -> return Nothing
   Just filepath -> do
