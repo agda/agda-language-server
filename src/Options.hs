@@ -30,9 +30,9 @@ usageMessage = usageInfo usage options ++ usageAboutAgdaOptions
 
 -- | Command-line arguments
 data Options = Options
-  { optViaTCP      :: Maybe Int
+  { optViaTCP         :: Maybe Int
   , optRawAgdaOptions :: [String]
-  , optHelp        :: Bool
+  , optHelp           :: Bool
   }
 
 defaultOptions :: Options
@@ -96,7 +96,7 @@ extractAgdaOpts argv =
 
 --------------------------------------------------------------------------------
 
-newtype Config = Config { commandLineOptions :: [String] }
+newtype Config = Config { configRawAgdaOptions :: [String] }
   deriving (Eq, Show, Generic)
 
 instance FromJSON Config where

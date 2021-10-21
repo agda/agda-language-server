@@ -64,8 +64,11 @@ import qualified Data.Aeson                    as JSON
 import           Data.Maybe                     ( listToMaybe )
 import           Data.Text                      ( pack )
 import           GHC.Generics                   ( Generic )
+import           Language.LSP.Server            ( getConfig )
 import           Monad
-import           Options                        ( Options(optRawAgdaOptions) )
+import           Options                        ( Config(configRawAgdaOptions)
+                                                , Options(optRawAgdaOptions)
+                                                )
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
@@ -167,10 +170,16 @@ parseIOTCM raw = case listToMaybe $ reads raw of
 getCommandLineOptions
   :: (HasOptions m, MonadIO m) => ServerM m CommandLineOptions
 getCommandLineOptions = do
+  -- command line options from ARGV 
   argv   <- asks (optRawAgdaOptions . envOptions)
+  -- command line options from agda-mode
+  config <- asks (configRawAgdaOptions . envConfig)
+  -- concatenate both 
+  let merged = argv <> config
+
   result <- runExceptT $ do
     (bs, opts) <- ExceptT $ runOptM $ parseBackendOptions builtinBackends
-                                                          argv
+                                                          merged
                                                           defaultOptions
     return opts
   case result of

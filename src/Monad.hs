@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Monad where
 
 import           Agda.IR
@@ -21,6 +22,9 @@ import           Data.IORef                     ( IORef
                                                 , writeIORef
                                                 )
 import           Data.Maybe                     ( isJust )
+import           Language.LSP.Server            ( MonadLsp
+                                                , getConfig
+                                                )
 import qualified Language.LSP.Types            as LSP
 import           Options
 
@@ -29,19 +33,21 @@ import           Options
 data Env = Env
   { envOptions            :: Options
   , envDevMode            :: Bool
+  , envConfig             :: Config
   , envLogChan            :: Chan Text
   , envCommandController  :: CommandController
   , envResponseChan       :: Chan Response
   , envResponseController :: ResponseController
   }
 
-createInitEnv :: Options -> IO Env
+createInitEnv :: (MonadIO m, MonadLsp Config m) => Options -> m Env
 createInitEnv options =
   Env options (isJust (optViaTCP options))
-    <$> newChan
-    <*> CommandController.new
-    <*> newChan
-    <*> ResponseController.new
+    <$> getConfig
+    <*> liftIO newChan
+    <*> liftIO CommandController.new
+    <*> liftIO newChan
+    <*> liftIO ResponseController.new
 
 --------------------------------------------------------------------------------
 

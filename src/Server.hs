@@ -36,34 +36,35 @@ import           Options
 --------------------------------------------------------------------------------
 
 run :: Options -> IO Int
-run alsOptions = do
-  env         <- createInitEnv alsOptions
-  switchboard <- Switchboard.new env
-  case optViaTCP alsOptions of
+run options = do
+  case optViaTCP options of
     Just port -> do
       void
         $ TCP.serve (TCP.Host "127.0.0.1") (show port)
         $ \(sock, _remoteAddr) -> do
-            writeChan (envLogChan env) "[Server] connection established"
+            -- writeChan (envLogChan env) "[Server] connection established"
             handle <- socketToHandle sock ReadWriteMode
-            _ <- runServerWithHandles handle handle (serverDefn env switchboard)
+            _      <- runServerWithHandles handle handle (serverDefn options)
             return ()
-      Switchboard.destroy switchboard
+      -- Switchboard.destroy switchboard
       return 0
     Nothing -> do
-      runServer (serverDefn env switchboard)
+      runServer (serverDefn options)
  where
-  serverDefn :: Env -> Switchboard -> ServerDefinition Config
-  serverDefn env switchboard = ServerDefinition
+  serverDefn :: Options -> ServerDefinition Config
+  serverDefn options = ServerDefinition
     { defaultConfig         = initConfig
     , onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
       JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
       JSON.Success new -> Right new
     , doInitialize          = \ctxEnv _req -> do
+                                env <- runLspT ctxEnv (createInitEnv options)
+                                switchboard <- Switchboard.new env
                                 Switchboard.setupLanguageContextEnv switchboard ctxEnv
-                                pure $ Right ctxEnv
+                                pure $ Right (ctxEnv, env)
     , staticHandlers        = handlers
-    , interpretHandler = \ctxEnv -> Iso (runLspT ctxEnv . runServerM env) liftIO
+    , interpretHandler      = \(ctxEnv, env) ->
+                                Iso (runLspT ctxEnv . runServerM env) liftIO
     , options               = lspOptions
     }
 
