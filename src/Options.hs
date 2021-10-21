@@ -68,6 +68,8 @@ usageAboutAgdaOptions =
       \    To pass command line options to Agda, put them in between '+AGDA' and '-AGDA'\n\
       \    For example:\n\
       \      als -p=3000 +AGDA --cubical -AGDA\n\
+      \    If you are using agda-mode on VS Code, put them in the Settings at:\n\
+      \      agdaMode.connection.commandLineOptions\n\
       \"
 
 parseOpts :: [String] -> IO (Options, [String])
