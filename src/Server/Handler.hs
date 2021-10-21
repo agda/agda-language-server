@@ -1,7 +1,7 @@
 module Server.Handler where
 
-import           Agda                           ( parseCommandLineOptions
-                                                , runTCMPrettyErrors
+import           Agda                           ( getCommandLineOptions
+                                                , runAgda
                                                 )
 import qualified Agda.IR                       as IR
 import           Agda.Interaction.Base          ( CommandM
@@ -62,9 +62,9 @@ initialiseCommandQueue = CommandQueue <$> newTChanIO <*> newTVarIO Nothing
 runCommandM :: CommandM a -> ServerM (LspM Config) (Either String a)
 runCommandM program = do
   env <- ask
-  runTCMPrettyErrors $ do
+  runAgda $ do
     -- get command line options 
-    options <- parseCommandLineOptions
+    options <- getCommandLineOptions
 
     -- we need to set InteractionOutputCallback else it would panic
     lift $ setInteractionOutputCallback $ \_response -> return ()

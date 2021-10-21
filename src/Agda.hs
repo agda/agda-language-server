@@ -1,6 +1,12 @@
 {-# OPTIONS_GHC -Wno-missing-methods #-}
+{-# LANGUAGE DeriveGeneric #-}
 
-module Agda where
+module Agda
+  ( start
+  , runAgda
+  , sendCommand
+  , getCommandLineOptions
+  ) where
 
 import           Agda.Compiler.Backend          ( parseBackendOptions )
 import           Agda.Compiler.Builtin          ( builtinBackends )
@@ -12,7 +18,6 @@ import           Agda.Interaction.Base          ( Command
                                                 , IOTCM
                                                 , initCommandState
                                                 )
---import qualified Agda.Interaction.Imports as Imp
 import           Agda.Interaction.InteractionTop
                                                 ( initialiseCommandQueue
                                                 , maybeAbort
@@ -28,9 +33,10 @@ import           Agda.TypeChecking.Errors       ( getAllWarningsOfTCErr
                                                 , prettyError
                                                 , prettyTCWarnings'
                                                 )
-import           Agda.TypeChecking.Monad        ( TCErr
+import           Agda.TypeChecking.Monad        ( HasOptions
+                                                , TCErr
                                                 , commandLineOptions
-                                                , runTCMTop', HasOptions
+                                                , runTCMTop'
                                                 )
 import           Agda.TypeChecking.Monad.Base   ( TCM )
 import qualified Agda.TypeChecking.Monad.Benchmark
@@ -43,25 +49,34 @@ import           Agda.Utils.Impossible          ( CatchImpossible
                                                 , Impossible
                                                 )
 import           Agda.VersionCommit             ( versionWithCommitInfo )
-import           Control.Exception
+import           Control.Exception              ( SomeException
+                                                , catch
+                                                )
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
+import           Data.Aeson                     ( FromJSON
+                                                , ToJSON(toJSON)
+                                                , Value
+                                                , fromJSON
+                                                )
+import qualified Data.Aeson                    as JSON
 import           Data.Maybe                     ( listToMaybe )
 import           Data.Text                      ( pack )
+import           GHC.Generics                   ( Generic )
 import           Monad
 import           Options                        ( Options(optRawAgdaOptions) )
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
 
-interact :: ServerM IO ()
-interact = do
+start :: ServerM IO ()
+start = do
   env <- ask
 
   writeLog "[Agda] interaction start"
 
-  result <- runTCMPrettyErrors $ do
+  result <- runAgda $ do
     -- decides how to output Response
     lift $ setInteractionOutputCallback $ \response -> do
       reaction <- fromResponse response
@@ -71,7 +86,7 @@ interact = do
     commands <- liftIO $ initialiseCommandQueue (readCommand env)
 
     -- get command line options 
-    options  <- parseCommandLineOptions
+    options  <- getCommandLineOptions
 
     -- start the loop
     let commandState = (initCommandState commands)
@@ -109,9 +124,49 @@ interact = do
   readCommand :: Env -> IO Command
   readCommand env = Command <$> consumeCommand env
 
-parseCommandLineOptions
+--------------------------------------------------------------------------------
+
+-- | Convert "CommandReq" to "CommandRes"
+
+sendCommand :: MonadIO m => Value -> ServerM m Value
+sendCommand value = do
+    -- JSON Value => Request => Response
+  case fromJSON value of
+    JSON.Error msg ->
+      return
+        $  toJSON
+        $  CmdRes
+        $  Just
+        $  CmdErrCannotDecodeJSON
+        $  show msg
+        ++ "\n"
+        ++ show value
+    JSON.Success request -> toJSON <$> handleCommandReq request
+
+
+handleCommandReq :: MonadIO m => CommandReq -> ServerM m CommandRes
+handleCommandReq CmdReqSYN    = return $ CmdResACK Agda.getAgdaVersion
+handleCommandReq (CmdReq cmd) = do
+  case parseIOTCM cmd of
+    Left err -> do
+      writeLog $ "[Error] CmdErrCannotParseCommand:\n" <> pack err
+      return $ CmdRes (Just (CmdErrCannotParseCommand err))
+    Right iotcm -> do
+      writeLog $ "[Request] " <> pack (show cmd)
+      provideCommand iotcm
+      return $ CmdRes Nothing
+
+parseIOTCM :: String -> Either String IOTCM
+parseIOTCM raw = case listToMaybe $ reads raw of
+  Just (x, ""     ) -> Right x
+  Just (_, remnent) -> Left $ "not consumed: " ++ remnent
+  _                 -> Left $ "cannot read: " ++ raw
+
+--------------------------------------------------------------------------------
+
+getCommandLineOptions
   :: (HasOptions m, MonadIO m) => ServerM m CommandLineOptions
-parseCommandLineOptions = do
+getCommandLineOptions = do
   argv   <- asks (optRawAgdaOptions . envOptions)
   result <- runExceptT $ do
     (bs, opts) <- ExceptT $ runOptM $ parseBackendOptions builtinBackends
@@ -123,16 +178,10 @@ parseCommandLineOptions = do
     Left  _    -> commandLineOptions
     Right opts -> return opts
 
-parseIOTCM :: String -> Either String IOTCM
-parseIOTCM raw = case listToMaybe $ reads raw of
-  Just (x, ""     ) -> Right x
-  Just (_, remnent) -> Left $ "not consumed: " ++ remnent
-  _                 -> Left $ "cannot read: " ++ raw
-
 -- | Run a TCM action in IO and throw away all of the errors
 -- TODO: handle the caught errors
-runTCMPrettyErrors :: MonadIO m => ServerM TCM a -> ServerM m (Either String a)
-runTCMPrettyErrors p = do
+runAgda :: MonadIO m => ServerM TCM a -> ServerM m (Either String a)
+runAgda p = do
   env <- ask
   let p' = runServerM env p
   liftIO
@@ -156,3 +205,28 @@ runTCMPrettyErrors p = do
 
   catchException :: SomeException -> IO (Either String a)
   catchException e = return $ Left $ show e
+
+--------------------------------------------------------------------------------
+
+data CommandReq
+  = CmdReqSYN -- ^ For client to initiate a 2-way handshake
+  | CmdReq String
+  deriving (Generic)
+
+instance FromJSON CommandReq
+
+data CommandRes
+  = CmdResACK -- ^ For server to complete a 2-way handshake
+      String   -- ^ Version number of Agda
+  | CmdRes -- ^ Response for 'CmdReq'
+      (Maybe CommandErr) -- ^ 'Nothing' to indicate success
+  deriving (Generic)
+
+instance ToJSON CommandRes
+
+data CommandErr
+  = CmdErrCannotDecodeJSON String
+  | CmdErrCannotParseCommand String
+  deriving (Generic)
+
+instance ToJSON CommandErr

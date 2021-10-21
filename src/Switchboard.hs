@@ -26,7 +26,7 @@ new env = do
   Switchboard
     <$> forkIO (keepPrintingLog env)
     <*> forkIO (keepSendindResponse env ctxEnvIORef)
-    <*> forkIO (runReaderT Agda.interact env)
+    <*> forkIO (runReaderT Agda.start env)
     <*> pure ctxEnvIORef
 
 -- | For sending reactions to the client 

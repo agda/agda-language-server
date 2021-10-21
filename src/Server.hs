@@ -6,16 +6,16 @@ module Server
   ( run
   ) where
 
-
 import qualified Agda
-import           Control.Concurrent
-import           Control.Monad.Reader
+import           Control.Concurrent             ( writeChan )
+import           Control.Monad.Reader           ( MonadIO(liftIO)
+                                                , void
+                                                )
 import           Data.Aeson                     ( FromJSON
                                                 , ToJSON
                                                 )
 import qualified Data.Aeson                    as JSON
 import           Data.Text                      ( pack )
-import           GHC.Generics                   ( Generic )
 import           GHC.IO.IOMode                  ( IOMode(ReadWriteMode) )
 import           Language.LSP.Server     hiding ( Options )
 import           Language.LSP.Types      hiding ( Options(..)
@@ -27,15 +27,9 @@ import           Network.Socket                 ( socketToHandle )
 import qualified Switchboard
 import           Switchboard                    ( Switchboard )
 
-import           Data.Maybe                     ( isJust )
 import qualified Server.Handler                as Handler
 
-import           Agda.Utils.Lens                ( (^.) )
 import qualified Language.LSP.Server           as LSP
-import           Language.LSP.Types.Lens hiding ( Options(..)
-                                                , options
-                                                , textDocumentSync
-                                                )
 import           Options
 
 
@@ -98,23 +92,8 @@ handlers = mconcat
   [ -- custom methods, not part of LSP
     requestHandler (SCustomMethod "agda") $ \req responder -> do
     let RequestMessage _ _i _ params = req
-
-    config <- getConfig
-    writeLog $ "[config] " <> pack (show config)
-
-    -- JSON Value => Request => Response
-    response <- case JSON.fromJSON params of
-      JSON.Error msg ->
-        return
-          $  CmdRes
-          $  Just
-          $  CmdErrCannotDecodeJSON
-          $  show msg
-          ++ "\n"
-          ++ show params
-      JSON.Success request -> handleCommandReq request
-    -- respond with the Response
-    responder $ Right $ JSON.toJSON response
+    response <- Agda.sendCommand params
+    responder $ Right response
   ,
         -- hover provider
     requestHandler STextDocumentHover $ \req responder -> do
@@ -129,42 +108,3 @@ handlers = mconcat
   --   responder result
   ]
 
---------------------------------------------------------------------------------
-
--- | Convert "CommandReq" to "CommandRes"
-handleCommandReq :: CommandReq -> ServerM (LspM Config) CommandRes
-handleCommandReq CmdReqSYN    = return $ CmdResACK Agda.getAgdaVersion
-handleCommandReq (CmdReq cmd) = do
-  case Agda.parseIOTCM cmd of
-    Left err -> do
-      writeLog $ "[Error] CmdErrCannotParseCommand:\n" <> pack err
-      return $ CmdRes (Just (CmdErrCannotParseCommand err))
-    Right iotcm -> do
-      writeLog $ "[Request] " <> pack (show cmd)
-      provideCommand iotcm
-      return $ CmdRes Nothing
-
---------------------------------------------------------------------------------
-
-data CommandReq
-  = CmdReqSYN -- ^ For client to initiate a 2-way handshake
-  | CmdReq String
-  deriving (Generic)
-
-instance FromJSON CommandReq
-
-data CommandRes
-  = CmdResACK -- ^ For server to complete a 2-way handshake
-      String   -- ^ Version number of Agda
-  | CmdRes -- ^ Response for 'CmdReq'
-      (Maybe CommandErr) -- ^ 'Nothing' to indicate success
-  deriving (Generic)
-
-instance ToJSON CommandRes
-
-data CommandErr
-  = CmdErrCannotDecodeJSON String
-  | CmdErrCannotParseCommand String
-  deriving (Generic)
-
-instance ToJSON CommandErr

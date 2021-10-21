@@ -1,20 +1,29 @@
 -- |
 -- Makes sure that all dispatched works are done.
 -- Notify when all dispatched works are done.
-module Server.ResponseController where
+module Server.ResponseController
+  ( ResponseController
+  , new
+  , dispatch
+  , setCheckpointAndWait
+  ) where
 
-import Control.Concurrent
-import Control.Concurrent.SizedChan
-import Control.Monad (void, when)
-import Data.IORef
+import           Control.Concurrent
+import           Control.Concurrent.SizedChan
+import           Control.Monad                  ( void
+                                                , when
+                                                )
+import           Data.IORef
 
 data ResponseController = ResponseController
   { -- | The number of work dispatched
-    dispatchedCount :: IORef Int,
+    dispatchedCount :: IORef Int
+  ,
     -- | The number of work completed
-    completedCount :: IORef Int,
+    completedCount  :: IORef Int
+  ,
     -- | A channel of "Checkpoints" to be met
-    checkpointChan :: SizedChan Checkpoint
+    checkpointChan  :: SizedChan Checkpoint
   }
 
 -- | An "Checkpoint" is just a number with a callback, the callback will be invoked once the number is "met"
@@ -22,11 +31,7 @@ type Checkpoint = (Int, () -> IO ())
 
 -- | Constructs a new ResponseController
 new :: IO ResponseController
-new =
-  ResponseController
-    <$> newIORef 0
-    <*> newIORef 0
-    <*> newSizedChan
+new = ResponseController <$> newIORef 0 <*> newIORef 0 <*> newSizedChan
 
 -- | Returns a callback, invoked the callback to signal completion.
 -- This function and the returned callback are both non-blocking.
@@ -42,7 +47,7 @@ dispatch controller = do
     result <- tryPeekSizedChan (checkpointChan controller)
     case result of
       -- no checkpoints, do nothing
-      Nothing -> return ()
+      Nothing                     -> return ()
       -- a checkpoint is set!
       Just (dispatched, callback) -> do
         completed <- readIORef (completedCount controller)
@@ -57,7 +62,7 @@ dispatch controller = do
 setCheckpoint :: ResponseController -> (() -> IO ()) -> IO ()
 setCheckpoint controller callback = do
   dispatched <- readIORef (dispatchedCount controller)
-  completed <- readIORef (completedCount controller)
+  completed  <- readIORef (completedCount controller)
   -- see if the previously dispatched works have been completed
   if dispatched == completed
     then callback ()
