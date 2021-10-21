@@ -53,7 +53,7 @@ import qualified Language.LSP.Types            as LSP
 import qualified Language.LSP.VFS              as VFS
 import           Monad
 import           Options                        ( Config
-                                                , Options(optAgdaOptions)
+                                                , Options(optRawAgdaOptions)
                                                 )
 
 initialiseCommandQueue :: IO CommandQueue
@@ -62,19 +62,12 @@ initialiseCommandQueue = CommandQueue <$> newTChanIO <*> newTVarIO Nothing
 runCommandM :: CommandM a -> ServerM (LspM Config) (Either String a)
 runCommandM program = do
   env <- ask
-  liftIO $ runTCMPrettyErrors $ do
-
+  runTCMPrettyErrors $ do
     -- get command line options 
-    options <- do
-      result <- liftIO
-        $ parseCommandLineOptions (optAgdaOptions (envOptions env))
-      case result of
-        -- something bad happened, use the default options instead 
-        Left  _    -> commandLineOptions
-        Right opts -> return opts
+    options <- parseCommandLineOptions
 
     -- we need to set InteractionOutputCallback else it would panic
-    setInteractionOutputCallback $ \_response -> return ()
+    lift $ setInteractionOutputCallback $ \_response -> return ()
 
     -- setup the command state
     commandQueue <- liftIO initialiseCommandQueue
@@ -82,7 +75,7 @@ runCommandM program = do
           { optionsOnReload = options { optAbsoluteIncludePaths = [] }
           }
 
-    evalStateT program commandState
+    lift $ evalStateT program commandState
 
 inferTypeOfText
   :: FilePath -> Text -> ServerM (LspM Config) (Either String String)

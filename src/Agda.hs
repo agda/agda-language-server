@@ -30,7 +30,7 @@ import           Agda.TypeChecking.Errors       ( getAllWarningsOfTCErr
                                                 )
 import           Agda.TypeChecking.Monad        ( TCErr
                                                 , commandLineOptions
-                                                , runTCMTop'
+                                                , runTCMTop', HasOptions
                                                 )
 import           Agda.TypeChecking.Monad.Base   ( TCM )
 import qualified Agda.TypeChecking.Monad.Benchmark
@@ -50,7 +50,7 @@ import           Control.Monad.State
 import           Data.Maybe                     ( listToMaybe )
 import           Data.Text                      ( pack )
 import           Monad
-import           Options                        ( Options(optAgdaOptions) )
+import           Options                        ( Options(optRawAgdaOptions) )
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
@@ -61,7 +61,7 @@ interact = do
 
   writeLog "[Agda] interaction start"
 
-  result <- mapReaderT runTCMPrettyErrors $ do
+  result <- runTCMPrettyErrors $ do
     -- decides how to output Response
     lift $ setInteractionOutputCallback $ \response -> do
       reaction <- fromResponse response
@@ -71,13 +71,7 @@ interact = do
     commands <- liftIO $ initialiseCommandQueue (readCommand env)
 
     -- get command line options 
-    options  <- do
-      result <- liftIO
-        $ parseCommandLineOptions (optAgdaOptions (envOptions env))
-      case result of
-        -- something bad happened, use the default options instead 
-        Left  _    -> commandLineOptions
-        Right opts -> return opts
+    options  <- parseCommandLineOptions
 
     -- start the loop
     let commandState = (initCommandState commands)
@@ -115,12 +109,19 @@ interact = do
   readCommand :: Env -> IO Command
   readCommand env = Command <$> consumeCommand env
 
-parseCommandLineOptions :: [String] -> IO (Either String CommandLineOptions)
-parseCommandLineOptions argv = runExceptT $ do
-  (bs, opts) <- ExceptT $ runOptM $ parseBackendOptions builtinBackends
-                                                        argv
-                                                        defaultOptions
-  return opts
+parseCommandLineOptions
+  :: (HasOptions m, MonadIO m) => ServerM m CommandLineOptions
+parseCommandLineOptions = do
+  argv   <- asks (optRawAgdaOptions . envOptions)
+  result <- runExceptT $ do
+    (bs, opts) <- ExceptT $ runOptM $ parseBackendOptions builtinBackends
+                                                          argv
+                                                          defaultOptions
+    return opts
+  case result of
+    -- something bad happened, use the default options instead 
+    Left  _    -> commandLineOptions
+    Right opts -> return opts
 
 parseIOTCM :: String -> Either String IOTCM
 parseIOTCM raw = case listToMaybe $ reads raw of
@@ -128,14 +129,18 @@ parseIOTCM raw = case listToMaybe $ reads raw of
   Just (_, remnent) -> Left $ "not consumed: " ++ remnent
   _                 -> Left $ "cannot read: " ++ raw
 
--- TODO: handle the caught errors
-
 -- | Run a TCM action in IO and throw away all of the errors
-runTCMPrettyErrors :: TCM a -> IO (Either String a)
-runTCMPrettyErrors p =
-  runTCMTop'
-      ((Right <$> p) `catchError` handleTCErr `catchImpossible` handleImpossible
-      )
+-- TODO: handle the caught errors
+runTCMPrettyErrors :: MonadIO m => ServerM TCM a -> ServerM m (Either String a)
+runTCMPrettyErrors p = do
+  env <- ask
+  let p' = runServerM env p
+  liftIO
+    $       runTCMTop'
+              (                 (Right <$> p')
+              `catchError`      handleTCErr
+              `catchImpossible` handleImpossible
+              )
     `catch` catchException
  where
   handleTCErr :: TCErr -> TCM (Either String a)

@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Options
   ( Options(..)
-  , getOptions
+  , getOptionsFromArgv
   , usageMessage
   , Config(..)
   , initConfig
@@ -14,14 +14,14 @@ import           System.Console.GetOpt
 import           System.Environment             ( getArgs )
 import           Text.Read                      ( readMaybe )
 
-getOptions :: IO Options
-getOptions = do
+getOptionsFromArgv :: IO Options
+getOptionsFromArgv = do
   -- extract options for Agda from ARGV 
   (argvForALS, argvForAgda) <- extractAgdaOpts <$> getArgs
   -- parse options for ALS 
   (opts      , _          ) <- parseOpts argvForALS
   -- save options for Agda back
-  return $ opts { optAgdaOptions = argvForAgda }
+  return $ opts { optRawAgdaOptions = argvForAgda }
 
 usageMessage :: String
 usageMessage = usageInfo usage options ++ usageAboutAgdaOptions
@@ -31,13 +31,13 @@ usageMessage = usageInfo usage options ++ usageAboutAgdaOptions
 -- | Command-line arguments
 data Options = Options
   { optViaTCP      :: Maybe Int
-  , optAgdaOptions :: [String]
+  , optRawAgdaOptions :: [String]
   , optHelp        :: Bool
   }
 
 defaultOptions :: Options
 defaultOptions =
-  Options { optViaTCP = Nothing, optAgdaOptions = [], optHelp = False }
+  Options { optViaTCP = Nothing, optRawAgdaOptions = [], optHelp = False }
 
 options :: [OptDescr (Options -> Options)]
 options =

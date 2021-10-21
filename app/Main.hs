@@ -8,7 +8,7 @@ import           Text.Read                      ( readMaybe )
 
 main :: IO ()
 main = do
-  options <- getOptions
+  options <- getOptionsFromArgv
   if optHelp options
     then putStrLn usageMessage
     else do
