@@ -37,6 +37,7 @@ jobs:
         key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-stack-work
+
     - name: 💾 Cache agda-language-server/.stack-work
       uses: actions/cache@v2
       with:
@@ -44,6 +45,12 @@ jobs:
         key: ${{ runner.os }}-agda-language-server-stack-work-${{ hashFiles('agda-language-server/package.yaml') }}
         restore-keys: |
              ${{ runner.os }}-agda-language-server-stack-work
+
+    - name: 💾 Cache agda-language-server/lib
+      uses: actions/cache@v2
+      with:
+        path: agda-language-server/lib
+        key: ${{ runner.os }}-agda-language-server-dylibs-${{ hashFiles('agda-language-server/package.yaml') }}
 
     # actions:
 
