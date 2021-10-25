@@ -31,9 +31,9 @@ jobs:
         release_name: ${{ github.ref }}
         draft: false
         prerelease: false
-    - name: ⏫ Upload to Hackage 
-      id: upload_hackage 
-      env:
-        HACKAGE_API_KEY: ${{ secrets.HACKAGE_API_KEY }}
-      uses: freckle/stack-upload-action@main
+    # - name: ⏫ Upload to Hackage 
+    #   id: upload_hackage 
+    #   env:
+    #     HACKAGE_API_KEY: ${{ secrets.HACKAGE_API_KEY }}
+    #   uses: freckle/stack-upload-action@main
       
