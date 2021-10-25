@@ -46,12 +46,6 @@ jobs:
         restore-keys: |
              ${{ runner.os }}-agda-language-server-stack-work
 
-    - name: 💾 Cache agda-language-server/lib
-      uses: actions/cache@v2
-      with:
-        path: agda-language-server/lib
-        key: ${{ runner.os }}-agda-language-server-dylibs-${{ hashFiles('agda-language-server/package.yaml') }}
-
     # actions:
 
     - name: ⏬ Install stack
@@ -75,53 +69,92 @@ jobs:
         stack test
 
     - name: 🔗 Bundle ICU4C DLLs
-      run: |    # Bundle ICU4C DLLs
-        # Bundle ICU4C DLLs
-        executable=$(find $(stack path --local-install-root)/bin -name "als")
-        # executable=als
+      run: |  # Bundle icu4c DLLs
 
-        # get libicuuc's ID
-        icuuc_id=$(otool -L $executable | grep icuuc | awk '{print $1}')
+        # see if icu4c has been installed 
+        if [ "$(brew list | grep icu4c)" = "" ]
+            then
+                echo "installing icu4c" 
+                brew install icu4c
+        fi
 
-        if [ $(dirname $icuuc_id) = "@loader_path/lib" ] 
-        then 
-            echo "DDLs has already been prepared"
-            ls lib 
-        else 
-            # if $icuuc_id does not begins with "@loader_path/lib"
-            # then it should be an absolute path to the DLL
-            icuuc_path=$icuuc_id
+        # get the directory of the DDLs we want (icuuc, icui18n, icudata)
+        dylib_dir=$(dirname "$(brew list icu4c | grep icuuc.dylib)")
 
-            # path of dir of text-icu DLLs
-            libdir=$(dirname $icuuc_path)
+        # find the path of "als"
+        executable=$(find "$(stack path --local-install-root)"/bin -name "als")
 
-            # get libicui18n's ID and path 
-            icui18n_id=$(otool -L $executable | grep icui18n | awk '{print $1}')
-            icui18n_path=$icui18n_id
+        # remove the old dylib, and make a new one 
+        rm -rf dylib
+        mkdir dylib 
 
-            # get icudata's ID and path 
-            icudata_id=$(otool -L $icui18n_id | grep icudata | awk '{print $1}')
-            icudata_path=$libdir/$(basename $icudata_id)
+        ################################################################################
+        # icuuc 
+        ################################################################################
 
-            # copy DDLs into "lib/"
-            mkdir lib/
-            cp $icuuc_path lib/
-            cp $icui18n_path lib/
-            cp $icudata_path lib/
+        icuuc_id=$(otool -L "$executable" | grep icuuc | awk '{print $1}')
+        icuuc_id_basename=$(basename "$icuuc_id")
 
-            # use "install_name_tool" to update ALS to search for DDLs in "lib/" instead
-            echo "[linker] before changing LC_LOAD_DYLIB of icuuc in ALS:"
-            otool -l $executable | grep icuuc -B2
-            echo "[linker] after changing LC_LOAD_DYLIB of icuuc in ALS:"
-            install_name_tool -change $icuuc_id @loader_path/lib/$(basename $icuuc_id) $executable 
-            otool -l $executable | grep icuuc -B2
+        icuuc_path=$dylib_dir/$icuuc_id_basename
+        icuuc_path_new=dylib/$icuuc_id_basename
+        icuuc_id_new=@loader_path/dylib/$icuuc_id_basename
 
-            echo "[linker] before changing LC_LOAD_DYLIB of icui18n in ALS:"
-            otool -l $executable | grep icui18n -B2
-            echo "[linker] after changing LC_LOAD_DYLIB of icui18n in ALS:"
-            install_name_tool -change $icui18n_id @loader_path/lib/$(basename $icui18n_id) $executable 
-            otool -l $executable | grep icui18n -B2
-        fi 
+        # copy icuuc to the new directory
+        cp "$icuuc_path" "$icuuc_path_new"
+
+        # change icuuc's ID referenced by ALS
+        install_name_tool -change "$icuuc_id" "$icuuc_id_new" "$executable" 
+
+        echo "icuuc referenced by ALS"
+        echo "    old ID  : $icuuc_id"
+        echo "    new ID  : $icuuc_id_new"
+        echo "    old path: $icuuc_path"
+        echo "    new path: $icuuc_path_new"
+
+        ################################################################################
+        # icui18n 
+        ################################################################################
+
+        icui18n_id=$(otool -L "$executable" | grep icui18n | awk '{print $1}')
+        icui18n_id_basename=$(basename "$icui18n_id")
+
+        icui18n_path=$dylib_dir/$icui18n_id_basename
+        icui18n_path_new=dylib/$icui18n_id_basename
+        icui18n_id_new=@loader_path/dylib/$icui18n_id_basename
+
+        # copy icui18n to the new directory
+        cp "$icui18n_path" "$icui18n_path_new"
+
+        # change icui18n's ID referenced by ALS
+        install_name_tool -change "$icui18n_id" "$icui18n_id_new" "$executable" 
+
+        echo "icui18n referenced by ALS"
+        echo "    old ID  : $icui18n_id"
+        echo "    new ID  : $icui18n_id_new"
+        echo "    old path: $icui18n_path"
+        echo "    new path: $icui18n_path_new"
+
+        ################################################################################
+        # icudata 
+        ################################################################################
+
+        # otool -L "$icui18n_id" | grep icudata | awk '{print $1}'
+        icudata_id=$(otool -L "$icuuc_path" | grep icudata | awk '{print $1}')
+        icudata_id_basename=$(basename "$icudata_id")
+
+        icudata_path=$dylib_dir/$icudata_id_basename
+        icudata_path_new=dylib/$icudata_id_basename
+
+        # copy icudata to the new directory
+        cp "$icudata_path" "$icudata_path_new"
+
+        # no need of changing the ID because supposely it's already of "@loader_path"
+
+        echo "icudata referenced by icuuc"
+        echo "    old ID    : $icudata_id"
+        echo "    old path  : $icudata_path"
+        echo "    new path  : $icudata_path_new"
+
 
     - name: 📦 Compress files
       id: zip
@@ -135,7 +168,7 @@ jobs:
         # make a temporary directory for compresssing
         mkdir zip
         cp -r $datadir zip/data
-        cp -r lib zip/lib
+        cp -r dylib zip/dylib
         cp $executable zip/
         
         # compress
