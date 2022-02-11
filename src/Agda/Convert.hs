@@ -129,8 +129,8 @@ fromHighlightingInfo h remove method modFile =
     indirect = liftIO $ writeToTempFile (BS8.unpack (JSON.encode info))
 
 fromDisplayInfo :: DisplayInfo -> TCM IR.DisplayInfo
-fromDisplayInfo info = case info of
-  Info_CompilationOk ws -> do
+fromDisplayInfo = \case 
+  Info_CompilationOk _ ws -> do
     -- filter
     let filteredWarnings = filterTCWarnings (tcWarnings ws)
     let filteredErrors = filterTCWarnings (nonFatalErrors ws)
