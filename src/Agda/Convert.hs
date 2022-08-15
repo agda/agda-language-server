@@ -21,6 +21,7 @@ import Agda.Syntax.Position (HasRange (getRange), Range, noRange)
 import Agda.Syntax.Scope.Base
 import Agda.TypeChecking.Errors (getAllWarningsOfTCErr, prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
+import Agda.TypeChecking.Monad.MetaVars (withInteractionId)
 import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
 import Agda.TypeChecking.Pretty.Warning (filterTCWarnings, prettyTCWarnings, prettyTCWarnings')
@@ -278,7 +279,7 @@ fromDisplayInfo = \case
 
 lispifyGoalSpecificDisplayInfo :: InteractionId -> GoalDisplayInfo -> TCM IR.DisplayInfo
 lispifyGoalSpecificDisplayInfo ii kind = localTCState $
-  B.withInteractionId ii $
+  withInteractionId ii $
     case kind of
       Goal_HelperFunction helperType -> do
         doc <- inTopContext $ prettyATop helperType
