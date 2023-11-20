@@ -16,20 +16,20 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    # things to be cached/restored:
+    # things to be restored:
 
-    - name: 💾 Cache stack global package db
-      id:   stack-global-package-db
-      uses: actions/cache@v3
+    - name: 💾 Restore cached stack global package db
+      id:   stack-global
+      uses: actions/cache/restore@v3
       with:
         path: C:\Users\runneradmin\AppData\Roaming\stack\
         key: ${{ runner.os }}-appdata-roaming-stack-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-appdata-roaming-stack
 
-    - name: 💾 Cache stack programs dir   # ghc, ghc-included packages and their haddocks, mingw, msys2
-      id:   stack-programs-dir
-      uses: actions/cache@v3
+    - name: 💾 Restore cached stack-installed programs in ~/.local/bin
+      id:   stack-programs
+      uses: actions/cache/restore@v3
       with:
         path: C:\Users\runneradmin\AppData\Local\Programs\stack\
         # which files signal a change in stack's global db ?
@@ -38,8 +38,9 @@ jobs:
         restore-keys: |
              ${{ runner.os }}-appdata-local-programs-stack
 
-    - name: 💾 Cache .stack-work
-      uses: actions/cache@v3
+    - name: 💾 Restore cached .stack-work
+      id:   stack-work
+      uses: actions/cache/restore@v3
       with:
         path: .stack-work
         key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
@@ -83,6 +84,30 @@ jobs:
       run: |
         ./stack test
 
+    # things to be cached
+
+    - name: 💾 Cache stack global package db
+      if:   always() && steps.stack-global.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: ~/.stack
+        key: ${{ steps.stack-global.outputs.cache-primary-key }}
+
+    - name: 💾 Cache stack-installed programs in ~/.local/bin
+      if:   always() && steps.stack-programs.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: ~/.local/bin
+        key: ${{ steps.stack-programs.outputs.cache-primary-key }}
+
+    - name: 💾 Cache .stack-work
+      if:   always() && steps.stack-work.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: .stack-work
+        key: ${{ steps.stack-work.outputs.cache-primary-key }}
+
+    # release (optional)
     # artifacts:
 
     - name: 📦 Compress executable and data files
