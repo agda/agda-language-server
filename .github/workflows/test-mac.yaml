@@ -27,15 +27,6 @@ jobs:
         restore-keys: |
              ${{ runner.os }}-stack-global
 
-    - name: 💾 Restore cached stack-installed programs in ~/.local/bin
-      id:   stack-programs
-      uses: actions/cache/restore@v3
-      with:
-        path: ~/.local/bin
-        key: ${{ runner.os }}-stack-programs-${{ hashFiles('**.yaml') }}
-        restore-keys: |
-             ${{ runner.os }}-stack-programs
-
     - name: 💾 Restore cached .stack-work
       id:   stack-work
       uses: actions/cache/restore@v3
@@ -53,10 +44,11 @@ jobs:
 
     - name: ⏬ Install stack
       run: |
-        mkdir -p ~/.local/bin
-        export PATH=~/.local/bin:$PATH
+        # mkdir -p ~/.local/bin
+        # export PATH=~/.local/bin:$PATH
+        ## Stack is preinstalled on the GHA runners
         # brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
-        if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
+        # if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
         stack --version
 
     - name: ⏬ Install GHC
@@ -79,13 +71,6 @@ jobs:
       with:
         path: ~/.stack
         key: ${{ steps.stack-global.outputs.cache-primary-key }}
-
-    - name: 💾 Cache stack-installed programs in ~/.local/bin
-      if:   always() && steps.stack-programs.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
-      with:
-        path: ~/.local/bin
-        key: ${{ steps.stack-programs.outputs.cache-primary-key }}
 
     - name: 💾 Cache .stack-work
       if:   always() && steps.stack-work.outputs.cache-hit != 'true'
