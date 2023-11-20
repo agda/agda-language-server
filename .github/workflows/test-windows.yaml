@@ -140,7 +140,7 @@ jobs:
         mv zip/als-windows.zip .
 
     - name: 🚢 Release Artifacts
-      if: startsWith(github.ref, 'refs/tags/') # so that only commits with a git tag would upload artifacts
+      if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
