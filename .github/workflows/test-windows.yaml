@@ -69,7 +69,7 @@ jobs:
 
     - name: Install the icu library
       run: |
-        ./stack exec -- pacman -S --noconfirm "mingw-w64-x86_64-icu"
+        ./stack exec -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
 
     - name: 📸 Build Snapshot
       run: |

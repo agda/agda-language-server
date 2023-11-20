@@ -46,6 +46,10 @@ jobs:
 
     # actions:
 
+    - name: Set PKG_CONFIG_PATH for the ICU library
+      run: |
+        echo PKG_CONFIG_PATH="$(brew --prefix)/opt/icu4c/lib/pkgconfig" >> "${GITHUB_ENV}"
+
     - name: ⏬ Install stack
       run: |
         mkdir -p ~/.local/bin
