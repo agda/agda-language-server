@@ -10,40 +10,35 @@ jobs:
     steps:
 
     - name: 📥 Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     # things to be cached/restored:
 
     - name: 💾 Cache stack global package db
       id:   stack-global
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.stack
-        key: ${{ runner.os }}-stack-global-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-global-${{ matrix.plan.ghc }}
+             ${{ runner.os }}-stack-global
+
     - name: 💾 Cache stack-installed programs in ~/.local/bin
       id:   stack-programs
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.local/bin
-        key: ${{ runner.os }}-stack-programs-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-programs-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-programs-${{ matrix.plan.ghc }}
+             ${{ runner.os }}-stack-programs
+
     - name: 💾 Cache .stack-work
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: .stack-work
-        key: ${{ runner.os }}-stack-work-${{ matrix.plan.ghc }}-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-work-${{ matrix.plan.ghc }}
-    - name: 💾 Cache agda-language-server/.stack-work
-      uses: actions/cache@v2
-      with:
-        path: agda-language-server/.stack-work
-        key: ${{ runner.os }}-agda-language-server-stack-work-${{ matrix.plan.ghc }}-${{ hashFiles('agda-language-server/package.yaml') }}
-        restore-keys: |
-             ${{ runner.os }}-agda-language-server-stack-work-${{ matrix.plan.ghc }}
+             ${{ runner.os }}-stack-work
 
 
     # actions:
@@ -55,6 +50,7 @@ jobs:
         # curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
         if [[ ! -x ~/.local/bin/stack ]]; then curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
         stack --version
+
     - name: ⏬ Install GHC
       run: |
         df -h
@@ -73,20 +69,20 @@ jobs:
       id: zip
       run: |
         # locate the data-dir
-        datadir=$(find $(stack path --snapshot-install-root)/share -type d -name "Agda-*")
-        
-        # locate the executable 
-        executable=$(find $(stack path --local-install-root)/bin -name "als")
+        datadir=$(find "$(stack path --snapshot-install-root)/share" -type d -name "Agda-*")
+
+        # locate the executable
+        executable=$(find "$(stack path --local-install-root)/bin" -name "als")
 
         # make a temporary directory for compresssing
         mkdir zip
-        cp -r $datadir zip/data
-        cp $executable zip/
-        
+        cp -r "$datadir" zip/data
+        cp "$executable" zip/
+
         # compress
-        cd zip 
-        zip -r als-ubuntu.zip *
-        cd .. 
+        cd zip
+        zip -r als-ubuntu.zip ./*
+        cd ..
         mv zip/als-ubuntu.zip .
 
 

@@ -18,8 +18,9 @@ jobs:
     if: contains(github.ref, 'tags/v')
     runs-on: ubuntu-latest
     steps:
+
     - name: 📥 Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: 🏭 Create Release
       id: create_release
@@ -31,9 +32,8 @@ jobs:
         release_name: ${{ github.ref }}
         draft: false
         prerelease: false
-    # - name: ⏫ Upload to Hackage 
-    #   id: upload_hackage 
+    # - name: ⏫ Upload to Hackage
+    #   id: upload_hackage
     #   env:
     #     HACKAGE_API_KEY: ${{ secrets.HACKAGE_API_KEY }}
     #   uses: freckle/stack-upload-action@main
-      

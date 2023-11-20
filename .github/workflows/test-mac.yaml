@@ -10,48 +10,42 @@ jobs:
     steps:
 
     - name: 📥 Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     # things to be cached/restored:
 
     - name: 💾 Cache stack global package db
       id:   stack-global
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.stack
         key: ${{ runner.os }}-stack-global-after20210110-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-stack-global-after202110110
+
     - name: 💾 Cache stack-installed programs in ~/.local/bin
       id:   stack-programs
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.local/bin
         key: ${{ runner.os }}-stack-programs-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-stack-programs
+
     - name: 💾 Cache .stack-work
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: .stack-work
         key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ runner.os }}-stack-work
 
-    - name: 💾 Cache agda-language-server/.stack-work
-      uses: actions/cache@v2
-      with:
-        path: agda-language-server/.stack-work
-        key: ${{ runner.os }}-agda-language-server-stack-work-${{ hashFiles('agda-language-server/package.yaml') }}
-        restore-keys: |
-             ${{ runner.os }}-agda-language-server-stack-work
-
     # actions:
 
     - name: ⏬ Install stack
       run: |
         mkdir -p ~/.local/bin
-        export PATH=~/.local/bin:$PATH        
+        export PATH=~/.local/bin:$PATH
         # brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
         if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
         stack --version
@@ -71,10 +65,10 @@ jobs:
     - name: 🔗 Bundle ICU4C DLLs
       run: |  # Bundle icu4c DLLs
 
-        # see if icu4c has been installed 
+        # see if icu4c has been installed
         if [ "$(brew list | grep icu4c)" = "" ]
             then
-                echo "installing icu4c" 
+                echo "installing icu4c"
                 brew install icu4c
         fi
 
@@ -84,12 +78,12 @@ jobs:
         # find the path of "als"
         executable=$(find "$(stack path --local-install-root)"/bin -name "als")
 
-        # remove the old dylib, and make a new one 
+        # remove the old dylib, and make a new one
         rm -rf dylib
-        mkdir dylib 
+        mkdir dylib
 
         ################################################################################
-        # icuuc 
+        # icuuc
         ################################################################################
 
         icuuc_id=$(otool -L "$executable" | grep icuuc | awk '{print $1}')
@@ -103,7 +97,7 @@ jobs:
         cp "$icuuc_path" "$icuuc_path_new"
 
         # change icuuc's ID referenced by ALS
-        install_name_tool -change "$icuuc_id" "$icuuc_id_new" "$executable" 
+        install_name_tool -change "$icuuc_id" "$icuuc_id_new" "$executable"
 
         echo "icuuc referenced by ALS"
         echo "    old ID  : $icuuc_id"
@@ -112,7 +106,7 @@ jobs:
         echo "    new path: $icuuc_path_new"
 
         ################################################################################
-        # icui18n 
+        # icui18n
         ################################################################################
 
         icui18n_id=$(otool -L "$executable" | grep icui18n | awk '{print $1}')
@@ -126,7 +120,7 @@ jobs:
         cp "$icui18n_path" "$icui18n_path_new"
 
         # change icui18n's ID referenced by ALS
-        install_name_tool -change "$icui18n_id" "$icui18n_id_new" "$executable" 
+        install_name_tool -change "$icui18n_id" "$icui18n_id_new" "$executable"
 
         echo "icui18n referenced by ALS"
         echo "    old ID  : $icui18n_id"
@@ -135,7 +129,7 @@ jobs:
         echo "    new path: $icui18n_path_new"
 
         ################################################################################
-        # icudata 
+        # icudata
         ################################################################################
 
         # otool -L "$icui18n_id" | grep icudata | awk '{print $1}'
@@ -160,21 +154,21 @@ jobs:
       id: zip
       run: |
         # locate the data-dir
-        datadir=$(find $(stack path --snapshot-install-root)/share -type d -name "Agda-*")
-        
-        # locate the executable 
-        executable=$(find $(stack path --local-install-root)/bin -name "als")
+        datadir=$(find "$(stack path --snapshot-install-root)/share" -type d -name "Agda-*")
+
+        # locate the executable
+        executable=$(find "$(stack path --local-install-root)/bin" -name "als")
 
         # make a temporary directory for compresssing
         mkdir zip
-        cp -r $datadir zip/data
+        cp -r "$datadir" zip/data
         cp -r dylib zip/dylib
-        cp $executable zip/
-        
+        cp "$executable" zip/
+
         # compress
-        cd zip 
-        zip -r als-macos.zip *
-        cd .. 
+        cd zip
+        zip -r als-macos.zip ./*
+        cd ..
         mv zip/als-macos.zip .
 
     - name: 🚢 Release Artifacts
