@@ -18,10 +18,18 @@ jobs:
     steps:
 
     - name: Determine stack root
+      ## 2023-11-21 https://github.com/commercialhaskell/stack/issues/6340
+      ## Asking stack for the stack root unfortunately does not work
+      ## if stack is not fully operational (meaning e.g. that GHC is installed)
+      ## so we hardcode its location instead.
       run: |
-        STACK_ROOT="$(stack --system-ghc --no-install-ghc path --stack-root || echo "C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows")"
-        echo "STACK_ROOT = ${STACK_ROOT}"
+        STACK_ROOT="C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows"
         echo STACK_ROOT="${STACK_ROOT}" >> "${GITHUB_ENV}"
+      # run: |
+      #   STACK_ROOT="$(stack --system-ghc --no-install-ghc path --stack-root || echo "C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows")"
+      #   echo "STACK_ROOT = ${STACK_ROOT}"
+      #   echo STACK_ROOT="${STACK_ROOT}" >> "${GITHUB_ENV}"
+      # What about C:/Users/runneradmin/AppData/Roaming/stack ?
 
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
