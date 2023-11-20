@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           agda-language-server
-version:        0.2.1.0.2.2.6.2
+version:        0.2.2.0.2.2.6.2
 synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 category:       Development
@@ -20,8 +20,9 @@ build-type:     Simple
 extra-source-files:
     README.md
     CHANGELOG.md
-    stack.yaml
     package.yaml
+    stack.yaml
+    stack-8.10.yaml
 
 source-repository head
   type: git
@@ -61,6 +62,7 @@ library
   default-extensions:
       LambdaCase
       OverloadedStrings
+      TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
       Agda ==2.6.2.2
@@ -68,7 +70,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp <1.4
+    , lsp <1.5
     , mtl
     , network
     , network-simple
@@ -84,6 +86,10 @@ executable als
       Paths_agda_language_server
   hs-source-dirs:
       app
+  default-extensions:
+      LambdaCase
+      OverloadedStrings
+      TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
       Agda ==2.6.2.2
@@ -92,7 +98,7 @@ executable als
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp <1.4
+    , lsp <1.5
     , mtl
     , network
     , network-simple
@@ -139,6 +145,7 @@ test-suite als-test
   default-extensions:
       LambdaCase
       OverloadedStrings
+      TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
       Agda ==2.6.2.2
@@ -146,7 +153,7 @@ test-suite als-test
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp <1.4
+    , lsp <1.5
     , mtl
     , network
     , network-simple

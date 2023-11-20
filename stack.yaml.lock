@@ -5,36 +5,15 @@
 
 packages:
 - completed:
-    hackage: Agda-2.6.2.2@sha256:b69c2f317db2886cb387134af00a3e42a06fab6422686938797924d034255a55,37047
-    pantry-tree:
-      sha256: 2f868d8f70a0f6bdbe96eff66ba1ec7a76b398cfc44dc57be525d7a67a44c9ab
-      size: 40002
-  original:
-    hackage: Agda-2.6.2.2
-- completed:
     hackage: text-icu-0.8.0.1@sha256:22d21c91e7a81f1ee5766b3406f4fe9df0ff8cc426581a861de3f6f2fa413449,4624
     pantry-tree:
       sha256: 71ed32ecdce71adba6df6220e717b8ec4bd252cc403714c5c4ba70cf6d1aa1e4
       size: 3223
   original:
     hackage: text-icu-0.8.0.1
-- completed:
-    hackage: lsp-1.2.0.1@sha256:4f037bbcdf2489a6a33351de1bf0cd89f94ad33a90338db4191ba34b3776af4e,5634
-    pantry-tree:
-      sha256: aecba0d6f2cfaeebae2053ebba6bb9f14d3edf732fdeea12e19bf4262f19ca18
-      size: 1417
-  original:
-    hackage: lsp-1.2.0.1
-- completed:
-    hackage: lsp-types-1.3.0.1@sha256:e7bd6261f0560fbbcce6c35a2ceb9cd10034896367e1c73973a4a2d85d322b0c,4689
-    pantry-tree:
-      sha256: 11c9725e4ae4cbc0126d19c728ef13a8b2930faa65802def47f14c94eabc334d
-      size: 4146
-  original:
-    hackage: lsp-types-1.3.0.1
 snapshots:
 - completed:
-    sha256: 428ec8d5ce932190d3cbe266b9eb3c175cd81e984babf876b64019e2cbe4ea68
-    size: 590100
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/28.yaml
-  original: lts-18.28
+    sha256: 6d1532d40621957a25bad5195bfca7938e8a06d923c91bc52aa0f3c41181f2d4
+    size: 619204
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/33.yaml
+  original: lts-19.33

@@ -42,7 +42,7 @@ toAgdaRange table path (LSP.Range start end) = Range
 toAgdaPositionWithoutFile :: ToOffset -> LSP.Position -> PositionWithoutFile
 toAgdaPositionWithoutFile table (LSP.Position line col) = Pn
   ()
-  (fromIntegral (toOffset table (line, col)) + 1)
+  (fromIntegral (toOffset table (fromIntegral line, fromIntegral col)) + 1)
   (fromIntegral line + 1)
   (fromIntegral col + 1)
 
@@ -55,7 +55,7 @@ prettyPositionWithoutFile pos@(Pn () offset _line _col) =
 
 -- Keeps record of offsets of every line break ("\n", "\r" and "\r\n")
 --
---  Example text      corresponding entry of IntMap        
+--  Example text      corresponding entry of IntMap
 --  >abc\n               (1, 4)
 --  >def123\r\n          (2, 11)
 --  >ghi\r               (3, 15)
@@ -97,7 +97,7 @@ toOffset (ToOffset table) (line, col) = case IntMap.lookup line table of
 -- An IntMap for speeding up Offset => Position convertion
 -- Keeps record of offsets of every line break ("\n", "\r" and "\r\n")
 --
---  Example text      corresponding entry of IntMap        
+--  Example text      corresponding entry of IntMap
 --  >abc\n               (4, 1)
 --  >def123\r\n          (11, 2)
 --  >ghi\r               (15, 3)
@@ -115,11 +115,11 @@ makeFromOffset = FromOffset . accumResult . Text.foldl'
   (Accum Nothing 0 0 IntMap.empty)
  where
   go :: Accum -> Char -> Accum
-  -- encountered a "\r\n", update the latest entry 
+  -- encountered a "\r\n", update the latest entry
   go (Accum (Just '\r') n l table) '\n' = case IntMap.deleteFindMax table of
     ((offset, lineNo), table') ->
       Accum (Just '\n') (1 + n) l (IntMap.insert (1 + offset) lineNo table')
-  -- encountered a line break, add a new entry 
+  -- encountered a line break, add a new entry
   go (Accum previous n l table) '\n' =
     Accum (Just '\n') (1 + n) (1 + l) (IntMap.insert (1 + n) (1 + l) table)
   go (Accum previous n l table) '\r' =

@@ -1,5 +1,5 @@
 name:                agda-language-server
-version:             0.2.1.0.2.2.6.2
+version:             0.2.2.0.2.2.6.2
 github:              "banacorn/agda-language-server"
 license:             MIT
 author:              "Ting-Gian LUA"
@@ -9,8 +9,9 @@ copyright:           "2020 Author name here :)"
 extra-source-files:
 - README.md
 - CHANGELOG.md
-- stack.yaml
 - package.yaml
+- stack.yaml
+- stack-8.10.yaml
 
 # Metadata used when publishing your package
 synopsis:            An implementation of language server protocal (LSP) for Agda 2.
@@ -21,13 +22,18 @@ category:            Development
 # common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 
+default-extensions:
+- LambdaCase
+- OverloadedStrings
+- TypeOperators
+
 dependencies:
   - base >= 4.7 && < 5
   - Agda == 2.6.2.2
   - aeson
   - bytestring
   - containers
-  - lsp < 1.4
+  - lsp < 1.5
   - mtl
   - network
   - network-simple
@@ -50,9 +56,6 @@ library:
   - -Wmissing-signatures
   - -Werror=incomplete-patterns
   - -fno-warn-orphans
-  default-extensions:
-  - LambdaCase
-  - OverloadedStrings
 
 executables:
   als:
@@ -103,10 +106,6 @@ tests:
       - -with-rtsopts=-N
       - -Werror=incomplete-patterns
       - -fno-warn-orphans
-
-    default-extensions:
-      - LambdaCase
-      - OverloadedStrings
 
 # tests:
 #   als-test:
