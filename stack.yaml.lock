@@ -3,85 +3,38 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-snapshots:
-- original: lts-18.24
-  completed:
-    sha256: 06d844ba51e49907bd29cb58b4a5f86ee7587a4cd7e6cf395eeec16cba619ce8
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/24.yaml
-    size: 587821
 packages:
-- original:
-    hackage: lexer-applicative-2.1.0.2
-  completed:
+- completed:
+    hackage: Agda-2.6.2.2@sha256:b69c2f317db2886cb387134af00a3e42a06fab6422686938797924d034255a55,37047
     pantry-tree:
-      sha256: a880d699c16aac75ce5db249f03aeee1aa6a61adcf290efc51166c19b932cd3e
-      size: 389
-    hackage: lexer-applicative-2.1.0.2@sha256:44f71ecb10a50838a5cfd254bc0ede46bb9dcd32897da378c54c43e513229663,1427
-- original:
-    subdir: lsp
-    url: https://github.com/haskell/lsp/archive/dce30c9d345f63921cf9cf5045e1dcd753e4fe34.tar.gz
-  completed:
+      sha256: 2f868d8f70a0f6bdbe96eff66ba1ec7a76b398cfc44dc57be525d7a67a44c9ab
+      size: 40002
+  original:
+    hackage: Agda-2.6.2.2
+- completed:
+    hackage: text-icu-0.8.0.1@sha256:22d21c91e7a81f1ee5766b3406f4fe9df0ff8cc426581a861de3f6f2fa413449,4624
     pantry-tree:
-      sha256: 702fd234b87a032dbed7dbedefab77bf19aa510fb594ebbfc65f6ec184c31f73
+      sha256: 71ed32ecdce71adba6df6220e717b8ec4bd252cc403714c5c4ba70cf6d1aa1e4
+      size: 3223
+  original:
+    hackage: text-icu-0.8.0.1
+- completed:
+    hackage: lsp-1.2.0.1@sha256:4f037bbcdf2489a6a33351de1bf0cd89f94ad33a90338db4191ba34b3776af4e,5634
+    pantry-tree:
+      sha256: aecba0d6f2cfaeebae2053ebba6bb9f14d3edf732fdeea12e19bf4262f19ca18
       size: 1417
-    subdir: lsp
-    version: 1.2.0.1
-    name: lsp
-    sha256: db3371a2cfe5d74f421cc5e8be58d65d680883e78ffc7ef395a55d0e7ba3e588
-    url: https://github.com/haskell/lsp/archive/dce30c9d345f63921cf9cf5045e1dcd753e4fe34.tar.gz
-    size: 152752
-- original:
-    subdir: lsp-types
-    url: https://github.com/haskell/lsp/archive/dce30c9d345f63921cf9cf5045e1dcd753e4fe34.tar.gz
-  completed:
+  original:
+    hackage: lsp-1.2.0.1
+- completed:
+    hackage: lsp-types-1.3.0.1@sha256:e7bd6261f0560fbbcce6c35a2ceb9cd10034896367e1c73973a4a2d85d322b0c,4689
     pantry-tree:
-      sha256: 1ba25c9631a23de4b88da3d4a94cc660f0633e174cb02dc65515d6a5011af93d
+      sha256: 11c9725e4ae4cbc0126d19c728ef13a8b2930faa65802def47f14c94eabc334d
       size: 4146
-    subdir: lsp-types
-    version: 1.3.0.0
-    name: lsp-types
-    sha256: db3371a2cfe5d74f421cc5e8be58d65d680883e78ffc7ef395a55d0e7ba3e588
-    url: https://github.com/haskell/lsp/archive/dce30c9d345f63921cf9cf5045e1dcd753e4fe34.tar.gz
-    size: 152752
-- original:
-    hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
-  completed:
-    pantry-tree:
-      sha256: 5defa30010904d2ad05a036f3eaf83793506717c93cbeb599f40db1a3632cfc5
-      size: 551
-    hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
-- original:
-    hackage: dependent-sum-0.7.1.0@sha256:0e419237f5b86da3659772afff9cab355c0f8d5b3fdb15a5b30e673d8dc83941,2147
-  completed:
-    pantry-tree:
-      sha256: 009601e5d33e835c7a384e240c5c6ad12643bce9c54b2a0b07201daee3380e51
-      size: 290
-    hackage: dependent-sum-0.7.1.0@sha256:0e419237f5b86da3659772afff9cab355c0f8d5b3fdb15a5b30e673d8dc83941,2147
-- original:
-    hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
-  completed:
-    pantry-tree:
-      sha256: 32eeadeb991a290a1da41ce7e995dee7d38ebba3bd3e53ea8074c32c086701fd
-      size: 436
-    hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
-- original:
-    hackage: unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
-  completed:
-    pantry-tree:
-      sha256: e81c5a1e82ec2cd68cbbbec9cd60567363abe02257fa1370a906f6754b6818b8
-      size: 328
-    hackage: unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
-- original:
-    hackage: constraints-extras-0.3.1.0@sha256:12016ebb91ad5ed2c82bf7e48c6bd6947d164d33c9dca5ac3965de1bb6c780c0,1777
-  completed:
-    pantry-tree:
-      sha256: 5fe01617233b7f66ba0e2aef95b218a19225a22e4193a8ed93999a3b7c43a4f3
-      size: 595
-    hackage: constraints-extras-0.3.1.0@sha256:12016ebb91ad5ed2c82bf7e48c6bd6947d164d33c9dca5ac3965de1bb6c780c0,1777
-- original:
-    hackage: constraints-0.12@sha256:71c7999d7fa01d8941f08d37d4c107c6b1bcbd0306e234157557b9b096b7f1be,2217
-  completed:
-    pantry-tree:
-      sha256: 40bb55ad831b213078b79f54bb09c5a2200433dc2a495814444593fb00112834
-      size: 867
-    hackage: constraints-0.12@sha256:71c7999d7fa01d8941f08d37d4c107c6b1bcbd0306e234157557b9b096b7f1be,2217
+  original:
+    hackage: lsp-types-1.3.0.1
+snapshots:
+- completed:
+    sha256: 428ec8d5ce932190d3cbe266b9eb3c175cd81e984babf876b64019e2cbe4ea68
+    size: 590100
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/28.yaml
+  original: lts-18.28

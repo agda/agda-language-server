@@ -1,41 +1,17 @@
-resolver: lts-18.24
+resolver: lts-18.28
+compiler: ghc-8.10.7
 # Allow a newer minor version of GHC than the snapshot specifies
-compiler-check: match-exact
+compiler-check: newer-minor
 
-# User packages to be built.
-# Various formats can be used as shown in the example below.
-#
-# packages:
-# - some-directory
-# - https://example.com/foo/bar/baz-0.0.2.tar.gz
-#   subdirs:
-#   - auto-update
-#   - wai
 packages:
 - .
 
+# Use some newer versions than in the lts-18.28 snapshot
 extra-deps:
-  - text-icu-0.8.0.1
-  # LSP
-  - lexer-applicative-2.1.0.2
-  - github: haskell/lsp
-    commit: dce30c9d345f63921cf9cf5045e1dcd753e4fe34
-    subdirs: 
-      - lsp
-  - github: haskell/lsp
-    commit: dce30c9d345f63921cf9cf5045e1dcd753e4fe34
-    subdirs: 
-      - lsp-types
-  # - some-1.0.1@sha256:26e5bab7276f48b25ea8660d3fd1166c0f20fd497dac879a40f408e23211f93e,2055
-  - dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
-  - dependent-sum-0.7.1.0@sha256:0e419237f5b86da3659772afff9cab355c0f8d5b3fdb15a5b30e673d8dc83941,2147
-  - dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
-  - unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
-  - constraints-extras-0.3.1.0@sha256:12016ebb91ad5ed2c82bf7e48c6bd6947d164d33c9dca5ac3965de1bb6c780c0,1777
-  - constraints-0.12@sha256:71c7999d7fa01d8941f08d37d4c107c6b1bcbd0306e234157557b9b096b7f1be,2217
-
-
-
+- Agda-2.6.2.2
+- text-icu-0.8.0.1
+- lsp-1.2.0.1
+- lsp-types-1.3.0.1
 
 flags:
   Agda:

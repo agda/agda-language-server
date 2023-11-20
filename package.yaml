@@ -1,5 +1,5 @@
 name:                agda-language-server
-version:             0.2.1
+version:             0.2.1.0.2.2.6.2
 github:              "banacorn/agda-language-server"
 license:             MIT
 author:              "Ting-Gian LUA"
@@ -13,13 +13,13 @@ extra-source-files:
 - package.yaml
 
 # Metadata used when publishing your package
-synopsis:            An implementation of language server protocal (LSP) for Agda 2. 
+synopsis:            An implementation of language server protocal (LSP) for Agda 2.
 category:            Development
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/banacorn/agda-language-server#readme>
+description:         Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 
 dependencies:
   - base >= 4.7 && < 5
@@ -27,7 +27,7 @@ dependencies:
   - aeson
   - bytestring
   - containers
-  - lsp < 2
+  - lsp < 1.4
   - mtl
   - network
   - network-simple
