@@ -203,4 +203,4 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gh release upload ${{ github.ref }} als-macos.zip --clobber
+        gh release upload ${{ github.ref_name }} als-macos.zip --clobber
