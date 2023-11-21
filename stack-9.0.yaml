@@ -1,10 +1,14 @@
-resolver: lts-20.26
-compiler: ghc-9.2.8
+resolver: lts-19.33
+compiler: ghc-9.0.2
 # Allow a newer minor version of GHC than the snapshot specifies
 compiler-check: newer-minor
 
 packages:
 - .
+
+# Use some newer versions than in the lts-19.33 snapshot
+extra-deps:
+- text-icu-0.8.0.1
 
 flags:
   Agda:

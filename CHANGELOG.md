@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v0.2.6.2.2.1 - 2023-11-21
+
+### Added
+
+- Building with `lsp-1.6`.
+  Builds with `lsp` < 1.7 on GHC 8.10 (LTS 18.28), 9.0 (LTS 19.33), and 9.2 (LTS 20.26)
+
 ## v0.2.6.2.2 - 2023-11-21
 
 ### Changed

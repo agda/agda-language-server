@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 -- entry point of the LSP server
@@ -44,7 +45,11 @@ run options = do
         $ \(sock, _remoteAddr) -> do
             -- writeChan (envLogChan env) "[Server] connection established"
             handle <- socketToHandle sock ReadWriteMode
-            _      <- runServerWithHandles handle handle (serverDefn options)
+            _      <- runServerWithHandles
+#if MIN_VERSION_lsp(1,5,0)
+                        mempty mempty
+#endif
+                        handle handle (serverDefn options)
             return ()
       -- Switchboard.destroy switchboard
       return 0
@@ -103,9 +108,8 @@ handlers = mconcat
         = req
     result <- Handler.onHover uri pos
     responder $ Right result
-  -- -- syntax highlighting 
+  -- -- syntax highlighting
   -- , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
   --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
   --   responder result
   ]
-
