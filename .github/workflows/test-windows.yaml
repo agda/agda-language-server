@@ -17,42 +17,48 @@ jobs:
     runs-on: windows-latest
     steps:
 
-    - name: Determine stack root
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🏗 Install yq
+      uses: frenck/action-setup-yq@v1
+
+    - name: Determine stack root and resolver
       ## 2023-11-21 https://github.com/commercialhaskell/stack/issues/6340
       ## Asking stack for the stack root unfortunately does not work
       ## if stack is not fully operational (meaning e.g. that GHC is installed)
       ## so we hardcode its location instead.
       run: |
         STACK_ROOT="C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows"
-        echo STACK_ROOT="${STACK_ROOT}" >> "${GITHUB_ENV}"
+        STACK_RESOLVER=$(yq .resolver stack.yaml)
+        echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
+        echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
       # run: |
       #   STACK_ROOT="$(stack --system-ghc --no-install-ghc path --stack-root || echo "C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows")"
       #   echo "STACK_ROOT = ${STACK_ROOT}"
       #   echo STACK_ROOT="${STACK_ROOT}" >> "${GITHUB_ENV}"
       # What about C:/Users/runneradmin/AppData/Roaming/stack ?
 
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
     # things to be restored:
+    # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
 
     - name: 💾 Restore cached stack global package db
       id:   stack-global
       uses: actions/cache/restore@v3
       with:
         path: ${{ env.STACK_ROOT }}
-        key: ${{ runner.os }}-stack-global-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-global
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
 
     - name: 💾 Restore cached .stack-work
       id:   stack-work
       uses: actions/cache/restore@v3
       with:
         path: .stack-work
-        key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-work
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
     # actions
 

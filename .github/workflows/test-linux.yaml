@@ -16,25 +16,31 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
+    - name: Determine stack resolver
+      run: |
+        STACK_RESOLVER=$(yq .resolver stack.yaml)
+        echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
+
     # things to be restored:
+    # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
 
     - name: 💾 Restore cached stack global package db
       id:   stack-global
       uses: actions/cache/restore@v3
       with:
         path: ~/.stack
-        key: ${{ runner.os }}-stack-global-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-global
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
 
     - name: 💾 Restore cached .stack-work
       id:   stack-work
       uses: actions/cache/restore@v3
       with:
         path: .stack-work
-        key: ${{ runner.os }}-stack-work-${{ hashFiles('**.yaml') }}
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-work
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
     # actions:
 
