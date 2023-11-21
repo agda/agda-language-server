@@ -1,5 +1,5 @@
 name:                agda-language-server
-version:             0.2.2.6.2
+version:             0.2.6.2.2
 github:              "banacorn/agda-language-server"
 license:             MIT
 author:              "Ting-Gian LUA"
