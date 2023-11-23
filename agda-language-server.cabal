@@ -30,6 +30,11 @@ source-repository head
   type: git
   location: https://github.com/banacorn/agda-language-server
 
+flag Agda-2-6-2-2
+  description: Embed Agda-2.6.2.2 (rather than 2.6.3)
+  manual: True
+  default: False
+
 library
   exposed-modules:
       Agda
@@ -67,7 +72,7 @@ library
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
-      Agda ==2.6.3
+      Agda
     , aeson
     , base >=4.7 && <5
     , bytestring
@@ -81,6 +86,12 @@ library
     , strict
     , text
   default-language: Haskell2010
+  if flag(Agda-2-6-2-2)
+    build-depends:
+        Agda ==2.6.2.2
+  else
+    build-depends:
+        Agda ==2.6.3
 
 executable als
   main-is: Main.hs
@@ -94,7 +105,7 @@ executable als
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
-      Agda ==2.6.3
+      Agda
     , aeson
     , agda-language-server
     , base >=4.7 && <5
@@ -109,6 +120,12 @@ executable als
     , strict
     , text
   default-language: Haskell2010
+  if flag(Agda-2-6-2-2)
+    build-depends:
+        Agda ==2.6.2.2
+  else
+    build-depends:
+        Agda ==2.6.3
 
 test-suite als-test
   type: exitcode-stdio-1.0
@@ -150,7 +167,7 @@ test-suite als-test
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
-      Agda ==2.6.3
+      Agda
     , aeson
     , base >=4.7 && <5
     , bytestring
@@ -168,3 +185,9 @@ test-suite als-test
     , tasty-quickcheck
     , text
   default-language: Haskell2010
+  if flag(Agda-2-6-2-2)
+    build-depends:
+        Agda ==2.6.2.2
+  else
+    build-depends:
+        Agda ==2.6.3

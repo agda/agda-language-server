@@ -12,6 +12,8 @@ extra-deps:
 # - Agda-2.6.2.2  # This is the lts-19.33 version of Agda
 
 flags:
+  agda-language-server:
+    Agda-2-6-2-2: true
   Agda:
     # optimise-heavily: true
     enable-cluster-counting: true

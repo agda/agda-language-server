@@ -24,14 +24,24 @@ category:            Development
 # common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 
-default-extensions:
-- LambdaCase
-- OverloadedStrings
-- TypeOperators
+flags:
+  Agda-2-6-2-2:
+    description: Embed Agda-2.6.2.2 (rather than 2.6.3)
+    manual: true
+    default: false
+
+when:
+- condition: flag(Agda-2-6-2-2)
+  then:
+    dependencies:
+    - Agda == 2.6.2.2
+  else:
+    dependencies:
+    - Agda == 2.6.3
 
 dependencies:
   - base >= 4.7 && < 5
-  - Agda == 2.6.3
+  - Agda
   - aeson
   - bytestring
   - containers
@@ -43,6 +53,11 @@ dependencies:
   - stm
   - text
   - process
+
+default-extensions:
+- LambdaCase
+- OverloadedStrings
+- TypeOperators
 
 library:
   source-dirs: src
