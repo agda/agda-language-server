@@ -9,9 +9,8 @@ module Server
 
 import qualified Agda
 import           Control.Concurrent             ( writeChan )
-import           Control.Monad.Reader           ( MonadIO(liftIO)
-                                                , void
-                                                )
+import           Control.Monad                  ( void )
+import           Control.Monad.Reader           ( MonadIO(liftIO) )
 import           Data.Aeson                     ( FromJSON
                                                 , ToJSON
                                                 )

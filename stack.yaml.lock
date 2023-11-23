@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: Agda-2.6.3@sha256:a668ab56534bd548c682088f595939a6b8732b46b84d7e7d808af966b5d5d4ec,36760
+    pantry-tree:
+      sha256: 3c60f373128b663640a90fbc6fcffcb9a5edd57e8dfc4a7b00d2f7771f9210ac
+      size: 41559
+  original:
+    hackage: Agda-2.6.3
 snapshots:
 - completed:
     sha256: 5a59b2a405b3aba3c00188453be172b85893cab8ebc352b1ef58b0eae5d248a2

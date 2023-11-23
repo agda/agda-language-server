@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module Render.Position where
@@ -11,6 +12,11 @@ import Render.RichText
 instance Render AbsolutePath where
   render = text . filePath
 
+#if MIN_VERSION_Agda(2,6,3)
+instance Render RangeFile where
+  render = render . rangeFilePath  -- TODO rangeFileName ?
+#endif
+
 --------------------------------------------------------------------------------
 
 instance Render a => Render (Position' (Strict.Maybe a)) where
@@ -19,7 +25,7 @@ instance Render a => Render (Position' (Strict.Maybe a)) where
     render f <> ":" <> render l <> "," <> render c
 
 instance Render PositionWithoutFile where
-  render p = render (p {srcFile = Strict.Nothing} :: Position)
+  render (Pn () _ l c) = render l <> "," <> render c
 
 instance Render IntervalWithoutFile where
   render (Interval s e) = start <> "-" <> end

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
@@ -12,7 +13,7 @@ import Agda.Syntax.Common
 import           Agda.Syntax.Concrete
 import           Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
 --import           Agda.Syntax.Position (noRange)
-import           Agda.Utils.List1 as List1 (toList, fromList) 
+import           Agda.Utils.List1 as List1 (toList, fromList)
 import qualified Agda.Utils.List1 as List1
 import qualified Agda.Utils.List2 as List2
 import Agda.Utils.Float (toStringWithoutDotZero)
@@ -28,6 +29,9 @@ import Render.RichText
 import Render.TypeChecking ()
 
 --------------------------------------------------------------------------------
+
+instance Render a => Render (Ranged a) where
+  render = render . rangedThing
 
 instance Render a => Render (WithHiding a) where
   render w = renderHiding w id $ render $ dget w
@@ -108,8 +112,10 @@ instance Render Expr where
     Rec _ xs -> sep ["record", bracesAndSemicolons (fmap render xs)]
     RecUpdate _ e xs ->
       sep ["record" <+> render e, bracesAndSemicolons (fmap render xs)]
+#if !MIN_VERSION_Agda(2,6,3)
     ETel [] -> "()"
     ETel tel -> fsep $ fmap render tel
+#endif
     Quote _ -> "quote"
     QuoteTerm _ -> "quoteTerm"
     Unquote _ -> "unquote"
@@ -447,6 +453,10 @@ instance Render Declaration where
       UnquoteDef _ xs t ->
         fsep ["unquoteDef" <+> fsep (fmap render xs) <+> "=", render t]
       Pragma pr -> sep ["{-#" <+> render pr, "#-}"]
+#if MIN_VERSION_Agda(2,6,3)
+      UnquoteData _ x xs e ->
+        fsep [ hsep [ "unquoteData", render x, fsep (fmap render xs), "=" ], render e ]
+#endif
     where
       namedBlock s ds =
         fsep
@@ -459,11 +469,11 @@ pHasEta0 = \case
   YesEta   -> "eta-equality"
   NoEta () -> "no-eta-equality"
 
-pRecordDirective :: 
+pRecordDirective ::
   RecordDirective ->
   Inlines
 pRecordDirective = \case
-  Induction ind -> render (rangedThing ind)
+  Induction ind -> render ind
   Constructor n inst -> hsep [ pInst, "constructor", render n ] where
     pInst = case inst of
       InstanceDef{} -> "instance"
@@ -551,6 +561,10 @@ instance Render Pragma where
   render (PolarityPragma _ q occs) =
     hsep ("POLARITY" : render q : fmap render occs)
   render (NoUniverseCheckPragma _) = "NO_UNIVERSE_CHECK"
+#if MIN_VERSION_Agda(2,6,3)
+  render (NotProjectionLikePragma _ q) =
+    hsep [ "NOT_PROJECTION_LIKE", render q ]
+#endif
 
 instance Render Fixity where
   render (Fixity _ Unrelated _) = __IMPOSSIBLE__
@@ -561,11 +575,20 @@ instance Render Fixity where
         RightAssoc -> "infixr"
         NonAssoc -> "infix"
 
+#if MIN_VERSION_Agda(2,6,3)
+instance Render NotationPart where
+  render = \case
+    IdPart  x  -> text $ rangedThing x
+    HolePart{} -> "_"
+    VarPart {} -> "_"
+    WildPart{} -> "_"
+#else
 instance Render GenPart where
   render (IdPart x) = text $ rangedThing x
   render BindHole {} = "_"
   render NormalHole {} = "_"
   render WildHole {} = "_"
+#endif
 
 instance Render Fixity' where
   render (Fixity' fix nota _)

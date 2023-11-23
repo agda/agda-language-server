@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Agda.Convert where
 
 import Render ( Block(..), Inlines, renderATop, Render(..) )
@@ -33,10 +35,11 @@ import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Agda.Utils.Maybe (catMaybes)
 import Agda.Utils.Null (empty)
 import Agda.Utils.Pretty hiding (render)
-import Agda.Utils.RangeMap ( IsBasicRangeMap(toList) ) 
+import Agda.Utils.RangeMap ( IsBasicRangeMap(toList) )
 import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit (versionWithCommitInfo)
+import Control.Monad
 import Control.Monad.State hiding (state)
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -130,7 +133,7 @@ fromHighlightingInfo h remove method modFile =
     indirect = liftIO $ writeToTempFile (BS8.unpack (JSON.encode info))
 
 fromDisplayInfo :: DisplayInfo -> TCM IR.DisplayInfo
-fromDisplayInfo = \case 
+fromDisplayInfo = \case
   Info_CompilationOk _ ws -> do
     -- filter
     let filteredWarnings = filterTCWarnings (tcWarnings ws)
@@ -255,8 +258,13 @@ fromDisplayInfo = \case
           "Definitions about"
             <+> text (List.intercalate ", " $ words names) $$ nest 2 (align 10 hitDocs)
     return $ IR.DisplayInfoGeneric "Search About" [Unlabeled (Render.text $ show doc) Nothing Nothing]
+#if MIN_VERSION_Agda(2,6,3)
+  Info_WhyInScope (WhyInScopeData q cwd v xs ms) -> do
+    doc <- explainWhyInScope (prettyShow q) cwd v xs ms
+#else
   Info_WhyInScope s cwd v xs ms -> do
     doc <- explainWhyInScope s cwd v xs ms
+#endif
     return $ IR.DisplayInfoGeneric "Scope Info" [Unlabeled (Render.text $ show doc) Nothing Nothing]
   Info_Context ii ctx -> do
     doc <- localTCState (prettyResponseContexts ii False ctx)
@@ -373,8 +381,8 @@ showInfoError (Info_HighlightingScopeCheckError ii) =
   return $ "Highlighting failed to scope check expression in " ++ show ii
 
 explainWhyInScope ::
-  FilePath ->
   String ->
+  FilePath ->
   Maybe LocalVar ->
   [AbstractName] ->
   [AbstractModule] ->
@@ -577,12 +585,12 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
     -- raw
     rawExpr <- prettyATop expr
     let rawType = show $ align 10 [(rawAttribute ++ rawCtxName, ":" <+> rawExpr <+> parenSep extras)]
-    -- rendered  
+    -- rendered
     renderedExpr <- renderATop expr
     let renderedType = (renderedCtxName <> renderedAttribute) Render.<+> ":" Render.<+> renderedExpr Render.<+> parenSep2 extras2
       -- (Render.fsep $ Render.punctuate "," extras)
 
-    -- result 
+    -- result
     let typeItem = Unlabeled renderedType (Just rawType) Nothing
 
     valueItem <- case letv of

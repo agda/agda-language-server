@@ -4,20 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v0.2.6.3.0 - 2023-11-23
+
+### Changed
+- Bundle Agda-2.6.3.
+- Builds with `lsp` < 1.7 on GHC 8.10 (LTS 18.28), 9.0 (LTS 19.33), and 9.2 (LTS 20.26),
+  and with Cabal also on 9.4 and 9.6.
+
 ## v0.2.6.2.2.1 - 2023-11-21
 
 ### Added
 
 - Building with `lsp-1.6`.
-  Builds with `lsp` < 1.7 on GHC 8.10 (LTS 18.28), 9.0 (LTS 19.33), and 9.2 (LTS 20.26)
+  Builds with `lsp` < 1.7 on GHC 8.10 (LTS 18.28), 9.0 (LTS 19.33), and 9.2 (LTS 20.26).
 
 ## v0.2.6.2.2 - 2023-11-21
 
 ### Changed
 
-- Bundle Agda-2.6.2.2
-- Versioning scheme: _x.a.b.c.d.y_ where _a.b.c.d_ is the 4-digit Agda version (2.6.2.2), _x_ is 0 but may be bumped for revolutionary changes to the agda-language-server, and _y_ is for patch releases
-- Builds with `lsp` < 1.5 on GHC 8.10 (LTS 18.28) and 9.0 (LTS 19.33)
+- Bundle Agda-2.6.2.2.
+- Versioning scheme: _x.a.b.c.d.y_ where _a.b.c.d_ is the 4-digit Agda version (2.6.2.2), _x_ is 0 but may be bumped for revolutionary changes to the agda-language-server, and _y_ is for patch releases.
+- Builds with `lsp` < 1.5 on GHC 8.10 (LTS 18.28) and 9.0 (LTS 19.33).
 
 ## v0.2.1 - 2021-10-25
 

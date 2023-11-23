@@ -1,4 +1,6 @@
 {-# OPTIONS_GHC -Wno-missing-methods #-}
+
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module Agda
@@ -17,6 +19,9 @@ import           Agda.Interaction.Base          ( Command
                                                 , CommandState(optionsOnReload)
                                                 , IOTCM
                                                 , initCommandState
+#if MIN_VERSION_Agda(2,6,3)
+                                                , parseIOTCM
+#endif
                                                 )
 import           Agda.Interaction.InteractionTop
                                                 ( initialiseCommandQueue
@@ -52,6 +57,7 @@ import           Agda.VersionCommit             ( versionWithCommitInfo )
 import           Control.Exception              ( SomeException
                                                 , catch
                                                 )
+import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
@@ -88,7 +94,7 @@ start = do
     -- keep reading command
     commands <- liftIO $ initialiseCommandQueue (readCommand env)
 
-    -- get command line options 
+    -- get command line options
     options  <- getCommandLineOptions
 
     -- start the loop
@@ -159,31 +165,37 @@ handleCommandReq (CmdReq cmd) = do
       provideCommand iotcm
       return $ CmdRes Nothing
 
+#if !MIN_VERSION_Agda(2,6,3)
 parseIOTCM :: String -> Either String IOTCM
 parseIOTCM raw = case listToMaybe $ reads raw of
   Just (x, ""     ) -> Right x
   Just (_, remnent) -> Left $ "not consumed: " ++ remnent
   _                 -> Left $ "cannot read: " ++ raw
+#endif
 
 --------------------------------------------------------------------------------
 
 getCommandLineOptions
   :: (HasOptions m, MonadIO m) => ServerM m CommandLineOptions
 getCommandLineOptions = do
-  -- command line options from ARGV 
+  -- command line options from ARGV
   argv   <- asks (optRawAgdaOptions . envOptions)
   -- command line options from agda-mode
   config <- asks (configRawAgdaOptions . envConfig)
-  -- concatenate both 
+  -- concatenate both
   let merged = argv <> config
 
   result <- runExceptT $ do
-    (bs, opts) <- ExceptT $ runOptM $ parseBackendOptions builtinBackends
-                                                          merged
-                                                          defaultOptions
+    let p = parseBackendOptions builtinBackends merged defaultOptions
+#if MIN_VERSION_Agda(2,6,3)
+    let (r, _warns) = runOptM p
+    (bs, opts) <- ExceptT $ pure r
+#else
+    (bs, opts) <- ExceptT $ runOptM p
+#endif
     return opts
   case result of
-    -- something bad happened, use the default options instead 
+    -- something bad happened, use the default options instead
     Left  _    -> commandLineOptions
     Right opts -> return opts
 

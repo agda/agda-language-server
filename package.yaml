@@ -1,5 +1,5 @@
 name:                agda-language-server
-version:             0.2.6.2.2.1
+version:             0.2.6.3.0
 github:              "banacorn/agda-language-server"
 license:             MIT
 author:              "Ting-Gian LUA"
@@ -11,8 +11,9 @@ extra-source-files:
 - CHANGELOG.md
 - package.yaml
 - stack.yaml
-- stack-8.10.yaml
-- stack-9.0.yaml
+- stack-8.10-Agda-2.6.2.2.yaml
+- stack-9.0-Agda-2.6.2.2.yaml
+- stack-9.2-Agda-2.6.2.2.yaml
 
 # Metadata used when publishing your package
 synopsis:            An implementation of language server protocal (LSP) for Agda 2.
@@ -30,7 +31,7 @@ default-extensions:
 
 dependencies:
   - base >= 4.7 && < 5
-  - Agda == 2.6.2.2
+  - Agda == 2.6.3
   - aeson
   - bytestring
   - containers

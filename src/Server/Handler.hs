@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Server.Handler where
 
 import           Agda                           ( getCommandLineOptions
@@ -63,7 +65,7 @@ runCommandM :: CommandM a -> ServerM (LspM Config) (Either String a)
 runCommandM program = do
   env <- ask
   runAgda $ do
-    -- get command line options 
+    -- get command line options
     options <- getCommandLineOptions
 
     -- we need to set InteractionOutputCallback else it would panic
@@ -86,7 +88,12 @@ inferTypeOfText filepath text = runCommandM $ do
   let norm = AsIs
   -- localStateCommandM: restore TC state afterwards, do we need this here?
   typ <- localStateCommandM $ do
-    e <- lift $ runPM $ parse exprParser (unpack text)
+#if MIN_VERSION_Agda(2,6,3)
+    (e, _attrs)
+#else
+    e
+#endif
+       <- lift $ runPM $ parse exprParser (unpack text)
     lift $ atTopLevel $ do
       concreteToAbstract_ e >>= typeInCurrent norm
 

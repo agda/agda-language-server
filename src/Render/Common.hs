@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Render.Common where
 
 import Agda.Syntax.Common
@@ -30,7 +32,11 @@ instance Render NameId where
 
 -- | MetaId
 instance Render MetaId where
+#if MIN_VERSION_Agda(2,6,3)
+  render (MetaId n m) = text $ "_" ++ show n ++ "@" ++ show m
+#else
   render (MetaId n) = text $ "_" ++ show n
+#endif
 
 -- | Relevance
 instance Render Relevance where

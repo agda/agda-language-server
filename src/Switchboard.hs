@@ -3,6 +3,7 @@ module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy) where
 import Monad
 import Control.Concurrent
 import qualified Server.ResponseController as ResponseController
+import Control.Monad
 import Control.Monad.Reader
 import qualified Agda
 import qualified Data.Aeson as JSON
@@ -12,7 +13,7 @@ import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
 import Data.IORef
 import Options (Config)
 
-data Switchboard = Switchboard 
+data Switchboard = Switchboard
   { sbPrintLog :: ThreadId
   , sbSendResponse :: ThreadId
   , sbRunAgda :: ThreadId
@@ -21,7 +22,7 @@ data Switchboard = Switchboard
 
 -- | All channels go in and out from here
 new :: Env -> IO Switchboard
-new env = do 
+new env = do
   ctxEnvIORef <- newIORef Nothing
   Switchboard
     <$> forkIO (keepPrintingLog env)
@@ -29,9 +30,9 @@ new env = do
     <*> forkIO (runReaderT Agda.start env)
     <*> pure ctxEnvIORef
 
--- | For sending reactions to the client 
+-- | For sending reactions to the client
 setupLanguageContextEnv :: Switchboard -> LanguageContextEnv Config -> IO ()
-setupLanguageContextEnv switchboard ctxEnv = do 
+setupLanguageContextEnv switchboard ctxEnv = do
   writeIORef (sbLanguageContextEnv switchboard) (Just ctxEnv)
 
 destroy :: Switchboard -> IO ()
@@ -56,7 +57,7 @@ keepSendindResponse env ctxEnvIORef = forever $ do
   response <- readChan (envResponseChan env)
 
   result <- readIORef ctxEnvIORef
-  forM_ result $ \ctxEnv -> do 
+  forM_ result $ \ctxEnv -> do
     runLspT ctxEnv $ do
       callback <- liftIO $ ResponseController.dispatch (envResponseController env)
 

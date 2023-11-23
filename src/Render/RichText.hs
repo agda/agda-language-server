@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -56,13 +57,13 @@ import           GHC.Generics (Generic)
 --------------------------------------------------------------------------------
 -- | Block elements
 
-data Block 
+data Block
   -- for blocks like "Goal" & "Have"
-  = Labeled Inlines (Maybe String) (Maybe Agda.Range) String String 
+  = Labeled Inlines (Maybe String) (Maybe Agda.Range) String String
   -- for ordinary goals & context
   | Unlabeled Inlines (Maybe String) (Maybe Agda.Range)
   -- headers
-  | Header String  
+  | Header String
   deriving (Generic)
 
 instance ToJSON Block
@@ -85,7 +86,7 @@ instance Semigroup Inlines where
       cons :: Inline -> Seq Inline -> Seq Inline
       cons (Text s c) (Text t d :<| xs)
         -- merge 2 adjacent Text if they have the same classnames
-        | c == d    = Text (s <> t) c :<| xs 
+        | c == d    = Text (s <> t) c :<| xs
         | otherwise = Text s c :<| Text t d :<| xs
       cons (Text s c) (Horz [] :<| xs) = cons (Text s c) xs
       cons (Text s c) (Horz (Inlines t:ts) :<| xs)
@@ -118,7 +119,7 @@ isEmpty (Inlines elems) = all elemIsEmpty (Seq.viewl elems)
     elemIsEmpty (Parn _) = False
     elemIsEmpty (PrHz _) = False
 
-infixr 6 <+> 
+infixr 6 <+>
 
 (<+>) :: Inlines -> Inlines -> Inlines
 x <+> y
@@ -168,7 +169,7 @@ data Inline
     Vert [Inlines]
   | -- | Parenthese
     Parn Inlines
-  | -- | Parenthese around a Horizontal, special case 
+  | -- | Parenthese around a Horizontal, special case
     PrHz [Inlines]
   deriving (Generic)
 
@@ -181,8 +182,8 @@ instance Show Inline where
   show (Hole i) = "?" ++ show i
   show (Horz xs) = unwords (map show $ toList xs)
   show (Vert xs) = unlines (map show $ toList xs)
-  show (Parn x) = "(" <> show x <> ")" 
-  show (PrHz xs) = "(" <> unwords (map show $ toList xs) <> ")" 
+  show (Parn x) = "(" <> show x <> ")"
+  show (PrHz xs) = "(" <> unwords (map show $ toList xs) <> ")"
 
 --------------------------------------------------------------------------------
 
@@ -201,6 +202,11 @@ instance {-# OVERLAPS #-} ToJSON Agda.SrcFile where
 
 instance ToJSON Agda.AbsolutePath where
   toJSON (Agda.AbsolutePath path) = toJSON path
+
+#if MIN_VERSION_Agda(2,6,3)
+instance ToJSON Agda.RangeFile where
+  toJSON (Agda.RangeFile path _maybeTopLevelModuleName) = toJSON path
+#endif
 
 --------------------------------------------------------------------------------
 
@@ -290,7 +296,7 @@ showIndex :: (Show i, Integral i) => i -> String
 showIndex = map toSubscriptDigit . show
 
 --------------------------------------------------------------------------------
--- 
+--
 -- | Picking the appropriate set of special characters depending on
 -- whether we are allowed to use unicode or have to limit ourselves
 -- to ascii.

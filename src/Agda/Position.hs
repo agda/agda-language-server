@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Agda.Position
   ( ToOffset(..)
   , makeToOffset
@@ -31,12 +33,17 @@ import qualified Language.LSP.Types            as LSP
 -- | LSP Range -> Agda Range
 toAgdaRange :: ToOffset -> Text -> LSP.Range -> Range
 toAgdaRange table path (LSP.Range start end) = Range
-  (Strict.Just (AbsolutePath path))
+  (Strict.Just $ mkRangeFile $ AbsolutePath path)
   (Seq.singleton interval)
  where
   interval :: IntervalWithoutFile
   interval = Interval (toAgdaPositionWithoutFile table start)
                       (toAgdaPositionWithoutFile table end)
+#if MIN_VERSION_Agda(2,6,3)
+  mkRangeFile path = RangeFile path Nothing
+#else
+  mkRangeFile = id
+#endif
 
 -- | LSP Position -> Agda PositionWithoutFile
 toAgdaPositionWithoutFile :: ToOffset -> LSP.Position -> PositionWithoutFile

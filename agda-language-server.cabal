@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           agda-language-server
-version:        0.2.6.2.2.1
+version:        0.2.6.3.0
 synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 category:       Development
@@ -22,8 +22,9 @@ extra-source-files:
     CHANGELOG.md
     package.yaml
     stack.yaml
-    stack-8.10.yaml
-    stack-9.0.yaml
+    stack-8.10-Agda-2.6.2.2.yaml
+    stack-9.0-Agda-2.6.2.2.yaml
+    stack-9.2-Agda-2.6.2.2.yaml
 
 source-repository head
   type: git
@@ -66,7 +67,7 @@ library
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
-      Agda ==2.6.2.2
+      Agda ==2.6.3
     , aeson
     , base >=4.7 && <5
     , bytestring
@@ -93,7 +94,7 @@ executable als
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
-      Agda ==2.6.2.2
+      Agda ==2.6.3
     , aeson
     , agda-language-server
     , base >=4.7 && <5
@@ -149,7 +150,7 @@ test-suite als-test
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
-      Agda ==2.6.2.2
+      Agda ==2.6.3
     , aeson
     , base >=4.7 && <5
     , bytestring

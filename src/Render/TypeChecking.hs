@@ -4,12 +4,13 @@ import Agda.Syntax.Common
 import Agda.TypeChecking.Monad.Base
 import Agda.TypeChecking.Positivity.Occurrence
 import Render.Class
+import Render.Common
 import Render.RichText
 
 instance Render NamedMeta where
-  render (NamedMeta "" (MetaId x)) = render x
-  render (NamedMeta "_" (MetaId x)) = render x
-  render (NamedMeta s (MetaId x)) = "_" <> text s <> render x
+  render (NamedMeta ""  x) = render x
+  render (NamedMeta "_" x) = render x
+  render (NamedMeta s   x) = "_" <> text s <> render x
 
 instance Render Occurrence where
   render =
