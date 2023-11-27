@@ -9,6 +9,7 @@ import qualified Agda.IR as IR
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand (Lisp)
+import Agda.Interaction.EmacsTop (showInfoError)
 import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
 import Agda.Interaction.Highlighting.Precise (Aspects (..), DefinitionSite (..), HighlightingInfo, TokenBased (..))
 import qualified Agda.Interaction.Highlighting.Range as Highlighting
@@ -350,38 +351,6 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 -- formatAndCopy = formatPrim True
 
 --------------------------------------------------------------------------------
-
--- | Serializing Info_Error
-showInfoError :: Info_Error -> TCM String
-showInfoError (Info_GenericError err) = do
-  e <- prettyError err
-  w <- prettyTCWarnings' =<< getAllWarningsOfTCErr err
-
-  let errorMsg =
-        if null w
-          then e
-          else delimiter "Error" ++ "\n" ++ e
-  let warningMsg =
-        List.intercalate "\n" $
-          delimiter "Warning(s)" :
-          filter (not . null) w
-  return $
-    if null w
-      then errorMsg
-      else errorMsg ++ "\n\n" ++ warningMsg
-showInfoError (Info_CompilationError warnings) = do
-  s <- prettyTCWarnings warnings
-  return $
-    unlines
-      [ "You need to fix the following errors before you can compile",
-        "the module:",
-        "",
-        s
-      ]
-showInfoError (Info_HighlightingParseError ii) =
-  return $ "Highlighting failed to parse expression in " ++ show ii
-showInfoError (Info_HighlightingScopeCheckError ii) =
-  return $ "Highlighting failed to scope check expression in " ++ show ii
 
 #if !MIN_VERSION_Agda(2,6,3)
 explainWhyInScope ::
