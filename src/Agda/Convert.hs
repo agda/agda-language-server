@@ -22,6 +22,9 @@ import Agda.Syntax.Internal (alwaysUnblock)
 import Agda.Syntax.Position (HasRange (getRange), Range, noRange)
 import Agda.Syntax.Scope.Base
 import Agda.TypeChecking.Errors (getAllWarningsOfTCErr, prettyError)
+#if MIN_VERSION_Agda(2,6,3)
+import Agda.TypeChecking.Errors (explainWhyInScope)
+#endif
 import Agda.TypeChecking.Monad hiding (Function)
 import Agda.TypeChecking.Monad.MetaVars (withInteractionId)
 import Agda.TypeChecking.Pretty (prettyTCM)
@@ -259,8 +262,8 @@ fromDisplayInfo = \case
             <+> text (List.intercalate ", " $ words names) $$ nest 2 (align 10 hitDocs)
     return $ IR.DisplayInfoGeneric "Search About" [Unlabeled (Render.text $ show doc) Nothing Nothing]
 #if MIN_VERSION_Agda(2,6,3)
-  Info_WhyInScope (WhyInScopeData q cwd v xs ms) -> do
-    doc <- explainWhyInScope (prettyShow q) cwd v xs ms
+  Info_WhyInScope why -> do
+    doc <- explainWhyInScope why
 #else
   Info_WhyInScope s cwd v xs ms -> do
     doc <- explainWhyInScope s cwd v xs ms
@@ -380,6 +383,7 @@ showInfoError (Info_HighlightingParseError ii) =
 showInfoError (Info_HighlightingScopeCheckError ii) =
   return $ "Highlighting failed to scope check expression in " ++ show ii
 
+#if !MIN_VERSION_Agda(2,6,3)
 explainWhyInScope ::
   String ->
   FilePath ->
@@ -462,6 +466,7 @@ explainWhyInScope s _ v xs ms =
         TCP.<+> "at"
         TCP.<+> TCP.prettyTCM (getRange m)
         TCP.$$ pWhy r w
+#endif
 
 -- | Pretty-prints the context of the given meta-variable.
 prettyResponseContexts ::
