@@ -5,12 +5,12 @@
 
 packages:
 - completed:
-    hackage: Agda-2.6.3@sha256:a668ab56534bd548c682088f595939a6b8732b46b84d7e7d808af966b5d5d4ec,36760
+    hackage: Agda-2.6.4@sha256:298bc3b261ad034bf4ee788834a4d296aa5c2f6ea17ac4bef44e3daea53a7cd8,28443
     pantry-tree:
-      sha256: 3c60f373128b663640a90fbc6fcffcb9a5edd57e8dfc4a7b00d2f7771f9210ac
-      size: 41559
+      sha256: 6c811b2ff8aa666ba301666e87d9234993d841dd370d47f8398379cd943e47bb
+      size: 42645
   original:
-    hackage: Agda-2.6.3
+    hackage: Agda-2.6.4
 snapshots:
 - completed:
     sha256: 5a59b2a405b3aba3c00188453be172b85893cab8ebc352b1ef58b0eae5d248a2
