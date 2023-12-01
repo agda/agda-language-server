@@ -1,4 +1,6 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
+
 module Monad where
 
 import           Agda.IR
@@ -25,7 +27,11 @@ import           Data.Maybe                     ( isJust )
 import           Language.LSP.Server            ( MonadLsp
                                                 , getConfig
                                                 )
+#if MIN_VERSION_lsp(2,0,0)
+import qualified Language.LSP.Protocol.Types   as LSP
+#else
 import qualified Language.LSP.Types            as LSP
+#endif
 import           Options
 
 --------------------------------------------------------------------------------

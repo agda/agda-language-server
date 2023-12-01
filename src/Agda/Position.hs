@@ -22,7 +22,11 @@ import qualified Data.Sequence                 as Seq
 import qualified Data.Strict.Maybe             as Strict
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
+#if MIN_VERSION_lsp(2,0,0)
+import qualified Language.LSP.Protocol.Types   as LSP
+#else
 import qualified Language.LSP.Types            as LSP
+#endif
 
 -- Note:  LSP srclocs are 0-base
 --        Agda srclocs are 1-base

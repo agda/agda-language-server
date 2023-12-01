@@ -75,6 +75,7 @@ library
   default-extensions:
       LambdaCase
       OverloadedStrings
+      PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
@@ -83,8 +84,8 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp <2
-    , lsp-types <2
+    , lsp
+    , lsp-types
     , mtl
     , network
     , network-simple
@@ -116,6 +117,7 @@ executable als
   default-extensions:
       LambdaCase
       OverloadedStrings
+      PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
@@ -125,8 +127,8 @@ executable als
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp <2
-    , lsp-types <2
+    , lsp
+    , lsp-types
     , mtl
     , network
     , network-simple
@@ -186,6 +188,7 @@ test-suite als-test
   default-extensions:
       LambdaCase
       OverloadedStrings
+      PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
@@ -194,8 +197,8 @@ test-suite als-test
     , base >=4.7 && <5
     , bytestring
     , containers
-    , lsp <2
-    , lsp-types <2
+    , lsp
+    , lsp-types
     , mtl
     , network
     , network-simple

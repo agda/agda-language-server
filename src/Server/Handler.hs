@@ -55,7 +55,11 @@ import           Data.Text                      ( Text
 import qualified Data.Text                     as Text
 import           Language.LSP.Server            ( LspM )
 import qualified Language.LSP.Server           as LSP
+#if MIN_VERSION_lsp(2,0,0)
+import qualified Language.LSP.Protocol.Types   as LSP
+#else
 import qualified Language.LSP.Types            as LSP
+#endif
 import qualified Language.LSP.VFS              as VFS
 import           Monad
 import           Options                        ( Config
@@ -124,15 +128,18 @@ onHover uri pos = do
               inferResult <- inferTypeOfText filepath text
               case inferResult of
                 Left err -> do
-                  let content = LSP.HoverContents $ LSP.markedUpContent
-                        "agda-language-server"
-                        ("Error: " <> pack err)
+                  let content = hoverContent $ "Error: " <> pack err
                   return $ Just $ LSP.Hover content (Just range)
                 Right typeString -> do
-                  let content = LSP.HoverContents $ LSP.markedUpContent
-                        "agda-language-server"
-                        (pack typeString)
+                  let content = hoverContent $ pack typeString
                   return $ Just $ LSP.Hover content (Just range)
+  where
+    hoverContent =
+#if MIN_VERSION_lsp_types(2,0,0)
+      LSP.InL . LSP.mkMarkdownCodeBlock "agda-language-server"
+#else
+      LSP.HoverContents . LSP.markedUpContent "agda-language-server"
+#endif
 
 --------------------------------------------------------------------------------
 -- Helper functions for converting stuff to SemanticTokenAbsolute
@@ -140,7 +147,13 @@ onHover uri pos = do
 
 fromHighlightingInfo :: IR.HighlightingInfo -> LSP.SemanticTokenAbsolute
 fromHighlightingInfo (IR.HighlightingInfo start end aspects isTokenBased note defSrc)
-  = LSP.SemanticTokenAbsolute 1 1 3 LSP.SttKeyword []
+  = LSP.SemanticTokenAbsolute 1 1 3 kw []
+  where
+#if MIN_VERSION_lsp_types(2,0,0)
+    kw = LSP.SemanticTokenTypes_Keyword
+#else
+    kw = LSP.SttKeyword
+#endif
 
 -- HighlightingInfo
 --       Int -- starting offset

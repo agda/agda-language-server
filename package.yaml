@@ -55,8 +55,8 @@ dependencies:
   - aeson
   - bytestring
   - containers
-  - lsp-types < 2
-  - lsp < 2
+  - lsp-types
+  - lsp
   - mtl
   - network
   - network-simple
@@ -69,6 +69,7 @@ dependencies:
 default-extensions:
 - LambdaCase
 - OverloadedStrings
+- PatternSynonyms
 - TypeOperators
 
 library:

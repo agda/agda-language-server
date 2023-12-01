@@ -1,4 +1,12 @@
-module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy) where
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
+
+#if MIN_VERSION_lsp_types(2,0,0)
+{-# LANGUAGE TypeApplications #-}
+#endif
+
+module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy, agdaCustomMethod ) where
 
 import Monad
 import Control.Concurrent
@@ -9,7 +17,14 @@ import qualified Agda
 import qualified Data.Aeson as JSON
 import qualified Data.Text.IO as Text
 import Language.LSP.Server
-import Language.LSP.Types hiding (TextDocumentSyncClientCapabilities (..))
+#if MIN_VERSION_lsp(2,0,0)
+import Data.Proxy (Proxy(Proxy))
+import Language.LSP.Protocol.Message
+import Language.LSP.Protocol.Types
+#else
+import Language.LSP.Types
+#endif
+  hiding (TextDocumentSyncClientCapabilities (..))
 import Data.IORef
 import Options (Config)
 
@@ -62,6 +77,14 @@ keepSendindResponse env ctxEnvIORef = forever $ do
       callback <- liftIO $ ResponseController.dispatch (envResponseController env)
 
       let value = JSON.toJSON response
-      sendRequest (SCustomMethod "agda") value $ \_result -> liftIO $ do
+      sendRequest agdaCustomMethod value $ \_result -> liftIO $ do
         -- writeChan (envLogChan env) $ "[Response] >>>> " <> pack (show value)
         callback ()
+
+#if MIN_VERSION_lsp_types(2,0,0)
+agdaCustomMethod :: SMethod ('Method_CustomMethod "agda")
+agdaCustomMethod = SMethod_CustomMethod (Proxy @"agda")
+#else
+agdaCustomMethod :: SMethod 'CustomMethod
+agdaCustomMethod = SCustomMethod "agda"
+#endif
