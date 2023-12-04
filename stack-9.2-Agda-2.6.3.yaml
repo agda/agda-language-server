@@ -1,12 +1,17 @@
-resolver: lts-21.22
-compiler: ghc-9.4.8
+resolver: lts-20.26
+compiler: ghc-9.2.8
 # Allow a newer minor version of GHC than the snapshot specifies
 compiler-check: newer-minor
 
 packages:
 - .
 
+extra-deps:
+- Agda-2.6.3
+
 flags:
+  agda-language-server:
+    Agda-2-6-3: true
   Agda:
     # optimise-heavily: true
     enable-cluster-counting: true

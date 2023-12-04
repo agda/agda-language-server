@@ -9,6 +9,7 @@ import qualified Agda.IR as IR
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
 import Agda.Interaction.EmacsCommand (Lisp)
+import Agda.Interaction.EmacsTop (showInfoError)
 import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
 import Agda.Interaction.Highlighting.Precise (Aspects (..), DefinitionSite (..), HighlightingInfo, TokenBased (..))
 import qualified Agda.Interaction.Highlighting.Range as Highlighting
@@ -22,6 +23,9 @@ import Agda.Syntax.Internal (alwaysUnblock)
 import Agda.Syntax.Position (HasRange (getRange), Range, noRange)
 import Agda.Syntax.Scope.Base
 import Agda.TypeChecking.Errors (getAllWarningsOfTCErr, prettyError)
+#if MIN_VERSION_Agda(2,6,3)
+import Agda.TypeChecking.Errors (explainWhyInScope)
+#endif
 import Agda.TypeChecking.Monad hiding (Function)
 import Agda.TypeChecking.Monad.MetaVars (withInteractionId)
 import Agda.TypeChecking.Pretty (prettyTCM)
@@ -34,7 +38,13 @@ import Agda.Utils.IO.TempFile (writeToTempFile)
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Agda.Utils.Maybe (catMaybes)
 import Agda.Utils.Null (empty)
+#if MIN_VERSION_Agda(2,6,4)
+import Agda.Syntax.Common.Pretty hiding (render)
+-- import Prettyprinter hiding (Doc)
+import qualified Prettyprinter
+#else
 import Agda.Utils.Pretty hiding (render)
+#endif
 import Agda.Utils.RangeMap ( IsBasicRangeMap(toList) )
 import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
@@ -259,8 +269,8 @@ fromDisplayInfo = \case
             <+> text (List.intercalate ", " $ words names) $$ nest 2 (align 10 hitDocs)
     return $ IR.DisplayInfoGeneric "Search About" [Unlabeled (Render.text $ show doc) Nothing Nothing]
 #if MIN_VERSION_Agda(2,6,3)
-  Info_WhyInScope (WhyInScopeData q cwd v xs ms) -> do
-    doc <- explainWhyInScope (prettyShow q) cwd v xs ms
+  Info_WhyInScope why -> do
+    doc <- explainWhyInScope why
 #else
   Info_WhyInScope s cwd v xs ms -> do
     doc <- explainWhyInScope s cwd v xs ms
@@ -302,7 +312,12 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 
         auxSect <- case aux of
           GoalOnly -> return []
+#if MIN_VERSION_Agda(2,6,4)
+          GoalAndHave expr bndry -> do
+            -- TODO: render bndry
+#else
           GoalAndHave expr -> do
+#endif
             rendered <- renderATop expr
             raw <- show <$> prettyATop expr
             return [Labeled rendered (Just raw) Nothing "Have" "special"]
@@ -348,38 +363,7 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 
 --------------------------------------------------------------------------------
 
--- | Serializing Info_Error
-showInfoError :: Info_Error -> TCM String
-showInfoError (Info_GenericError err) = do
-  e <- prettyError err
-  w <- prettyTCWarnings' =<< getAllWarningsOfTCErr err
-
-  let errorMsg =
-        if null w
-          then e
-          else delimiter "Error" ++ "\n" ++ e
-  let warningMsg =
-        List.intercalate "\n" $
-          delimiter "Warning(s)" :
-          filter (not . null) w
-  return $
-    if null w
-      then errorMsg
-      else errorMsg ++ "\n\n" ++ warningMsg
-showInfoError (Info_CompilationError warnings) = do
-  s <- prettyTCWarnings warnings
-  return $
-    unlines
-      [ "You need to fix the following errors before you can compile",
-        "the module:",
-        "",
-        s
-      ]
-showInfoError (Info_HighlightingParseError ii) =
-  return $ "Highlighting failed to parse expression in " ++ show ii
-showInfoError (Info_HighlightingScopeCheckError ii) =
-  return $ "Highlighting failed to scope check expression in " ++ show ii
-
+#if !MIN_VERSION_Agda(2,6,3)
 explainWhyInScope ::
   String ->
   FilePath ->
@@ -462,6 +446,7 @@ explainWhyInScope s _ v xs ms =
         TCP.<+> "at"
         TCP.<+> TCP.prettyTCM (getRange m)
         TCP.$$ pWhy r w
+#endif
 
 -- | Pretty-prints the context of the given meta-variable.
 prettyResponseContexts ::
@@ -482,7 +467,11 @@ prettyResponseContext ::
   ResponseContextEntry ->
   TCM [(String, Doc)]
 prettyResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = withInteractionId ii $ do
+#if MIN_VERSION_Agda(2,6,4)
+  modality <- currentModality
+#else
   modality <- asksTC getModality
+#endif
   do
     let prettyCtxName :: String
         prettyCtxName
@@ -531,7 +520,11 @@ renderResponseContext ::
   ResponseContextEntry ->
   TCM [Block]
 renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = withInteractionId ii $ do
+#if MIN_VERSION_Agda(2,6,4)
+  modality <- currentModality
+#else
   modality <- asksTC getModality
+#endif
   do
     let
         rawCtxName :: String

@@ -3,14 +3,18 @@
 
 module Render.Internal where
 
+import Control.Monad
+import qualified Data.List as List
+import qualified Data.Set as Set
+
 import Agda.Syntax.Common (Hiding (..), LensHiding (getHiding), Named (namedThing))
 import Agda.Syntax.Internal hiding (telToList)
-import qualified Data.List as List
+import Agda.Utils.Function (applyWhen)
+
 import Render.Class
 import Render.Common (renderHiding)
 import Render.Concrete ()
 import Render.RichText
-import qualified Data.Set as Set
 
 --------------------------------------------------------------------------------
 
@@ -129,8 +133,13 @@ instance Render PlusLevel where
 --      UnreducedLevel v -> renderPrec p v
 
 instance Render Sort where
-  renderPrec p srt =
-    case srt of
+  renderPrec p = \case
+#if MIN_VERSION_Agda(2,6,4)
+      Univ u (ClosedLevel n) -> text $ suffix n $ showUniv u
+      Univ u l -> mparens (p > 9) $ text (showUniv u) <+> renderPrec 10 l
+      Inf u n -> text $ suffix n $ showUniv u ++ "ω"
+      LevelUniv -> "LevelUniv"
+#else
       Type (ClosedLevel 0) -> "Set"
       Type (ClosedLevel n) -> text $ "Set" ++ show n
       Type l -> mparens (p > 9) $ "Set" <+> renderPrec 10 l
@@ -142,6 +151,7 @@ instance Render Sort where
       Inf IsFibrant n -> text $ "Setω" ++ show n
       Inf IsStrict n -> text $ "SSetω" ++ show n
       SSet l -> mparens (p > 9) $ "SSet" <+> renderPrec 10 l
+#endif
       SizeUniv -> "SizeUniv"
       LockUniv -> "LockUniv"
       PiSort a _s1 s2 ->
@@ -162,6 +172,10 @@ instance Render Sort where
       DummyS s -> parens $ text s
 #if MIN_VERSION_Agda(2,6,3)
       IntervalUniv -> "IntervalUniv"
+#endif
+#if MIN_VERSION_Agda(2,6,4)
+   where
+     suffix n = applyWhen (n /= 0) (++ show n)
 #endif
 
 instance Render Type where

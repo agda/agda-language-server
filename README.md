@@ -21,8 +21,7 @@ stack install
 
 ## Versioning
 
-The version is _x.y.z.w.a.b.c.d_ where _x.y.z.w_ is the version of the Agda Language Server and _a.b.c.d_ the version of Agda it embeds.
-It follows the Haskell PVP (package versioning policy).
+The version is _x.a.b.c.d.y_ where _a.b.c.d_ is the 4-digit Agda version (2.6.4.0), _x_ is 0 but may be bumped for revolutionary changes to the agda-language-server, and _y_ is for patch releases.
 
 ## Why make it standalone?
 

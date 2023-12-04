@@ -18,14 +18,29 @@ import qualified Data.Aeson                    as JSON
 import           Data.Text                      ( pack )
 import           GHC.IO.IOMode                  ( IOMode(ReadWriteMode) )
 import           Language.LSP.Server     hiding ( Options )
-import           Language.LSP.Types      hiding ( Options(..)
+#if MIN_VERSION_lsp(2,0,0)
+import           Language.LSP.Protocol.Message  ( pattern RequestMessage
+                                                , SMethod( SMethod_CustomMethod, SMethod_TextDocumentHover)
+                                                )
+import           Language.LSP.Protocol.Types    ( TextDocumentSyncOptions(..)
+                                                , TextDocumentSyncKind( TextDocumentSyncKind_Incremental )
+                                                , ServerCapabilities (_textDocumentSync )
+                                                , SaveOptions( SaveOptions )
+                                                , pattern TextDocumentIdentifier
+                                                , pattern HoverParams
+                                                , pattern InR
+                                                )
+#else
+import           Language.LSP.Types
+                                         hiding ( Options(..)
                                                 , TextDocumentSyncClientCapabilities(..)
                                                 )
+#endif
 import           Monad
 import qualified Network.Simple.TCP            as TCP
 import           Network.Socket                 ( socketToHandle )
 import qualified Switchboard
-import           Switchboard                    ( Switchboard )
+import           Switchboard                    ( Switchboard, agdaCustomMethod )
 
 import qualified Server.Handler                as Handler
 
@@ -73,7 +88,11 @@ run options = do
     }
 
   lspOptions :: LSP.Options
+#if MIN_VERSION_lsp_types(2,0,0)
+  lspOptions = defaultOptions { _textDocumentSync = Just syncOptions }
+#else
   lspOptions = defaultOptions { textDocumentSync = Just syncOptions }
+#endif
 
   -- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
   syncOptions :: TextDocumentSyncOptions
@@ -85,7 +104,11 @@ run options = do
                                         }
 
   changeOptions :: TextDocumentSyncKind
+#if MIN_VERSION_lsp_types(2,0,0)
+  changeOptions = TextDocumentSyncKind_Incremental
+#else
   changeOptions = TdSyncIncremental
+#endif
 
   -- includes the document content on save, so that we don't have to read it from the disk
   saveOptions :: SaveOptions
@@ -95,13 +118,13 @@ run options = do
 handlers :: Handlers (ServerM (LspM Config))
 handlers = mconcat
   [ -- custom methods, not part of LSP
-    requestHandler (SCustomMethod "agda") $ \req responder -> do
+    requestHandler agdaCustomMethod $ \ req responder -> do
     let RequestMessage _ _i _ params = req
     response <- Agda.sendCommand params
     responder $ Right response
   ,
         -- hover provider
-    requestHandler STextDocumentHover $ \req responder -> do
+    requestHandler hoverMethod $ \ req responder -> do
     let
       RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone)
         = req
@@ -112,3 +135,9 @@ handlers = mconcat
   --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
   --   responder result
   ]
+  where
+#if MIN_VERSION_lsp_types(2,0,0)
+    hoverMethod = SMethod_TextDocumentHover
+#else
+    hoverMethod = STextDocumentHover
+#endif

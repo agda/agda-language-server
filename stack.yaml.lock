@@ -3,17 +3,10 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages:
-- completed:
-    hackage: Agda-2.6.3@sha256:a668ab56534bd548c682088f595939a6b8732b46b84d7e7d808af966b5d5d4ec,36760
-    pantry-tree:
-      sha256: 3c60f373128b663640a90fbc6fcffcb9a5edd57e8dfc4a7b00d2f7771f9210ac
-      size: 41559
-  original:
-    hackage: Agda-2.6.3
+packages: []
 snapshots:
 - completed:
-    sha256: 5a59b2a405b3aba3c00188453be172b85893cab8ebc352b1ef58b0eae5d248a2
-    size: 650475
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/26.yaml
-  original: lts-20.26
+    sha256: afd5ba64ab602cabc2d3942d3d7e7dd6311bc626dcb415b901eaf576cb62f0ea
+    size: 640060
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/22.yaml
+  original: lts-21.22
