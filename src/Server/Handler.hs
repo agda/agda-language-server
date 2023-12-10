@@ -40,7 +40,11 @@ import           Agda.TypeChecking.Monad        ( HasOptions(commandLineOptions)
                                                 , setInteractionOutputCallback
                                                 )
 import           Agda.TypeChecking.Warnings     ( runPM )
+#if MIN_VERSION_Agda(2,6,4)
+import           Agda.Syntax.Common.Pretty      ( render )
+#else
 import           Agda.Utils.Pretty              ( render )
+#endif
 import           Control.Concurrent.STM
 import           Control.Monad.Reader
 import           Control.Monad.State

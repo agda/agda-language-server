@@ -10,6 +10,8 @@ module Agda
   , getCommandLineOptions
   ) where
 
+import           Prelude                        hiding ( null )
+
 import           Agda.Compiler.Backend          ( parseBackendOptions )
 import           Agda.Compiler.Builtin          ( builtinBackends )
 import           Agda.Convert                   ( fromResponse )
@@ -23,6 +25,9 @@ import           Agda.Interaction.Base          ( Command
                                                 , parseIOTCM
 #endif
                                                 )
+#if MIN_VERSION_Agda(2,6,4)
+import           Agda.Syntax.Common.Pretty      ( render, vcat )
+#endif
 import           Agda.Interaction.InteractionTop
                                                 ( initialiseCommandQueue
                                                 , maybeAbort
@@ -53,6 +58,7 @@ import           Agda.Utils.Impossible          ( CatchImpossible
                                                   )
                                                 , Impossible
                                                 )
+import           Agda.Utils.Null                ( null )
 import           Agda.VersionCommit             ( versionWithCommitInfo )
 import           Control.Exception              ( SomeException
                                                 , catch
@@ -218,7 +224,11 @@ runAgda p = do
     s2s <- prettyTCWarnings' =<< getAllWarningsOfTCErr err
     s1  <- prettyError err
     let ss       = filter (not . null) $ s2s ++ [s1]
+#if MIN_VERSION_Agda(2,6,4)
+    let errorMsg = render $ vcat ss
+#else
     let errorMsg = unlines ss
+#endif
     return (Left errorMsg)
 
   handleImpossible :: Impossible -> TCM (Either String a)
