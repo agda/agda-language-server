@@ -13,6 +13,7 @@ main = do
   -- https://github.com/agda/agda-language-server/issues/24
   hSetEncoding stdout utf8
   hSetEncoding stdin utf8
+
   options <- getOptionsFromArgv
   if optHelp options
     then putStrLn usageMessage

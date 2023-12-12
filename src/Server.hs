@@ -110,10 +110,7 @@ handlers =
         result <- Handler.onHover uri pos
         responder $ Right result,
       notificationHandler SInitialized $ \_not -> pure (),
-      notificationHandler STextDocumentDidOpen $ \_not -> pure (),
-      notificationHandler STextDocumentDidSave $ \_not -> pure (),
-      notificationHandler STextDocumentDidChange $ \_not -> pure (),
-      notificationHandler SCancelRequest $ \_not -> pure ()
+      notificationHandler STextDocumentDidOpen $ \_not -> pure ()
       -- -- syntax highlighting
       -- , requestHandler STextD_cumentSemanticTokensFull $ \req responder -> do
       --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
