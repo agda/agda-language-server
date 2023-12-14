@@ -16,6 +16,7 @@ main = do
   -- https://github.com/agda/agda-language-server/issues/24
   hSetEncoding stdout utf8
   hSetEncoding stdin utf8
+  hSetEncoding stderr utf8
 
   -- The GitHub CI-built executable lacks the correct data directory path.
   -- If there's directory named "data" in the executable's directory,
