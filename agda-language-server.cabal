@@ -1,11 +1,11 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
 name:           agda-language-server
-version:        0.2.6.4.0
+version:        0.2.6.4.0.3
 synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 category:       Development
@@ -83,6 +83,8 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , directory
+    , filepath
     , lsp <2
     , lsp-types <2
     , mtl
@@ -125,6 +127,8 @@ executable als
     , base >=4.7 && <5
     , bytestring
     , containers
+    , directory
+    , filepath
     , lsp <2
     , lsp-types <2
     , mtl
@@ -194,6 +198,8 @@ test-suite als-test
     , base >=4.7 && <5
     , bytestring
     , containers
+    , directory
+    , filepath
     , lsp <2
     , lsp-types <2
     , mtl
