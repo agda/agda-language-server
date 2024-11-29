@@ -322,7 +322,7 @@ instance Render DoStmt where
       prCs [] = mempty
       prCs cs' = fsep ["where", vcat (fmap render cs')]
   render (DoThen e) = render e
-  render (DoLet _ ds) = "let" <+> vcat (fmap render $ toList ds)
+  render (DoLet _ ds) = "let" <+> vcat (render <$> toList ds)
 
 instance Render Declaration where
   render d =

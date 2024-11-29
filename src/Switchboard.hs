@@ -27,6 +27,7 @@ import Language.LSP.Types
   hiding (TextDocumentSyncClientCapabilities (..))
 import Data.IORef
 import Options (Config)
+import System.IO (stderr)
 
 data Switchboard = Switchboard
   { sbPrintLog :: ThreadId
@@ -57,13 +58,13 @@ destroy switchboard = do
   killThread (sbRunAgda switchboard)
   writeIORef (sbLanguageContextEnv switchboard) Nothing
 
--- | Keep printing log
+-- | Keep printing log to stderr
 -- Consumer of `envLogChan`
 keepPrintingLog :: Env -> IO ()
 keepPrintingLog env = forever $ do
   result <- readChan (envLogChan env)
   when (envDevMode env) $ do
-    Text.putStrLn result
+    Text.hPutStrLn stderr result
 
 -- | Keep sending reactions
 -- Consumer of `envResponseChan`

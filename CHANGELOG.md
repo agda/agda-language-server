@@ -4,7 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## v0.2.6.4.0 - unreleased
+## v0.2.6.4.0.3 - 2023-12-14
+
+### Fixed
+- #15: Add missing handlers for `lsp` methods.
+- #24: Fix the encoding of binaries built on GitHub Actions.
+- Patch path to the "data" directory when the executable is built on GitHub Actions.
+
+## v0.2.6.4.0.0 - 2023-12-12
 
 ### Changed
 - Embed Agda-2.6.4.

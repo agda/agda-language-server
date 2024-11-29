@@ -1,11 +1,11 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 -- entry point of the LSP server
 
 module Server
-  ( run
-  ) where
+  ( run,
+  )
+where
 
 import qualified Agda
 import           Control.Concurrent             ( writeChan )
@@ -54,65 +54,68 @@ run :: Options -> IO Int
 run options = do
   case optViaTCP options of
     Just port -> do
-      void
-        $ TCP.serve (TCP.Host "127.0.0.1") (show port)
-        $ \(sock, _remoteAddr) -> do
+      void $
+        TCP.serve (TCP.Host "127.0.0.1") (show port) $
+          \(sock, _remoteAddr) -> do
             -- writeChan (envLogChan env) "[Server] connection established"
             handle <- socketToHandle sock ReadWriteMode
-            _      <- runServerWithHandles
+            _ <- runServerWithHandles
 #if MIN_VERSION_lsp(1,5,0)
-                        mempty mempty
+              mempty mempty
 #endif
-                        handle handle (serverDefn options)
+              handle handle (serverDefn options)
             return ()
       -- Switchboard.destroy switchboard
       return 0
     Nothing -> do
       runServer (serverDefn options)
- where
-  serverDefn :: Options -> ServerDefinition Config
-  serverDefn options = ServerDefinition
-    { defaultConfig         = initConfig
-    , onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
-      JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
-      JSON.Success new -> Right new
-    , doInitialize          = \ctxEnv _req -> do
-                                env <- runLspT ctxEnv (createInitEnv options)
-                                switchboard <- Switchboard.new env
-                                Switchboard.setupLanguageContextEnv switchboard ctxEnv
-                                pure $ Right (ctxEnv, env)
-    , staticHandlers        = handlers
-    , interpretHandler      = \(ctxEnv, env) ->
-                                Iso (runLspT ctxEnv . runServerM env) liftIO
-    , options               = lspOptions
-    }
+  where
+    serverDefn :: Options -> ServerDefinition Config
+    serverDefn options =
+      ServerDefinition
+        { defaultConfig = initConfig,
+          onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
+            JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
+            JSON.Success new -> Right new,
+          doInitialize = \ctxEnv _req -> do
+            env <- runLspT ctxEnv (createInitEnv options)
+            switchboard <- Switchboard.new env
+            Switchboard.setupLanguageContextEnv switchboard ctxEnv
+            pure $ Right (ctxEnv, env),
+          staticHandlers = handlers,
+          interpretHandler = \(ctxEnv, env) ->
+            Iso (runLspT ctxEnv . runServerM env) liftIO,
+          options = lspOptions
+        }
 
-  lspOptions :: LSP.Options
+    lspOptions :: LSP.Options
 #if MIN_VERSION_lsp_types(2,0,0)
-  lspOptions = defaultOptions { _textDocumentSync = Just syncOptions }
+    lspOptions = defaultOptions { _textDocumentSync = Just syncOptions }
 #else
-  lspOptions = defaultOptions { textDocumentSync = Just syncOptions }
+    lspOptions = defaultOptions { textDocumentSync = Just syncOptions }
 #endif
 
-  -- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
-  syncOptions :: TextDocumentSyncOptions
-  syncOptions = TextDocumentSyncOptions { _openClose = Just True -- receive open and close notifications from the client
-                                        , _change = Just changeOptions -- receive change notifications from the client
-                                        , _willSave = Just False -- receive willSave notifications from the client
-                                        , _willSaveWaitUntil = Just False -- receive willSave notifications from the client
-                                        , _save = Just $ InR saveOptions
-                                        }
+    -- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
+    syncOptions :: TextDocumentSyncOptions
+    syncOptions =
+      TextDocumentSyncOptions
+        { _openClose = Just True, -- receive open and close notifications from the client
+          _change = Just changeOptions, -- receive change notifications from the client
+          _willSave = Just False, -- receive willSave notifications from the client
+          _willSaveWaitUntil = Just False, -- receive willSave notifications from the client
+          _save = Just $ InR saveOptions
+        }
 
-  changeOptions :: TextDocumentSyncKind
+    changeOptions :: TextDocumentSyncKind
 #if MIN_VERSION_lsp_types(2,0,0)
-  changeOptions = TextDocumentSyncKind_Incremental
+    changeOptions = TextDocumentSyncKind_Incremental
 #else
-  changeOptions = TdSyncIncremental
+    changeOptions = TdSyncIncremental
 #endif
 
-  -- includes the document content on save, so that we don't have to read it from the disk
-  saveOptions :: SaveOptions
-  saveOptions = SaveOptions (Just True)
+    -- includes the document content on save, so that we don't have to read it from the disk
+    saveOptions :: SaveOptions
+    saveOptions = SaveOptions (Just True)
 
 -- handlers of the LSP server
 handlers :: Handlers (ServerM (LspM Config))
