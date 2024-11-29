@@ -1,5 +1,5 @@
 name:                agda-language-server
-version:             0.2.6.4.0.3
+version:             0.2.6.4.3.0
 github:              "banacorn/agda-language-server"
 license:             MIT
 author:              "Ting-Gian LUA"
@@ -11,10 +11,10 @@ extra-source-files:
 - CHANGELOG.md
 - package.yaml
 - stack.yaml
-- stack-8.10-Agda-2.6.2.2.yaml
-- stack-9.0-Agda-2.6.2.2.yaml
 - stack-9.2-Agda-2.6.2.2.yaml
 - stack-9.2-Agda-2.6.3.yaml
+- stack-9.2-Agda-2.6.4.yaml
+- stack-9.2-Agda-2.6.4.3.yaml
 
 # Metadata used when publishing your package
 synopsis:            An implementation of language server protocal (LSP) for Agda 2.
@@ -27,27 +27,38 @@ description:         Please see the README on GitHub at <https://github.com/agda
 
 flags:
   Agda-2-6-2-2:
-    description: Embed Agda-2.6.2.2 (rather than 2.6.4)
+    description: Embed Agda-2.6.2.2
     manual: true
     default: false
   Agda-2-6-3:
-    description: Embed Agda-2.6.3 (rather than 2.6.4)
+    description: Embed Agda-2.6.3
+    manual: true
+    default: false
+  Agda-2-6-4:
+    description: Embed Agda-2.6.4
+    manual: true
+    default: false
+  Agda-2-6-4-3:
+    description: Embed Agda-2.6.4.3
     manual: true
     default: false
 
 when:
-- condition: "flag(Agda-2-6-2-2) && !flag(Agda-2-6-3)"
+- condition: "flag(Agda-2-6-2-2)"
   dependencies:
     - Agda == 2.6.2.2
-- condition: "!flag(Agda-2-6-2-2) && flag(Agda-2-6-3)"
+- condition: "flag(Agda-2-6-3)"
   dependencies:
     - Agda == 2.6.3
-- condition: "!flag(Agda-2-6-2-2) && !flag(Agda-2-6-3)"
+- condition: "flag(Agda-2-6-4)"
   dependencies:
     - Agda == 2.6.4
-- condition: "flag(Agda-2-6-2-2) && flag(Agda-2-6-3)"
+- condition: "flag(Agda-2-6-4-3)"
   dependencies:
-    - Agda < 0
+    - Agda == 2.6.4.3
+# - condition: "flag(Agda-2-6-2-2) && flag(Agda-2-6-3)"
+#   dependencies:
+#     - Agda < 0
 
 dependencies:
   - base >= 4.7 && < 5

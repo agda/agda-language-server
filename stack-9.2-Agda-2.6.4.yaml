@@ -7,7 +7,7 @@ packages:
 - .
 
 extra-deps:
-- Agda-2.6.4.3
+- Agda-2.6.4
 
 flags:
   Agda:
