@@ -74,23 +74,30 @@ run options = do
     serverDefn options =
       ServerDefinition
         { defaultConfig = initConfig,
+#if MIN_VERSION_lsp_types(2,0,0)
+          onConfigChange = \old newRaw -> (),
+            -- case JSON.fromJSON newRaw of
+            -- JSON.Error s -> () -- putStrLn $ pack $ "Cannot parse server configuration: " <> s
+            -- JSON.Success new -> (),
+#else
           onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
             JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
             JSON.Success new -> Right new,
+#endif
           doInitialize = \ctxEnv _req -> do
             env <- runLspT ctxEnv (createInitEnv options)
             switchboard <- Switchboard.new env
             Switchboard.setupLanguageContextEnv switchboard ctxEnv
             pure $ Right (ctxEnv, env),
-          staticHandlers = handlers,
-          interpretHandler = \(ctxEnv, env) ->
-            Iso (runLspT ctxEnv . runServerM env) liftIO,
+          -- staticHandlers = handlers,
+          -- interpretHandler = \(ctxEnv, env) ->
+          --   Iso (runLspT ctxEnv . runServerM env) liftIO,
           options = lspOptions
         }
 
     lspOptions :: LSP.Options
 #if MIN_VERSION_lsp_types(2,0,0)
-    lspOptions = defaultOptions { _textDocumentSync = Just syncOptions }
+    lspOptions = defaultOptions { optTextDocumentSync = Just syncOptions }
 #else
     lspOptions = defaultOptions { textDocumentSync = Just syncOptions }
 #endif
@@ -122,17 +129,23 @@ handlers :: Handlers (ServerM (LspM Config))
 handlers = mconcat
   [ -- custom methods, not part of LSP
     requestHandler agdaCustomMethod $ \ req responder -> do
-    let RequestMessage _ _i _ params = req
-    response <- Agda.sendCommand params
-    responder $ Right response
+#if MIN_VERSION_lsp_types(2,0,0)
+      return ()
+#else  
+      let RequestMessage _ _i _ params = req
+      response <- Agda.sendCommand params
+      responder $ Right response
+#endif
   ,
         -- hover provider
     requestHandler hoverMethod $ \ req responder -> do
-    let
-      RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone)
-        = req
-    result <- Handler.onHover uri pos
-    responder $ Right result
+#if MIN_VERSION_lsp_types(2,0,0)
+      return ()
+#else  
+      let RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
+      result <- Handler.onHover uri pos
+      responder $ Right result
+#endif
   -- -- syntax highlighting
   -- , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
   --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
