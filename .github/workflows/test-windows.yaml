@@ -4,7 +4,7 @@ name: CI (Windows)
 
 on:
   push:
-    branches: [master, ci-*]
+    branches: [master, ci-*, ci]
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
@@ -33,7 +33,7 @@ jobs:
       run: |
         STACK_ROOT="C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows"
         STACK_RESOLVER=$(yq .resolver stack.yaml)
-        GHC_VERSION=$(yq .compiler stack.yaml)
+        GHC_VERSION=$(echo $(yq .compiler stack.yaml) | cut -c 5-)
         echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
         echo GHC_VERSION="${GHC_VERSION}" >> "${GITHUB_ENV}"

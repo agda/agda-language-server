@@ -21,7 +21,7 @@ jobs:
     - name: 🔍 Determine stack resolver & GHC
       run: |
         STACK_RESOLVER=$(yq .resolver stack.yaml)
-        GHC_VERSION=$(yq .compiler stack.yaml)
+        GHC_VERSION=$(echo $(yq .compiler stack.yaml) | cut -c 5-)
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
         echo GHC_VERSION="${GHC_VERSION}" >> "${GITHUB_ENV}"
 
@@ -48,15 +48,14 @@ jobs:
 
     # actions:
 
-    - name: ⏬ Install stack
-      run: |
-        # mkdir -p ~/.local/bin
-        # export PATH=~/.local/bin:$PATH
-        ## Stack is preinstalled on the GHA runners
-        # curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
-        # if [[ ! -x ~/.local/bin/stack ]]; then curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
-        stack --version
-
+    - name: ⏬ Setup Haskell
+      uses: haskell-actions/setup@v2
+      id: setup-haskell
+      with:
+        ghc-version: ${{ env.GHC_VERSION }}
+        enable-stack: true
+        stack-version: 'latest'
+  
     - name: ⏬ Install dependencies
       run: |
         stack build --only-dependencies
