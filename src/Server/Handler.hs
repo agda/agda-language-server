@@ -55,7 +55,7 @@ import           Data.Text                      ( Text
 import qualified Data.Text                     as Text
 import           Language.LSP.Server            ( LspM )
 import qualified Language.LSP.Server           as LSP
-import qualified Language.LSP.Types            as LSP
+import qualified Language.LSP.Protocol.Types   as LSP
 import qualified Language.LSP.VFS              as VFS
 import           Monad
 import           Options                        ( Config
@@ -103,44 +103,43 @@ inferTypeOfText filepath text = runCommandM $ do
 
   render <$> prettyATop typ
 
-onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM Config) (Maybe LSP.Hover)
+onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM Config) (LSP.Hover LSP.|? LSP.Null)
 onHover uri pos = do
   result <- LSP.getVirtualFile (LSP.toNormalizedUri uri)
   case result of
-    Nothing   -> return Nothing
+    Nothing   -> return $ LSP.InR LSP.Null
     Just file -> do
       let source      = VFS.virtualFileText file
       let offsetTable = makeToOffset source
       let agdaPos     = toAgdaPositionWithoutFile offsetTable pos
       lookupResult <- Parser.tokenAt uri source agdaPos
       case lookupResult of
-        Nothing             -> return Nothing
+        Nothing             -> return $ LSP.InR LSP.Null
         Just (_token, text) -> do
           case LSP.uriToFilePath uri of
-            Nothing       -> return Nothing
+            Nothing       -> return $ LSP.InR LSP.Null
             Just filepath -> do
               let range = LSP.Range pos pos
-
               inferResult <- inferTypeOfText filepath text
               case inferResult of
                 Left err -> do
-                  let content = LSP.HoverContents $ LSP.markedUpContent
-                        "agda-language-server"
-                        ("Error: " <> pack err)
-                  return $ Just $ LSP.Hover content (Just range)
+                  let content = hoverContent $ "Error: " <> pack err
+                  return $ LSP.InL $ LSP.Hover content (Just range)
                 Right typeString -> do
-                  let content = LSP.HoverContents $ LSP.markedUpContent
-                        "agda-language-server"
-                        (pack typeString)
-                  return $ Just $ LSP.Hover content (Just range)
-
+                  let content = hoverContent $ pack typeString
+                  return $ LSP.InL $ LSP.Hover content (Just range)
+  where
+      hoverContent =
+        LSP.InL . LSP.mkMarkdownCodeBlock "agda-language-server"
 --------------------------------------------------------------------------------
 -- Helper functions for converting stuff to SemanticTokenAbsolute
 
 
 fromHighlightingInfo :: IR.HighlightingInfo -> LSP.SemanticTokenAbsolute
 fromHighlightingInfo (IR.HighlightingInfo start end aspects isTokenBased note defSrc)
-  = LSP.SemanticTokenAbsolute 1 1 3 LSP.SttKeyword []
+  = LSP.SemanticTokenAbsolute 1 1 3 kw []
+  where
+    kw = LSP.SemanticTokenTypes_Keyword
 
 -- HighlightingInfo
 --       Int -- starting offset

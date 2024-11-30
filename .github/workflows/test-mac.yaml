@@ -4,7 +4,7 @@ name: CI (macOS)
 
 on:
   push:
-    branches: [master, ci-*]
+    branches: [master, ci-*, ci]
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
@@ -18,7 +18,7 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: Determine stack resolver
+    - name: 🔍 Determine stack resolver
       run: |
         STACK_RESOLVER=$(yq .resolver stack.yaml)
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
@@ -50,18 +50,26 @@ jobs:
       run: |
         echo PKG_CONFIG_PATH="$(brew --prefix)/opt/icu4c/lib/pkgconfig" >> "${GITHUB_ENV}"
 
-    - name: ⏬ Install stack
-      run: |
-        # mkdir -p ~/.local/bin
-        # export PATH=~/.local/bin:$PATH
-        ## Stack is preinstalled on the GHA runners
-        # brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
-        # if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
-        stack --version
+    - name: ⏬ Setup Haskell
+      uses: haskell-actions/setup@v2
+      id: setup-haskell
+      with:
+        ghc-version: '9.2.8'
+        enable-stack: true
+        stack-version: 'latest'
+  
+    # - name: ⏬ Install stack
+    #   run: |
+    #     # mkdir -p ~/.local/bin
+    #     # export PATH=~/.local/bin:$PATH
+    #     ## Stack is preinstalled on the GHA runners
+    #     # brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
+    #     # if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
+    #     stack --version
 
-    - name: ⏬ Install GHC
-      run: |
-        stack setup --install-ghc
+    # - name: ⏬ Install GHC
+    #   run: |
+    #     stack setup --install-ghc
 
     - name: ⏬ Install dependencies
       run: |

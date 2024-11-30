@@ -8,30 +8,39 @@ module Server
 where
 
 import qualified Agda
-import Control.Concurrent (writeChan)
-import Control.Monad (void)
-import Control.Monad.Reader (MonadIO (liftIO))
-import Data.Aeson
-  ( FromJSON,
-    ToJSON,
-  )
-import qualified Data.Aeson as JSON
-import Data.Text (pack)
-import qualified Data.Text as T
-import GHC.IO.IOMode (IOMode (ReadWriteMode))
-import Language.LSP.Server hiding (Options)
-import qualified Language.LSP.Server as LSP
-import Language.LSP.Types hiding
-  ( Options (..),
-    TextDocumentSyncClientCapabilities (..),
-  )
-import Monad
-import qualified Network.Simple.TCP as TCP
-import Network.Socket (socketToHandle)
-import Options
-import qualified Server.Handler as Handler
-import Switchboard (Switchboard)
+import           Control.Concurrent             ( writeChan )
+import           Control.Monad                  ( void )
+import           Control.Monad.Reader           ( MonadIO(liftIO) )
+import           Data.Aeson                     ( FromJSON
+                                                , ToJSON
+                                                )
+import qualified Data.Aeson                    as JSON
+import           Data.Text                      ( pack )
+import           GHC.IO.IOMode                  ( IOMode(ReadWriteMode) )
+import           Language.LSP.Server     hiding ( Options )
+import           Language.LSP.Protocol.Message  ( pattern RequestMessage
+                                                , SMethod( SMethod_CustomMethod, SMethod_TextDocumentHover)
+                                                , pattern TRequestMessage
+                                                )
+import           Language.LSP.Protocol.Types    ( TextDocumentSyncOptions(..)
+                                                , TextDocumentSyncKind( TextDocumentSyncKind_Incremental )
+                                                , ServerCapabilities (_textDocumentSync )
+                                                , SaveOptions( SaveOptions )
+                                                , pattern TextDocumentIdentifier
+                                                , pattern HoverParams
+                                                , pattern InR
+                                                , pattern InL
+                                                )
+import           Monad
+import qualified Network.Simple.TCP            as TCP
+import           Network.Socket                 ( socketToHandle )
 import qualified Switchboard
+import           Switchboard                    ( Switchboard, agdaCustomMethod )
+
+import qualified Server.Handler                as Handler
+
+import qualified Language.LSP.Server           as LSP
+import           Options
 
 --------------------------------------------------------------------------------
 
@@ -44,11 +53,7 @@ run options = do
           \(sock, _remoteAddr) -> do
             -- writeChan (envLogChan env) "[Server] connection established"
             handle <- socketToHandle sock ReadWriteMode
-            _ <- runServerWithHandles
-#if MIN_VERSION_lsp(1,5,0)
-              mempty mempty
-#endif
-              handle handle (serverDefn options)
+            _ <- runServerWithHandles mempty mempty handle handle (serverDefn options)
             return ()
       -- Switchboard.destroy switchboard
       return 0
@@ -58,8 +63,10 @@ run options = do
     serverDefn :: Options -> ServerDefinition Config
     serverDefn options =
       ServerDefinition
-        { defaultConfig = initConfig,
-          onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
+        { 
+          defaultConfig = initConfig,
+          onConfigChange = const $ pure (),
+          parseConfig = \old newRaw -> case JSON.fromJSON newRaw of
             JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
             JSON.Success new -> Right new,
           doInitialize = \ctxEnv _req -> do
@@ -67,14 +74,18 @@ run options = do
             switchboard <- Switchboard.new env
             Switchboard.setupLanguageContextEnv switchboard ctxEnv
             pure $ Right (ctxEnv, env),
-          staticHandlers = handlers,
+          configSection = "dummy",
+          staticHandlers = const handlers,
           interpretHandler = \(ctxEnv, env) ->
-            Iso (runLspT ctxEnv . runServerM env) liftIO,
+            Iso {
+              forward = runLspT ctxEnv . runServerM env,
+              backward = liftIO
+            },
           options = lspOptions
         }
 
     lspOptions :: LSP.Options
-    lspOptions = defaultOptions {textDocumentSync = Just syncOptions}
+    lspOptions = defaultOptions { optTextDocumentSync = Just syncOptions }
 
     -- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
     syncOptions :: TextDocumentSyncOptions
@@ -88,7 +99,7 @@ run options = do
         }
 
     changeOptions :: TextDocumentSyncKind
-    changeOptions = TdSyncIncremental
+    changeOptions = TextDocumentSyncKind_Incremental
 
     -- includes the document content on save, so that we don't have to read it from the disk
     saveOptions :: SaveOptions
@@ -96,26 +107,22 @@ run options = do
 
 -- handlers of the LSP server
 handlers :: Handlers (ServerM (LspM Config))
-handlers =
-  mconcat
-    [ -- custom methods, not part of LSP
-      requestHandler (SCustomMethod "agda") $ \req responder -> do
-        let RequestMessage _ _i _ params = req
-        response <- Agda.sendCommand params
-        responder $ Right response,
-      -- hover provider
-      requestHandler STextDocumentHover $ \req responder -> do
-        let RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) =
-              req
-        result <- Handler.onHover uri pos
-        responder $ Right result,
-      notificationHandler SInitialized $ \_not -> pure (),
-      notificationHandler STextDocumentDidOpen $ \_not -> pure (),
-      notificationHandler STextDocumentDidSave $ \_not -> pure (),
-      notificationHandler STextDocumentDidChange $ \_not -> pure (),
-      notificationHandler SCancelRequest $ \_not -> pure ()
-      -- -- syntax highlighting
-      -- , requestHandler STextD_cumentSemanticTokensFull $ \req responder -> do
-      --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
-      --   responder result
-    ]
+handlers = mconcat
+  [ -- custom methods, not part of LSP
+    requestHandler agdaCustomMethod $ \ req responder -> do
+      let TRequestMessage _ _i _ params = req
+      response <- Agda.sendCommand params
+      responder $ Right response
+  ,
+        -- hover provider
+    requestHandler hoverMethod $ \ req responder -> do
+      let TRequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
+      result <- Handler.onHover uri pos
+      responder $ Right result
+  -- -- syntax highlighting
+  -- , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
+  --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
+  --   responder result
+  ]
+  where
+    hoverMethod = SMethod_TextDocumentHover

@@ -1,11 +1,11 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
 name:           agda-language-server
-version:        0.2.6.4.0.3
+version:        0.2.6.4.3.0
 synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 category:       Development
@@ -22,22 +22,32 @@ extra-source-files:
     CHANGELOG.md
     package.yaml
     stack.yaml
-    stack-8.10-Agda-2.6.2.2.yaml
-    stack-9.0-Agda-2.6.2.2.yaml
     stack-9.2-Agda-2.6.2.2.yaml
     stack-9.2-Agda-2.6.3.yaml
+    stack-9.2-Agda-2.6.4.yaml
+    stack-9.2-Agda-2.6.4.3.yaml
 
 source-repository head
   type: git
   location: https://github.com/banacorn/agda-language-server
 
 flag Agda-2-6-2-2
-  description: Embed Agda-2.6.2.2 (rather than 2.6.4)
+  description: Embed Agda-2.6.2.2
   manual: True
   default: False
 
 flag Agda-2-6-3
-  description: Embed Agda-2.6.3 (rather than 2.6.4)
+  description: Embed Agda-2.6.3
+  manual: True
+  default: False
+
+flag Agda-2-6-4
+  description: Embed Agda-2.6.4
+  manual: True
+  default: False
+
+flag Agda-2-6-4-3
+  description: Embed Agda-2.6.4.3
   manual: True
   default: False
 
@@ -75,6 +85,7 @@ library
   default-extensions:
       LambdaCase
       OverloadedStrings
+      PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
@@ -85,8 +96,8 @@ library
     , containers
     , directory
     , filepath
-    , lsp <2
-    , lsp-types <2
+    , lsp >=2
+    , lsp-types >=2
     , mtl
     , network
     , network-simple
@@ -95,19 +106,20 @@ library
     , stm
     , strict
     , text
+    , text-icu
   default-language: Haskell2010
-  if flag(Agda-2-6-2-2) && !flag(Agda-2-6-3)
+  if flag(Agda-2-6-2-2)
     build-depends:
         Agda ==2.6.2.2
-  if !flag(Agda-2-6-2-2) && flag(Agda-2-6-3)
+  if flag(Agda-2-6-3)
     build-depends:
         Agda ==2.6.3
-  if !flag(Agda-2-6-2-2) && !flag(Agda-2-6-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4
-  if flag(Agda-2-6-2-2) && flag(Agda-2-6-3)
+  if flag(Agda-2-6-4-3)
     build-depends:
-        Agda <0
+        Agda ==2.6.4.3
 
 executable als
   main-is: Main.hs
@@ -118,6 +130,7 @@ executable als
   default-extensions:
       LambdaCase
       OverloadedStrings
+      PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
@@ -129,8 +142,8 @@ executable als
     , containers
     , directory
     , filepath
-    , lsp <2
-    , lsp-types <2
+    , lsp >=2
+    , lsp-types >=2
     , mtl
     , network
     , network-simple
@@ -139,19 +152,20 @@ executable als
     , stm
     , strict
     , text
+    , text-icu
   default-language: Haskell2010
-  if flag(Agda-2-6-2-2) && !flag(Agda-2-6-3)
+  if flag(Agda-2-6-2-2)
     build-depends:
         Agda ==2.6.2.2
-  if !flag(Agda-2-6-2-2) && flag(Agda-2-6-3)
+  if flag(Agda-2-6-3)
     build-depends:
         Agda ==2.6.3
-  if !flag(Agda-2-6-2-2) && !flag(Agda-2-6-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4
-  if flag(Agda-2-6-2-2) && flag(Agda-2-6-3)
+  if flag(Agda-2-6-4-3)
     build-depends:
-        Agda <0
+        Agda ==2.6.4.3
 
 test-suite als-test
   type: exitcode-stdio-1.0
@@ -190,6 +204,7 @@ test-suite als-test
   default-extensions:
       LambdaCase
       OverloadedStrings
+      PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
@@ -200,8 +215,8 @@ test-suite als-test
     , containers
     , directory
     , filepath
-    , lsp <2
-    , lsp-types <2
+    , lsp >=2
+    , lsp-types >=2
     , mtl
     , network
     , network-simple
@@ -214,16 +229,17 @@ test-suite als-test
     , tasty-hunit
     , tasty-quickcheck
     , text
+    , text-icu
   default-language: Haskell2010
-  if flag(Agda-2-6-2-2) && !flag(Agda-2-6-3)
+  if flag(Agda-2-6-2-2)
     build-depends:
         Agda ==2.6.2.2
-  if !flag(Agda-2-6-2-2) && flag(Agda-2-6-3)
+  if flag(Agda-2-6-3)
     build-depends:
         Agda ==2.6.3
-  if !flag(Agda-2-6-2-2) && !flag(Agda-2-6-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4
-  if flag(Agda-2-6-2-2) && flag(Agda-2-6-3)
+  if flag(Agda-2-6-4-3)
     build-depends:
-        Agda <0
+        Agda ==2.6.4.3
