@@ -18,7 +18,6 @@ import qualified Data.Aeson                    as JSON
 import           Data.Text                      ( pack )
 import           GHC.IO.IOMode                  ( IOMode(ReadWriteMode) )
 import           Language.LSP.Server     hiding ( Options )
-#if MIN_VERSION_lsp(2,0,0)
 import           Language.LSP.Protocol.Message  ( pattern RequestMessage
                                                 , SMethod( SMethod_CustomMethod, SMethod_TextDocumentHover)
                                                 , pattern TRequestMessage
@@ -32,12 +31,6 @@ import           Language.LSP.Protocol.Types    ( TextDocumentSyncOptions(..)
                                                 , pattern InR
                                                 , pattern InL
                                                 )
-#else
-import           Language.LSP.Types
-                                         hiding ( Options(..)
-                                                , TextDocumentSyncClientCapabilities(..)
-                                                )
-#endif
 import           Monad
 import qualified Network.Simple.TCP            as TCP
 import           Network.Socket                 ( socketToHandle )
@@ -60,51 +53,13 @@ run options = do
           \(sock, _remoteAddr) -> do
             -- writeChan (envLogChan env) "[Server] connection established"
             handle <- socketToHandle sock ReadWriteMode
-            _ <- runServerWithHandles
-#if MIN_VERSION_lsp(1,5,0)
-              mempty mempty
-#endif
-              handle handle (serverDefn options)
+            _ <- runServerWithHandles mempty mempty handle handle (serverDefn options)
             return ()
       -- Switchboard.destroy switchboard
       return 0
     Nothing -> do
       runServer (serverDefn options)
   where
---     serverDefn :: Options -> ServerDefinition Config
---     serverDefn options =
---       ServerDefinition
---         { defaultConfig = initConfig,
--- #if MIN_VERSION_lsp_types(2,0,0)
---           onConfigChange = \old newRaw -> pure (),
--- #else
---           onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
---             JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
---             JSON.Success new -> Right new,
--- #endif
---           doInitialize = \ctxEnv _req -> do
---             env <- runLspT ctxEnv (createInitEnv options)
---             switchboard <- Switchboard.new env
---             Switchboard.setupLanguageContextEnv switchboard ctxEnv
--- #if MIN_VERSION_lsp_types(2,0,0)
---             pure $ Right (ctxEnv),
--- #else 
---             pure $ Right (ctxEnv, env),
--- #endif
--- #if MIN_VERSION_lsp_types(2,0,0)
---              interpretHandler = \env -> Iso {
---                 forward = runLspT env, -- how to convert from IO ~> m
---                 backward = liftIO -- how to convert from m ~> IO
---               },
--- #else 
---           staticHandlers = handlers,
---           interpretHandler = \(ctxEnv, env) ->
---             Iso (runLspT ctxEnv . runServerM env) liftIO,
--- #endif
---           options = lspOptions
---         }
-
-#if MIN_VERSION_lsp_types(2,0,0)
     serverDefn :: Options -> ServerDefinition Config
     serverDefn options =
       ServerDefinition
@@ -120,25 +75,7 @@ run options = do
             Switchboard.setupLanguageContextEnv switchboard ctxEnv
             pure $ Right (ctxEnv, env),
           configSection = "dummy",
-#else 
-    serverDefn :: Options -> ServerDefinition Config
-    serverDefn options =
-      ServerDefinition
-        { defaultConfig = initConfig,
-          onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
-            JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
-            JSON.Success new -> Right new,
-          doInitialize = \ctxEnv _req -> do
-            env <- runLspT ctxEnv (createInitEnv options)
-            switchboard <- Switchboard.new env
-            Switchboard.setupLanguageContextEnv switchboard ctxEnv
-            pure $ Right (ctxEnv, env),
-#endif
-#if MIN_VERSION_lsp_types(2,0,0)
           staticHandlers = const handlers,
-#else
-          staticHandlers = handlers,
-#endif
           interpretHandler = \(ctxEnv, env) ->
             Iso {
               forward = runLspT ctxEnv . runServerM env,
@@ -148,11 +85,7 @@ run options = do
         }
 
     lspOptions :: LSP.Options
-#if MIN_VERSION_lsp_types(2,0,0)
     lspOptions = defaultOptions { optTextDocumentSync = Just syncOptions }
-#else
-    lspOptions = defaultOptions { textDocumentSync = Just syncOptions }
-#endif
 
     -- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
     syncOptions :: TextDocumentSyncOptions
@@ -166,11 +99,7 @@ run options = do
         }
 
     changeOptions :: TextDocumentSyncKind
-#if MIN_VERSION_lsp_types(2,0,0)
     changeOptions = TextDocumentSyncKind_Incremental
-#else
-    changeOptions = TdSyncIncremental
-#endif
 
     -- includes the document content on save, so that we don't have to read it from the disk
     saveOptions :: SaveOptions
@@ -181,21 +110,13 @@ handlers :: Handlers (ServerM (LspM Config))
 handlers = mconcat
   [ -- custom methods, not part of LSP
     requestHandler agdaCustomMethod $ \ req responder -> do
-#if MIN_VERSION_lsp_types(2,0,0)
       let TRequestMessage _ _i _ params = req
-#else  
-      let RequestMessage _ _i _ params = req
-#endif
       response <- Agda.sendCommand params
       responder $ Right response
   ,
         -- hover provider
     requestHandler hoverMethod $ \ req responder -> do
-#if MIN_VERSION_lsp_types(2,0,0)
       let TRequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
-#else  
-      let RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
-#endif
       result <- Handler.onHover uri pos
       responder $ Right result
   -- -- syntax highlighting
@@ -204,8 +125,4 @@ handlers = mconcat
   --   responder result
   ]
   where
-#if MIN_VERSION_lsp_types(2,0,0)
     hoverMethod = SMethod_TextDocumentHover
-#else
-    hoverMethod = STextDocumentHover
-#endif

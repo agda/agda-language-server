@@ -18,11 +18,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text, unpack)
 import qualified Data.Text as Text
 import Language.LSP.Server (LspM)
-#if MIN_VERSION_lsp(2,0,0)
 import qualified Language.LSP.Protocol.Types   as LSP
-#else
-import qualified Language.LSP.Types            as LSP
-#endif
 import Options (Config)
 
 --------------------------------------------------------------------------------

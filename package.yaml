@@ -68,8 +68,8 @@ dependencies:
   - containers
   - directory
   - filepath
-  - lsp-types
-  - lsp
+  - lsp-types >= 2
+  - lsp >= 2
   - mtl
   - network
   - network-simple

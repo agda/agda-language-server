@@ -96,8 +96,8 @@ library
     , containers
     , directory
     , filepath
-    , lsp
-    , lsp-types
+    , lsp >=2
+    , lsp-types >=2
     , mtl
     , network
     , network-simple
@@ -142,8 +142,8 @@ executable als
     , containers
     , directory
     , filepath
-    , lsp
-    , lsp-types
+    , lsp >=2
+    , lsp-types >=2
     , mtl
     , network
     , network-simple
@@ -215,8 +215,8 @@ test-suite als-test
     , containers
     , directory
     , filepath
-    , lsp
-    , lsp-types
+    , lsp >=2
+    , lsp-types >=2
     , mtl
     , network
     , network-simple
