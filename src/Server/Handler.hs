@@ -107,40 +107,62 @@ inferTypeOfText filepath text = runCommandM $ do
 
   render <$> prettyATop typ
 
+#if MIN_VERSION_lsp_types(2,0,0)
+onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM Config) (LSP.Hover LSP.|? LSP.Null)
+#else
 onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM Config) (Maybe LSP.Hover)
+#endif
 onHover uri pos = do
   result <- LSP.getVirtualFile (LSP.toNormalizedUri uri)
   case result of
-    Nothing   -> return Nothing
+#if MIN_VERSION_lsp_types(2,0,0)    
+    Nothing   -> return $ LSP.InR LSP.Null
+#else
+    Nothing  -> return Nothing
+#endif
     Just file -> do
       let source      = VFS.virtualFileText file
       let offsetTable = makeToOffset source
       let agdaPos     = toAgdaPositionWithoutFile offsetTable pos
       lookupResult <- Parser.tokenAt uri source agdaPos
       case lookupResult of
-        Nothing             -> return Nothing
+#if MIN_VERSION_lsp_types(2,0,0)    
+        Nothing             -> return $ LSP.InR LSP.Null
+#else
+        Nothing             -> return Nothing 
+#endif
         Just (_token, text) -> do
           case LSP.uriToFilePath uri of
+#if MIN_VERSION_lsp_types(2,0,0)
+            Nothing       -> return $ LSP.InR LSP.Null
+#else
             Nothing       -> return Nothing
+#endif
             Just filepath -> do
               let range = LSP.Range pos pos
-
               inferResult <- inferTypeOfText filepath text
               case inferResult of
                 Left err -> do
                   let content = hoverContent $ "Error: " <> pack err
-                  return $ Just $ LSP.Hover content (Just range)
+#if MIN_VERSION_lsp_types(2,0,0)
+                  return $ LSP.InL $ LSP.Hover content (Just range)
+#else
+                  return $ Just $ LSP.Hover content (Just range)  
+#endif
                 Right typeString -> do
                   let content = hoverContent $ pack typeString
-                  return $ Just $ LSP.Hover content (Just range)
-  where
-    hoverContent =
 #if MIN_VERSION_lsp_types(2,0,0)
-      LSP.InL . LSP.mkMarkdownCodeBlock "agda-language-server"
+                  return $ LSP.InL $ LSP.Hover content (Just range)
 #else
-      LSP.HoverContents . LSP.markedUpContent "agda-language-server"
+                  return $ Just $ LSP.Hover content (Just range)    
 #endif
-
+  where
+      hoverContent =
+#if MIN_VERSION_lsp_types(2,0,0)
+        LSP.InL . LSP.mkMarkdownCodeBlock "agda-language-server"
+#else
+        LSP.HoverContents . LSP.markedUpContent "agda-language-server"
+#endif
 --------------------------------------------------------------------------------
 -- Helper functions for converting stuff to SemanticTokenAbsolute
 

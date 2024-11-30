@@ -21,6 +21,7 @@ import           Language.LSP.Server     hiding ( Options )
 #if MIN_VERSION_lsp(2,0,0)
 import           Language.LSP.Protocol.Message  ( pattern RequestMessage
                                                 , SMethod( SMethod_CustomMethod, SMethod_TextDocumentHover)
+                                                , pattern TRequestMessage
                                                 )
 import           Language.LSP.Protocol.Types    ( TextDocumentSyncOptions(..)
                                                 , TextDocumentSyncKind( TextDocumentSyncKind_Incremental )
@@ -29,6 +30,7 @@ import           Language.LSP.Protocol.Types    ( TextDocumentSyncOptions(..)
                                                 , pattern TextDocumentIdentifier
                                                 , pattern HoverParams
                                                 , pattern InR
+                                                , pattern InL
                                                 )
 #else
 import           Language.LSP.Types
@@ -46,7 +48,6 @@ import qualified Server.Handler                as Handler
 
 import qualified Language.LSP.Server           as LSP
 import           Options
-
 
 --------------------------------------------------------------------------------
 
@@ -70,28 +71,79 @@ run options = do
     Nothing -> do
       runServer (serverDefn options)
   where
+--     serverDefn :: Options -> ServerDefinition Config
+--     serverDefn options =
+--       ServerDefinition
+--         { defaultConfig = initConfig,
+-- #if MIN_VERSION_lsp_types(2,0,0)
+--           onConfigChange = \old newRaw -> pure (),
+-- #else
+--           onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
+--             JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
+--             JSON.Success new -> Right new,
+-- #endif
+--           doInitialize = \ctxEnv _req -> do
+--             env <- runLspT ctxEnv (createInitEnv options)
+--             switchboard <- Switchboard.new env
+--             Switchboard.setupLanguageContextEnv switchboard ctxEnv
+-- #if MIN_VERSION_lsp_types(2,0,0)
+--             pure $ Right (ctxEnv),
+-- #else 
+--             pure $ Right (ctxEnv, env),
+-- #endif
+-- #if MIN_VERSION_lsp_types(2,0,0)
+--              interpretHandler = \env -> Iso {
+--                 forward = runLspT env, -- how to convert from IO ~> m
+--                 backward = liftIO -- how to convert from m ~> IO
+--               },
+-- #else 
+--           staticHandlers = handlers,
+--           interpretHandler = \(ctxEnv, env) ->
+--             Iso (runLspT ctxEnv . runServerM env) liftIO,
+-- #endif
+--           options = lspOptions
+--         }
+
+#if MIN_VERSION_lsp_types(2,0,0)
     serverDefn :: Options -> ServerDefinition Config
     serverDefn options =
       ServerDefinition
-        { defaultConfig = initConfig,
-#if MIN_VERSION_lsp_types(2,0,0)
-          onConfigChange = \old newRaw -> (),
-            -- case JSON.fromJSON newRaw of
-            -- JSON.Error s -> () -- putStrLn $ pack $ "Cannot parse server configuration: " <> s
-            -- JSON.Success new -> (),
-#else
-          onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
+        { 
+          defaultConfig = initConfig,
+          onConfigChange = const $ pure (),
+          parseConfig = \old newRaw -> case JSON.fromJSON newRaw of
             JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
             JSON.Success new -> Right new,
-#endif
           doInitialize = \ctxEnv _req -> do
             env <- runLspT ctxEnv (createInitEnv options)
             switchboard <- Switchboard.new env
             Switchboard.setupLanguageContextEnv switchboard ctxEnv
             pure $ Right (ctxEnv, env),
-          -- staticHandlers = handlers,
-          -- interpretHandler = \(ctxEnv, env) ->
-          --   Iso (runLspT ctxEnv . runServerM env) liftIO,
+          configSection = "dummy",
+#else 
+    serverDefn :: Options -> ServerDefinition Config
+    serverDefn options =
+      ServerDefinition
+        { defaultConfig = initConfig,
+          onConfigurationChange = \old newRaw -> case JSON.fromJSON newRaw of
+            JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
+            JSON.Success new -> Right new,
+          doInitialize = \ctxEnv _req -> do
+            env <- runLspT ctxEnv (createInitEnv options)
+            switchboard <- Switchboard.new env
+            Switchboard.setupLanguageContextEnv switchboard ctxEnv
+            pure $ Right (ctxEnv, env),
+#endif
+#if MIN_VERSION_lsp_types(2,0,0)
+          staticHandlers = const handlers,
+#else
+          staticHandlers = handlers,
+#endif
+          interpretHandler = \(ctxEnv, env) ->
+            Iso {
+              forward = runLspT ctxEnv . runServerM env,
+              backward = liftIO
+            },
           options = lspOptions
         }
 
@@ -130,22 +182,22 @@ handlers = mconcat
   [ -- custom methods, not part of LSP
     requestHandler agdaCustomMethod $ \ req responder -> do
 #if MIN_VERSION_lsp_types(2,0,0)
-      return ()
+      let TRequestMessage _ _i _ params = req
 #else  
       let RequestMessage _ _i _ params = req
+#endif
       response <- Agda.sendCommand params
       responder $ Right response
-#endif
   ,
         -- hover provider
     requestHandler hoverMethod $ \ req responder -> do
 #if MIN_VERSION_lsp_types(2,0,0)
-      return ()
+      let TRequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
 #else  
       let RequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
+#endif
       result <- Handler.onHover uri pos
       responder $ Right result
-#endif
   -- -- syntax highlighting
   -- , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
   --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
