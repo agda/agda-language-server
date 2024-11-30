@@ -18,10 +18,12 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: 🔍 Determine stack resolver
+    - name: 🔍 Determine stack resolver & GHC
       run: |
         STACK_RESOLVER=$(yq .resolver stack.yaml)
+        GHC_VERSION=$(yq .compiler stack.yaml)
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
+        echo GHC_VERSION="${GHC_VERSION}" >> "${GITHUB_ENV}"
 
     # things to be restored:
     # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
@@ -54,23 +56,10 @@ jobs:
       uses: haskell-actions/setup@v2
       id: setup-haskell
       with:
-        ghc-version: '9.2.8'
+        ghc-version: ${{ env.GHC_VERSION }}
         enable-stack: true
         stack-version: 'latest'
   
-    # - name: ⏬ Install stack
-    #   run: |
-    #     # mkdir -p ~/.local/bin
-    #     # export PATH=~/.local/bin:$PATH
-    #     ## Stack is preinstalled on the GHA runners
-    #     # brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
-    #     # if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
-    #     stack --version
-
-    # - name: ⏬ Install GHC
-    #   run: |
-    #     stack setup --install-ghc
-
     - name: ⏬ Install dependencies
       run: |
         stack build --only-dependencies

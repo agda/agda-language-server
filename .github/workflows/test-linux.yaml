@@ -4,7 +4,7 @@ name: CI (Linux)
 
 on:
   push:
-    branches: [master, ci-*]
+    branches: [master, ci-*, ci]
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
@@ -18,10 +18,12 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: Determine stack resolver
+    - name: 🔍 Determine stack resolver & GHC
       run: |
         STACK_RESOLVER=$(yq .resolver stack.yaml)
+        GHC_VERSION=$(yq .compiler stack.yaml)
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
+        echo GHC_VERSION="${GHC_VERSION}" >> "${GITHUB_ENV}"
 
     # things to be restored:
     # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
@@ -54,12 +56,6 @@ jobs:
         # curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
         # if [[ ! -x ~/.local/bin/stack ]]; then curl -sL https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
         stack --version
-
-    - name: ⏬ Install GHC
-      run: |
-        df -h
-        stack setup --install-ghc
-        df -h
 
     - name: ⏬ Install dependencies
       run: |

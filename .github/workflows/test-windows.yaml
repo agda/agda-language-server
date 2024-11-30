@@ -25,7 +25,7 @@ jobs:
     - name: 🏗 Install yq
       uses: frenck/action-setup-yq@v1
 
-    - name: Determine stack root and resolver
+    - name: 🔍 Determine stack root and resolver and GHC
       ## 2023-11-21 https://github.com/commercialhaskell/stack/issues/6340
       ## Asking stack for the stack root unfortunately does not work
       ## if stack is not fully operational (meaning e.g. that GHC is installed)
@@ -33,8 +33,10 @@ jobs:
       run: |
         STACK_ROOT="C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows"
         STACK_RESOLVER=$(yq .resolver stack.yaml)
+        GHC_VERSION=$(yq .compiler stack.yaml)
         echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
+        echo GHC_VERSION="${GHC_VERSION}" >> "${GITHUB_ENV}"
       # run: |
       #   STACK_ROOT="$(stack --system-ghc --no-install-ghc path --stack-root || echo "C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows")"
       #   echo "STACK_ROOT = ${STACK_ROOT}"
@@ -64,22 +66,22 @@ jobs:
 
     # actions
 
-    - name: ⏬ Install stack
-      ## Stack is preinstalled on GHA runners.
-      #
-      #if: steps.stack-programs-dir.outputs.cache-hit != 'true'
-      # this step is needed to get stack.exe into PATH, for now
-        # curl -sL https://get.haskellstack.org/stable/windows-x86_64.zip -o stack.zip
-        # 7z x stack.zip stack.exe
-      run: |
-        which stack
-        stack --version
+    # - name: ⏬ Install stack
+    #   ## Stack is preinstalled on GHA runners.
+    #   #
+    #   #if: steps.stack-programs-dir.outputs.cache-hit != 'true'
+    #   # this step is needed to get stack.exe into PATH, for now
+    #     # curl -sL https://get.haskellstack.org/stable/windows-x86_64.zip -o stack.zip
+    #     # 7z x stack.zip stack.exe
+    #   run: |
+    #     which stack
+    #     stack --version
 
-    - name: ⏬ Install GHC
-      # if: steps.stack-programs-dir.outputs.cache-hit != 'true'
-      # set PATH=C:\Users\runneradmin\AppData\Local\Programs\stack\local\bin;%PATH%
-      run: |
-        stack --no-terminal setup --install-ghc
+    # - name: ⏬ Install GHC
+    #   # if: steps.stack-programs-dir.outputs.cache-hit != 'true'
+    #   # set PATH=C:\Users\runneradmin\AppData\Local\Programs\stack\local\bin;%PATH%
+    #   run: |
+    #     stack --no-terminal setup --install-ghc
 
     - name: Install the icu library
       run: |
