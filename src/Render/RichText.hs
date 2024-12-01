@@ -212,9 +212,20 @@ instance ToJSON Agda.RangeFile where
 
 -- | Utilities / Combinators
 
--- -- TODO: implement this
--- indent :: Inlines -> Inlines
--- indent x = "  " <> x
+
+-- TODO: implement this
+-- Modeled after `nest` defined in ‘Text.PrettyPrint.Annotated.HughesPJ’ (pretty-1.1.3.6)
+-- 
+-- Indent a Inline by a given number of positions (which may also be negative). `indent` satisfies the laws:
+--
+-- `indent`  0 x = x
+-- `indent`  k ( `indent`  k' x) =  `indent`  (k+k') x
+-- `indent`  k (x  `<>`  y)      =  `indent`  k z  `<>`   `indent`  k y
+-- `indent`  k (x  `$$`  y)      =  `indent`  k x  `$$`   `indent`  k y
+-- `indent`  k  `empty`          =  `empty`
+-- `x <> indent k y = x <> y` , if x non-empty
+-- indent :: Int -> Inlines -> Inlines
+-- indent 0 x = x
 
 punctuate :: Inlines -> [Inlines] -> [Inlines]
 punctuate _ [] = []

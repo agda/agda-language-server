@@ -418,15 +418,25 @@ instance Render Declaration where
                 render e
               ]
           ]
+
+#if MIN_VERSION_Agda(2,7,0)
+      Record _ erased x dir tel e cs -> pRecord erased x dir tel (Just e) cs
+#else 
 #if MIN_VERSION_Agda(2,6,4)
-      Record _ _er x dir tel e cs ->
+      Record _ _er x dir tel e cs -> pRecord x dir tel (Just e) cs
 #else
-      Record _ x dir tel e cs ->
+      Record _ x dir tel e cs -> pRecord x dir tel (Just e) cs
 #endif
-        pRecord x dir tel (Just e) cs
-      RecordDef _ x dir tel cs ->
-        pRecord x dir tel Nothing cs
+#endif
+#if MIN_VERSION_Agda(2,7,0)
+      RecordDef _ x dir tel cs -> pRecord defaultErased x dir tel Nothing cs
+#else
+      RecordDef _ x dir tel cs -> pRecord x dir tel Nothing cs
+#endif
+#if MIN_VERSION_Agda(2,7,0)
+#else
       RecordDirective r -> pRecordDirective r
+#endif
       Infix f xs -> render f <+> fsep (punctuate "," $ fmap render (toList xs))
       Syntax n _ -> "syntax" <+> render n <+> "..."
       PatternSyn _ n as p ->
@@ -523,7 +533,36 @@ pRecordDirective = \case
   Eta eta -> pHasEta0 (rangedThing eta)
   PatternOrCopattern{} -> "pattern"
 
-
+#if MIN_VERSION_Agda(2,7,0)
+pRecord
+  :: Erased
+  -> Name
+  -> [RecordDirective]
+  -> [LamBinding]
+  -> Maybe Expr
+  -> [Declaration]
+  -> Inlines
+pRecord erased x directives tel me ds = vcat
+    [ sep
+      [ hsep  [ "record"
+              , renderErased erased (render x)
+              , fsep (map render tel)
+              ]
+      , pType me
+      ]
+    , vcat $ concat
+      [ map render directives
+      , map render ds
+      ]
+    ]
+  where pType (Just e) = hsep
+                [ ":"
+                , render e
+                , "where"
+                ]
+        pType Nothing  =
+                  "where"
+#else
 pRecord ::
   Name ->
   RecordDirectives ->
@@ -561,6 +600,7 @@ pRecord x (RecordDirectives ind eta pat con) tel me cs =
           YesEta -> "eta-equality"
           NoEta _ -> "no-eta-equality"
     pCon = maybeToList $ (("constructor" <+>) . render) . fst <$> con
+#endif
 
 instance Render OpenShortHand where
   render DoOpen = "open"

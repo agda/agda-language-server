@@ -16,7 +16,9 @@ import Agda.Syntax.Common
       Cohesion(..),
       QωOrigin(..),
       LensCohesion(getCohesion),
-      NameId(..) )
+      NameId(..),
+      Erased(..), asQuantity,
+    )
 import qualified Agda.Utils.Null as Agda
 import           Agda.Utils.List1 (toList)
 import           Agda.Utils.Functor ((<&>))
@@ -90,6 +92,11 @@ renderRelevance a d =
 renderQuantity :: LensQuantity a => a -> Inlines -> Inlines
 renderQuantity a d =
   if show d == "_" then d else render (getQuantity a) <+> d
+
+#if MIN_VERSION_Agda(2,7,0)
+renderErased :: Erased -> Inlines -> Inlines
+renderErased = renderQuantity . asQuantity
+#endif
 
 renderCohesion :: LensCohesion a => a -> Inlines -> Inlines
 renderCohesion a d =

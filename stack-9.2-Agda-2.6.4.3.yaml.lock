@@ -11,6 +11,34 @@ packages:
       size: 42904
   original:
     hackage: Agda-2.6.4.3
+- completed:
+    hackage: lsp-2.7.0.0@sha256:2a64b40a69fd9638056ca552d5660203019473061cff1d09dccc0c94e40a275c,3834
+    pantry-tree:
+      sha256: 630a5e18d7783c35a296268959c8d9348ee6dc94540047ea58146b310d8de941
+      size: 1120
+  original:
+    hackage: lsp-2.7.0.0@sha256:2a64b40a69fd9638056ca552d5660203019473061cff1d09dccc0c94e40a275c,3834
+- completed:
+    hackage: lsp-types-2.3.0.0@sha256:ca17a686bda5dc7ff04105ca7081dce5a90bcd050c8800a13efd68b7f0901f1c,34215
+    pantry-tree:
+      sha256: 0bf22e394dc804c8cee74d19a7f38021cfd48a15082b39a14753c037f2a64288
+      size: 51996
+  original:
+    hackage: lsp-types-2.3.0.0@sha256:ca17a686bda5dc7ff04105ca7081dce5a90bcd050c8800a13efd68b7f0901f1c,34215
+- completed:
+    hackage: mod-0.2.0.1@sha256:eeb316fef3a8c12f4e83bbeeea748e74d75fca54d4498d574ace92e464adb05a,2409
+    pantry-tree:
+      sha256: d469d7e415c1593f052d3ca647e4085ab759be378d25ca7d2eea0aab0083ce38
+      size: 590
+  original:
+    hackage: mod-0.2.0.1@sha256:eeb316fef3a8c12f4e83bbeeea748e74d75fca54d4498d574ace92e464adb05a,2409
+- completed:
+    hackage: row-types-1.0.1.2@sha256:4d4c7cb95d06a32b28ba977852d52a26b4c1f695ef083a6fd874ab6d79933b64,3071
+    pantry-tree:
+      sha256: 6a3617038d3970095100d14d026c396002a115700500cf3004ffb67ae5a75611
+      size: 1060
+  original:
+    hackage: row-types-1.0.1.2@sha256:4d4c7cb95d06a32b28ba977852d52a26b4c1f695ef083a6fd874ab6d79933b64,3071
 snapshots:
 - completed:
     sha256: 5a59b2a405b3aba3c00188453be172b85893cab8ebc352b1ef58b0eae5d248a2
