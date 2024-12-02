@@ -53,6 +53,8 @@ import           Data.String (IsString (..))
 import qualified Data.Strict.Maybe as Strict
 
 import           GHC.Generics (Generic)
+import Agda.Utils.Null
+import Prelude hiding (null)
 
 --------------------------------------------------------------------------------
 -- | Block elements
@@ -104,27 +106,30 @@ instance ToJSON Inlines where
 instance Show Inlines where
   show (Inlines xs) = unwords $ map show $ toList xs
 
--- | see if the rendered text is "empty"
-isEmpty :: Inlines -> Bool
-isEmpty (Inlines elems) = all elemIsEmpty (Seq.viewl elems)
-  where
-    elemIsEmpty :: Inline -> Bool
-    elemIsEmpty (Icon _ _) = False
-    elemIsEmpty (Text "" _) = True
-    elemIsEmpty (Text _ _) = False
-    elemIsEmpty (Link _ xs _) = all elemIsEmpty $ unInlines xs
-    elemIsEmpty (Hole _) = False
-    elemIsEmpty (Horz xs) = all isEmpty xs
-    elemIsEmpty (Vert xs) = all isEmpty xs
-    elemIsEmpty (Parn _) = False
-    elemIsEmpty (PrHz _) = False
+instance Null Inlines where
+  empty = mempty
+  null (Inlines elems) = all elemIsNull (Seq.viewl elems)
+    where
+      elemIsNull :: Inline -> Bool
+      elemIsNull (Icon _ _) = False
+      elemIsNull (Text "" _) = True
+      elemIsNull (Text _ _) = False
+      elemIsNull (Link _ xs _) = all elemIsNull $ unInlines xs
+      elemIsNull (Hole _) = False
+      elemIsNull (Horz xs) = all null xs
+      elemIsNull (Vert xs) = all null xs
+      elemIsNull (Parn _) = False
+      elemIsNull (PrHz _) = False
+
+-- -- | see if the rendered text is "empty"
+
 
 infixr 6 <+>
 
 (<+>) :: Inlines -> Inlines -> Inlines
 x <+> y
-  | isEmpty x = y
-  | isEmpty y = x
+  | null x = y
+  | null y = x
   | otherwise = x <> " " <> y
 
 -- | Whitespace

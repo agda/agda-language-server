@@ -32,6 +32,12 @@ import Prelude hiding (null)
 
 --------------------------------------------------------------------------------
 
+#if MIN_VERSION_Agda(2,7,0)
+instance Render a => Render (TacticAttribute' a) where
+  render (TacticAttribute t) =
+    ifNull (render t) empty $ \ d -> "@" <> parens ("tactic" <+> d)
+#endif
+
 instance Render a => Render (Ranged a) where
   render = render . rangedThing
 
