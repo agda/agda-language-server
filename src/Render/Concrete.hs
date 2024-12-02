@@ -701,6 +701,11 @@ instance Render Pragma where
   render (NotProjectionLikePragma _ q) =
     hsep [ "NOT_PROJECTION_LIKE", render q ]
 #endif
+#if MIN_VERSION_Agda(2,7,0)
+  render (InjectiveForInferencePragma _ i) =
+    hsep $ ["INJECTIVE_FOR_INFERENCE", render i]
+  render (OverlapPragma _ x m) = hsep [render m, render x]
+#endif
 
 instance Render Fixity where
   render (Fixity _ Unrelated _) = __IMPOSSIBLE__

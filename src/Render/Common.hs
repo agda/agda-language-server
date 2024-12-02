@@ -17,7 +17,10 @@ import Agda.Syntax.Common
       QωOrigin(..),
       LensCohesion(getCohesion),
       NameId(..),
-      Erased(..), asQuantity, Lock(..), LockOrigin (..),
+      Erased(..), asQuantity, Lock(..), LockOrigin (..), 
+#if MIN_VERSION_Agda(2,7,0)
+      OverlapMode (..),
+#endif
     )
 import qualified Agda.Utils.Null as Agda
 import           Agda.Utils.List1 (toList)
@@ -71,6 +74,19 @@ instance Render Cohesion where
   render Flat   = "@♭"
   render Continuous = mempty
   render Squash  = "@⊤"
+
+--------------------------------------------------------------------------------
+
+#if MIN_VERSION_Agda(2,7,0)
+instance Render OverlapMode where
+  render = \case
+    Overlappable   -> "OVERLAPPABLE"
+    Overlapping    -> "OVERLAPPING"
+    Incoherent     -> "INCOHERENT"
+    Overlaps       -> "OVERLAPS"
+    FieldOverlap   -> "overlap"
+    DefaultOverlap -> mempty
+#endif
 
 --------------------------------------------------------------------------------
 
