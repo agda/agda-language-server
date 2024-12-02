@@ -58,6 +58,10 @@ import qualified Data.Map as Map
 import Data.String (IsString)
 import qualified Render
 
+#if MIN_VERSION_Agda(2,7,0)
+import Agda.Interaction.Output ( OutputConstraint )
+#endif
+
 responseAbbr :: IsString a => Response -> a
 responseAbbr res = case res of
   Resp_HighlightingInfo {} -> "Resp_HighlightingInfo"

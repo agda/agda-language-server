@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Render.Interaction where
 
@@ -7,6 +8,9 @@ import qualified Data.Map                      as Map
 import qualified Data.Set                      as Set
 
 import           Agda.Interaction.Base
+#if MIN_VERSION_Agda(2,7,0)
+import           Agda.Interaction.Output        ( OutputForm, OutputConstraint )
+#endif
 import           Agda.Syntax.Internal           ( Blocker(..) )
 import           Agda.TypeChecking.Monad
 import           Render.Class
