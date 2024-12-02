@@ -71,6 +71,9 @@ responseAbbr res = case res of
   Resp_GiveAction {} -> "Resp_GiveAction"
   Resp_MakeCase {} -> "Resp_MakeCase"
   Resp_SolveAll {} -> "Resp_SolveAll"
+#if MIN_VERSION_Agda(2,7,0)
+  Resp_Mimer {} -> "Resp_Mimer"
+#endif
   Resp_DisplayInfo {} -> "Resp_DisplayInfo"
   Resp_RunningInfo {} -> "Resp_RunningInfo"
   Resp_ClearRunningInfo {} -> "Resp_ClearRunningInfo"
@@ -101,6 +104,9 @@ fromResponse (Resp_GiveAction (InteractionId i) giveAction) =
   return $ IR.ResponseGiveAction i (fromAgda giveAction)
 fromResponse (Resp_MakeCase _ Function pcs) = return $ IR.ResponseMakeCaseFunction pcs
 fromResponse (Resp_MakeCase _ ExtendedLambda pcs) = return $ IR.ResponseMakeCaseExtendedLambda pcs
+#if MIN_VERSION_Agda(2,7,0)
+fromResponse (Resp_Mimer (InteractionId i) s) = return $ IR.ResponseMimer i s
+#endif
 fromResponse (Resp_SolveAll ps) = return $ IR.ResponseSolveAll (fmap prn ps)
   where
     prn (InteractionId i, e) = (i, prettyShow e)
