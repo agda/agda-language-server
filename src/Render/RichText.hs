@@ -16,6 +16,7 @@ module Render.RichText
     icon,
     -- combinators
     (<+>),
+    (<?>),
     punctuate,
     braces,
     braces',
@@ -131,6 +132,11 @@ x <+> y
   | null x = y
   | null y = x
   | otherwise = x <> " " <> y
+
+infixl 6 <?>
+-- | A synonym for '<+>' at the moment
+(<?>) :: Inlines -> Inlines -> Inlines
+(<?>) = (<+>)
 
 -- | Whitespace
 space :: Inlines

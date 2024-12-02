@@ -28,6 +28,7 @@ import           Agda.Utils.Functor ((<&>))
 
 import Render.Class
 import Render.RichText
+import qualified Agda.Utils.List1 as List1
 
 --------------------------------------------------------------------------------
 
@@ -131,6 +132,9 @@ instance (Render p, Render e) => Render (RewriteEqn' qn nm p e) where
   render = \case
     Rewrite es   -> prefixedThings (text "rewrite") (render . snd <$> toList es)
     Invert _ pes -> prefixedThings (text "invert") (toList pes <&> (\ (p, e) -> render p <+> "<-" <+> render e) . namedThing)
+#if MIN_VERSION_Agda(2,7,0)
+    LeftLet pes  -> prefixedThings (text "using") [render p <+> "<-" <+> render e | (p, e) <- List1.toList pes]
+#endif
 
 prefixedThings :: Inlines -> [Inlines] -> Inlines
 prefixedThings kw = \case
