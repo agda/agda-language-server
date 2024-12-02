@@ -392,10 +392,12 @@ instance Render Declaration where
         where
           mkInst (InstanceDef _) f = sep ["instance", f]
           mkInst NotInstanceDef f = f
-
-          mkOverlap j f
-            | isOverlappable j = "overlap" <+> f
-            | otherwise = f
+#if MIN_VERSION_Agda(2,7,0)
+          mkOverlap i d | isYesOverlap i = "overlap" <+> d
+#else
+          mkOverlap i d | isOverlappable i = "overlap" <+> d
+#endif
+                        | otherwise        = d
       Field _ fs ->
         sep
           [ "field",
@@ -569,6 +571,9 @@ pHasEta0 :: HasEta0 -> Inlines
 pHasEta0 = \case
   YesEta   -> "eta-equality"
   NoEta () -> "no-eta-equality"
+
+instance Render RecordDirective where
+  render = pRecordDirective
 
 pRecordDirective ::
   RecordDirective ->
