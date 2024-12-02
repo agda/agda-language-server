@@ -17,7 +17,8 @@ import           Agda.Utils.List1 as List1 (toList, fromList)
 import qualified Agda.Utils.List1 as List1
 import qualified Agda.Utils.List2 as List2
 import Agda.Utils.Float (toStringWithoutDotZero)
-import Agda.Utils.Function (applyWhen)
+import Agda.Utils.Function
+import Agda.Utils.Null
 import Agda.Utils.Functor (dget, (<&>))
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
 
@@ -27,6 +28,7 @@ import Render.Literal ()
 import Render.Name ()
 import Render.RichText
 import Render.TypeChecking ()
+import Prelude hiding (null)
 
 --------------------------------------------------------------------------------
 
@@ -172,6 +174,28 @@ instance Render a => Render (Binder' a) where
 
 -- | NamedBinding
 instance Render NamedBinding where
+#if MIN_VERSION_Agda(2,7,0)
+  render (NamedBinding withH
+           x@(Arg (ArgInfo h (Modality r q c) _o _fv (Annotation lock))
+               (Named _mn xb@(Binder _mp (BName _y _fix t _fin))))) =
+    applyWhen withH prH $
+    applyWhenJust (isLabeled x) (\ l -> (text l <+>) . ("=" <+>)) (render xb)
+      -- isLabeled looks at _mn and _y
+      -- pretty xb prints also the pattern _mp
+    where
+    prH = (render r <>)
+        . renderHiding h mparens
+        . (coh <+>)
+        . (qnt <+>)
+        . (lck <+>)
+        . (tac <+>)
+    coh = render c
+    qnt = render q
+    tac = render t
+    lck = render lock
+    -- Parentheses are needed when an attribute @... is printed
+    mparens = applyUnless (null coh && null qnt && null lck && null tac) parens
+#else 
   render (NamedBinding withH x) =
     prH $
       if
@@ -192,13 +216,20 @@ instance Render NamedBinding where
       mparens'
         | noUserQuantity x, Nothing <- bnameTactic bn = id
         | otherwise = parens
+#endif
 
 renderTactic :: BoundName -> Inlines -> Inlines
 renderTactic = renderTactic' . bnameTactic
 
 renderTactic' :: TacticAttribute -> Inlines -> Inlines
+#if MIN_VERSION_Agda(2,7,0)
+renderTactic' t = (render t <+>)
+#else
 renderTactic' Nothing d = d
 renderTactic' (Just t) d = "@" <> (parens ("tactic " <> render t) <+> d)
+#endif
+
+
 
 --------------------------------------------------------------------------------
 
