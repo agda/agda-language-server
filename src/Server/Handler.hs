@@ -6,8 +6,12 @@ import           Agda                           ( getCommandLineOptions
                                                 , runAgda
                                                 )
 import qualified Agda.IR                       as IR
-import           Agda.Interaction.Base          ( CommandM
-                                                , CommandQueue(..)
+
+import           Agda.Interaction.Base          ( CommandQueue(..)
+#if MIN_VERSION_Agda(2,7,0)
+#else
+                                                , CommandM
+#endif
                                                 , CommandState(optionsOnReload)
                                                 , Rewrite(AsIs)
                                                 , initCommandState
@@ -21,6 +25,10 @@ import qualified Agda.Interaction.Imports      as Imp
 import           Agda.Interaction.InteractionTop
                                                 ( cmd_load'
                                                 , localStateCommandM
+#if MIN_VERSION_Agda(2,7,0)
+                                                , CommandM
+#else
+#endif
                                                 )
 import           Agda.Interaction.Options       ( CommandLineOptions
                                                   ( optAbsoluteIncludePaths

@@ -17,7 +17,8 @@ import           Agda.Utils.List1 as List1 (toList, fromList)
 import qualified Agda.Utils.List1 as List1
 import qualified Agda.Utils.List2 as List2
 import Agda.Utils.Float (toStringWithoutDotZero)
-import Agda.Utils.Function (applyWhen)
+import Agda.Utils.Function
+import Agda.Utils.Null
 import Agda.Utils.Functor (dget, (<&>))
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
 
@@ -27,8 +28,15 @@ import Render.Literal ()
 import Render.Name ()
 import Render.RichText
 import Render.TypeChecking ()
+import Prelude hiding (null)
 
 --------------------------------------------------------------------------------
+
+#if MIN_VERSION_Agda(2,7,0)
+instance Render a => Render (TacticAttribute' a) where
+  render (TacticAttribute t) =
+    ifNull (render t) empty $ \ d -> "@" <> parens ("tactic" <+> d)
+#endif
 
 instance Render a => Render (Ranged a) where
   render = render . rangedThing
@@ -172,6 +180,28 @@ instance Render a => Render (Binder' a) where
 
 -- | NamedBinding
 instance Render NamedBinding where
+#if MIN_VERSION_Agda(2,7,0)
+  render (NamedBinding withH
+           x@(Arg (ArgInfo h (Modality r q c) _o _fv (Annotation lock))
+               (Named _mn xb@(Binder _mp (BName _y _fix t _fin))))) =
+    applyWhen withH prH $
+    applyWhenJust (isLabeled x) (\ l -> (text l <+>) . ("=" <+>)) (render xb)
+      -- isLabeled looks at _mn and _y
+      -- pretty xb prints also the pattern _mp
+    where
+    prH = (render r <>)
+        . renderHiding h mparens
+        . (coh <+>)
+        . (qnt <+>)
+        . (lck <+>)
+        . (tac <+>)
+    coh = render c
+    qnt = render q
+    tac = render t
+    lck = render lock
+    -- Parentheses are needed when an attribute @... is printed
+    mparens = applyUnless (null coh && null qnt && null lck && null tac) parens
+#else 
   render (NamedBinding withH x) =
     prH $
       if
@@ -192,13 +222,20 @@ instance Render NamedBinding where
       mparens'
         | noUserQuantity x, Nothing <- bnameTactic bn = id
         | otherwise = parens
+#endif
 
 renderTactic :: BoundName -> Inlines -> Inlines
 renderTactic = renderTactic' . bnameTactic
 
 renderTactic' :: TacticAttribute -> Inlines -> Inlines
+#if MIN_VERSION_Agda(2,7,0)
+renderTactic' t = (render t <+>)
+#else
 renderTactic' Nothing d = d
 renderTactic' (Just t) d = "@" <> (parens ("tactic " <> render t) <+> d)
+#endif
+
+
 
 --------------------------------------------------------------------------------
 
@@ -266,6 +303,17 @@ instance Render WhereClause where
     | isNoName (unqualify x) =
       vcat ["where", vcat $ fmap render ds]
   render (AnyWhere _range ds) = vcat ["where", vcat $ fmap render ds]
+#if MIN_VERSION_Agda(2,7,0)
+  render (SomeWhere _ erased m a ds) =
+    vcat [ hsep $ privateWhenUserWritten a
+             [ "module", renderErased erased (render m), "where" ]
+         , vcat $ map render ds
+         ]
+    where
+      privateWhenUserWritten = \case
+        PrivateAccess _ UserWritten -> ("private" :)
+        _ -> id
+#else
 #if MIN_VERSION_Agda(2,6,4)
   render (SomeWhere _range _er m a ds) =
 #else
@@ -279,6 +327,7 @@ instance Render WhereClause where
             ["module", render m, "where"],
         vcat $ fmap render ds
       ]
+#endif
 
 instance Render LHS where
   render (LHS p eqs es) =
@@ -343,10 +392,12 @@ instance Render Declaration where
         where
           mkInst (InstanceDef _) f = sep ["instance", f]
           mkInst NotInstanceDef f = f
-
-          mkOverlap j f
-            | isOverlappable j = "overlap" <+> f
-            | otherwise = f
+#if MIN_VERSION_Agda(2,7,0)
+          mkOverlap i d | isYesOverlap i = "overlap" <+> d
+#else
+          mkOverlap i d | isOverlappable i = "overlap" <+> d
+#endif
+                        | otherwise        = d
       Field _ fs ->
         sep
           [ "field",
@@ -418,15 +469,25 @@ instance Render Declaration where
                 render e
               ]
           ]
+
+#if MIN_VERSION_Agda(2,7,0)
+      Record _ erased x dir tel e cs -> pRecord erased x dir tel (Just e) cs
+#else 
 #if MIN_VERSION_Agda(2,6,4)
-      Record _ _er x dir tel e cs ->
+      Record _ _er x dir tel e cs -> pRecord x dir tel (Just e) cs
 #else
-      Record _ x dir tel e cs ->
+      Record _ x dir tel e cs -> pRecord x dir tel (Just e) cs
 #endif
-        pRecord x dir tel (Just e) cs
-      RecordDef _ x dir tel cs ->
-        pRecord x dir tel Nothing cs
+#endif
+#if MIN_VERSION_Agda(2,7,0)
+      RecordDef _ x dir tel cs -> pRecord defaultErased x dir tel Nothing cs
+#else
+      RecordDef _ x dir tel cs -> pRecord x dir tel Nothing cs
+#endif
+#if MIN_VERSION_Agda(2,7,0)
+#else
       RecordDirective r -> pRecordDirective r
+#endif
       Infix f xs -> render f <+> fsep (punctuate "," $ fmap render (toList xs))
       Syntax n _ -> "syntax" <+> render n <+> "..."
       PatternSyn _ n as p ->
@@ -511,6 +572,9 @@ pHasEta0 = \case
   YesEta   -> "eta-equality"
   NoEta () -> "no-eta-equality"
 
+instance Render RecordDirective where
+  render = pRecordDirective
+
 pRecordDirective ::
   RecordDirective ->
   Inlines
@@ -523,7 +587,36 @@ pRecordDirective = \case
   Eta eta -> pHasEta0 (rangedThing eta)
   PatternOrCopattern{} -> "pattern"
 
-
+#if MIN_VERSION_Agda(2,7,0)
+pRecord
+  :: Erased
+  -> Name
+  -> [RecordDirective]
+  -> [LamBinding]
+  -> Maybe Expr
+  -> [Declaration]
+  -> Inlines
+pRecord erased x directives tel me ds = vcat
+    [ sep
+      [ hsep  [ "record"
+              , renderErased erased (render x)
+              , fsep (map render tel)
+              ]
+      , pType me
+      ]
+    , vcat $ concat
+      [ map render directives
+      , map render ds
+      ]
+    ]
+  where pType (Just e) = hsep
+                [ ":"
+                , render e
+                , "where"
+                ]
+        pType Nothing  =
+                  "where"
+#else
 pRecord ::
   Name ->
   RecordDirectives ->
@@ -561,6 +654,7 @@ pRecord x (RecordDirectives ind eta pat con) tel me cs =
           YesEta -> "eta-equality"
           NoEta _ -> "no-eta-equality"
     pCon = maybeToList $ (("constructor" <+>) . render) . fst <$> con
+#endif
 
 instance Render OpenShortHand where
   render DoOpen = "open"
@@ -606,6 +700,11 @@ instance Render Pragma where
 #if MIN_VERSION_Agda(2,6,3)
   render (NotProjectionLikePragma _ q) =
     hsep [ "NOT_PROJECTION_LIKE", render q ]
+#endif
+#if MIN_VERSION_Agda(2,7,0)
+  render (InjectiveForInferencePragma _ i) =
+    hsep $ ["INJECTIVE_FOR_INFERENCE", render i]
+  render (OverlapPragma _ x m) = hsep [render m, render x]
 #endif
 
 instance Render Fixity where

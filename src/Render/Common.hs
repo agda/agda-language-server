@@ -16,13 +16,19 @@ import Agda.Syntax.Common
       Cohesion(..),
       QωOrigin(..),
       LensCohesion(getCohesion),
-      NameId(..) )
+      NameId(..),
+      Erased(..), asQuantity, Lock(..), LockOrigin (..), 
+#if MIN_VERSION_Agda(2,7,0)
+      OverlapMode (..),
+#endif
+    )
 import qualified Agda.Utils.Null as Agda
 import           Agda.Utils.List1 (toList)
 import           Agda.Utils.Functor ((<&>))
 
 import Render.Class
 import Render.RichText
+import qualified Agda.Utils.List1 as List1
 
 --------------------------------------------------------------------------------
 
@@ -72,6 +78,19 @@ instance Render Cohesion where
 
 --------------------------------------------------------------------------------
 
+#if MIN_VERSION_Agda(2,7,0)
+instance Render OverlapMode where
+  render = \case
+    Overlappable   -> "OVERLAPPABLE"
+    Overlapping    -> "OVERLAPPING"
+    Incoherent     -> "INCOHERENT"
+    Overlaps       -> "OVERLAPS"
+    FieldOverlap   -> "overlap"
+    DefaultOverlap -> mempty
+#endif
+
+--------------------------------------------------------------------------------
+
 -- | From 'prettyHiding'
 --   @renderHiding info visible text@ puts the correct braces
 --   around @text@ according to info @info@ and returns
@@ -91,6 +110,17 @@ renderQuantity :: LensQuantity a => a -> Inlines -> Inlines
 renderQuantity a d =
   if show d == "_" then d else render (getQuantity a) <+> d
 
+instance Render Lock where
+  render = \case
+    IsLock LockOLock -> "@lock"
+    IsLock LockOTick -> "@tick"
+    IsNotLock -> mempty
+
+#if MIN_VERSION_Agda(2,7,0)
+renderErased :: Erased -> Inlines -> Inlines
+renderErased = renderQuantity . asQuantity
+#endif
+
 renderCohesion :: LensCohesion a => a -> Inlines -> Inlines
 renderCohesion a d =
   if show d == "_" then d else render (getCohesion a) <+> d
@@ -102,6 +132,9 @@ instance (Render p, Render e) => Render (RewriteEqn' qn nm p e) where
   render = \case
     Rewrite es   -> prefixedThings (text "rewrite") (render . snd <$> toList es)
     Invert _ pes -> prefixedThings (text "invert") (toList pes <&> (\ (p, e) -> render p <+> "<-" <+> render e) . namedThing)
+#if MIN_VERSION_Agda(2,7,0)
+    LeftLet pes  -> prefixedThings (text "using") [render p <+> "<-" <+> render e | (p, e) <- List1.toList pes]
+#endif
 
 prefixedThings :: Inlines -> [Inlines] -> Inlines
 prefixedThings kw = \case
