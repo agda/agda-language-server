@@ -78,6 +78,10 @@ instance Render Bool where
 instance Render Doc where
   render = text . Doc.render
 
+instance Render a => Render (Maybe a) where
+  renderPrec p Nothing  = mempty
+  renderPrec p (Just x) = renderPrec p x
+
 instance Render a => Render [a] where
   render xs = "[" <> fsep (punctuate "," (fmap render xs)) <> "]"
 instance Render a => Render (List1 a) where

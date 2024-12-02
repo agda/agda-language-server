@@ -17,7 +17,7 @@ import Agda.Syntax.Common
       QωOrigin(..),
       LensCohesion(getCohesion),
       NameId(..),
-      Erased(..), asQuantity,
+      Erased(..), asQuantity, Lock(..), LockOrigin (..),
     )
 import qualified Agda.Utils.Null as Agda
 import           Agda.Utils.List1 (toList)
@@ -92,6 +92,12 @@ renderRelevance a d =
 renderQuantity :: LensQuantity a => a -> Inlines -> Inlines
 renderQuantity a d =
   if show d == "_" then d else render (getQuantity a) <+> d
+
+instance Render Lock where
+  render = \case
+    IsLock LockOLock -> "@lock"
+    IsLock LockOTick -> "@tick"
+    IsNotLock -> mempty
 
 #if MIN_VERSION_Agda(2,7,0)
 renderErased :: Erased -> Inlines -> Inlines
