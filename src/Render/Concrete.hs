@@ -297,6 +297,17 @@ instance Render WhereClause where
     | isNoName (unqualify x) =
       vcat ["where", vcat $ fmap render ds]
   render (AnyWhere _range ds) = vcat ["where", vcat $ fmap render ds]
+#if MIN_VERSION_Agda(2,7,0)
+  render (SomeWhere _ erased m a ds) =
+    vcat [ hsep $ privateWhenUserWritten a
+             [ "module", renderErased erased (render m), "where" ]
+         , vcat $ map render ds
+         ]
+    where
+      privateWhenUserWritten = \case
+        PrivateAccess _ UserWritten -> ("private" :)
+        _ -> id
+#else
 #if MIN_VERSION_Agda(2,6,4)
   render (SomeWhere _range _er m a ds) =
 #else
@@ -310,6 +321,7 @@ instance Render WhereClause where
             ["module", render m, "where"],
         vcat $ fmap render ds
       ]
+#endif
 
 instance Render LHS where
   render (LHS p eqs es) =
