@@ -26,12 +26,8 @@ jobs:
       uses: frenck/action-setup-yq@v1
 
     - name: 🔍 Determine stack root and resolver and GHC
-      ## 2023-11-21 https://github.com/commercialhaskell/stack/issues/6340
-      ## Asking stack for the stack root unfortunately does not work
-      ## if stack is not fully operational (meaning e.g. that GHC is installed)
-      ## so we hardcode its location instead.
       run: |
-        STACK_ROOT="C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows"
+        STACK_ROOT="$(stack path --stack-root)"
         STACK_RESOLVER=$(yq .resolver stack.yaml)
         GHC_VERSION=$(echo $(yq .compiler stack.yaml) | cut -c 5-)
         echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
@@ -48,7 +44,7 @@ jobs:
 
     - name: 💾 Restore cached stack global package db
       id:   stack-global
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: ${{ env.STACK_ROOT }}
         key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
@@ -57,7 +53,7 @@ jobs:
 
     - name: 💾 Restore cached .stack-work
       id:   stack-work
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: .stack-work
         key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
@@ -65,57 +61,44 @@ jobs:
              ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
     # actions
-
-    # - name: ⏬ Install stack
-    #   ## Stack is preinstalled on GHA runners.
-    #   #
-    #   #if: steps.stack-programs-dir.outputs.cache-hit != 'true'
-    #   # this step is needed to get stack.exe into PATH, for now
-    #     # curl -sL https://get.haskellstack.org/stable/windows-x86_64.zip -o stack.zip
-    #     # 7z x stack.zip stack.exe
-    #   run: |
-    #     which stack
-    #     stack --version
-
-    # - name: ⏬ Install GHC
-    #   # if: steps.stack-programs-dir.outputs.cache-hit != 'true'
-    #   # set PATH=C:\Users\runneradmin\AppData\Local\Programs\stack\local\bin;%PATH%
-    #   run: |
-    #     stack --no-terminal setup --install-ghc
-
     - name: Install the icu library
       run: |
         stack exec -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
 
-    - name: 📸 Build Snapshot
-      run: |
-        stack build --no-terminal --only-snapshot -j1
+    # - name: 📸 Build Snapshot
+    #   run: |
+    #     stack build --no-terminal --only-snapshot -j1
 
-    - name: 🧰 Build Dependencies
-      run: |
-        stack build --no-terminal --only-dependencies
+    # - name: 🧰 Build Dependencies
+    #   run: |
+    #     stack build --no-terminal --only-dependencies
 
-    - name: 🔨 Build and run tests
-      run: |
-        stack test
+    # - name: 🔨 Build and run tests
+    #   run: |
+    #     stack test
+
+    - name: 🔨 Build
+      run: stack build
+
+    - name: 🧪 Run tests
+      run: stack test
 
     # things to be cached
 
     - name: 💾 Cache stack global package db
       if:   always() && steps.stack-global.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: ${{ env.STACK_ROOT }}
         key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
     - name: 💾 Cache .stack-work
       if:   always() && steps.stack-work.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: .stack-work
         key: ${{ steps.stack-work.outputs.cache-primary-key }}
 
-    # release (optional)
     # artifacts:
 
     - name: 📦 Compress executable and data files
@@ -148,6 +131,7 @@ jobs:
         cd ..
         mv zip/als-windows.zip .
 
+    # release (optional)
     - name: 🚢 Release Artifacts
       if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
       env:
