@@ -8,6 +8,8 @@ module Agda
   , runAgda
   , sendCommand
   , getCommandLineOptions
+  , CommandReq(..)
+  , CommandRes(..)
   ) where
 
 import           Prelude                        hiding ( null )
@@ -251,6 +253,7 @@ data CommandReq
   | CmdReq String
   deriving (Generic)
 
+instance ToJSON CommandReq
 instance FromJSON CommandReq
 
 data CommandRes

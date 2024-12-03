@@ -130,6 +130,7 @@ tests:
       - test
       - src
     dependencies:
+      - lsp-test
       - tasty
       - tasty-hunit
       - tasty-golden
