@@ -1,0 +1,227 @@
+# modified from https://github.com/simonmichael/hledger/blob/master/.github/workflows/linux.yml
+
+name: CI (Unix)
+
+on:
+  push:
+    branches: [master, ci-*, ci]
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }} 
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    steps:
+
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🔍 Determine stack resolver & GHC
+      run: |
+        STACK_RESOLVER=$(yq .resolver stack.yaml)
+        GHC_VERSION=$(echo $(yq .compiler stack.yaml) | cut -c 5-)
+        echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
+        echo GHC_VERSION="${GHC_VERSION}" >> "${GITHUB_ENV}"
+
+    # things to be restored:
+    # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
+
+    - name: 💾 Restore cached stack global package db
+      id:   stack-global
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.stack
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
+
+    - name: 💾 Restore cached .stack-work
+      id:   stack-work
+      uses: actions/cache/restore@v4
+      with:
+        path: .stack-work
+        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
+        restore-keys: |
+             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
+
+    # actions:
+    - name: Set PKG_CONFIG_PATH for the ICU library (on macOS)
+      if: runner.os == 'macOS'
+      run: |
+        echo PKG_CONFIG_PATH="$(brew --prefix)/opt/icu4c/lib/pkgconfig" >> "${GITHUB_ENV}"
+
+    - name: ⏬ Setup Haskell
+      uses: haskell-actions/setup@v2
+      id: setup-haskell
+      with:
+        ghc-version: ${{ env.GHC_VERSION }}
+        enable-stack: true
+        stack-version: 'latest'
+  
+    - name: ⏬ Install dependencies
+      run: |
+        stack build
+
+    - name: 🔨 Build and run tests
+      run: |
+        stack test
+  
+    # things to be cached
+
+    - name: 💾 Cache stack global package db
+      if:   always() && steps.stack-global.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: ~/.stack
+        key: ${{ steps.stack-global.outputs.cache-primary-key }}
+
+    - name: 💾 Cache .stack-work
+      if:   always() && steps.stack-work.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path: .stack-work
+        key: ${{ steps.stack-work.outputs.cache-primary-key }}
+
+
+    - name: 🔗 Bundle ICU4C DLLs (on macOS)
+      if: runner.os == 'macOS'
+      run: |  # Bundle icu4c DLLs
+
+        # see if icu4c has been installed
+        if [ "$(brew list | grep icu4c)" = "" ]
+            then
+                echo "installing icu4c"
+                brew install icu4c
+        fi
+
+        # get the directory of the DDLs we want (icuuc, icui18n, icudata)
+        dylib_dir=$(dirname "$(brew list icu4c | grep icuuc.dylib)")
+        echo "dylib_dir: $dylib_dir"
+
+        # find the path of "als"
+        executable=$(find "$(stack path --local-install-root)"/bin -name "als")
+        echo "executable: $executable"
+
+        # remove the old dylib, and make a new one
+        rm -rf dylib
+        mkdir dylib
+
+        ################################################################################
+        # icuuc
+        ################################################################################
+
+        icuuc_id=$(otool -L "$executable" | grep icuuc | awk '{print $1}')
+        icuuc_id_basename=$(basename "$icuuc_id")
+
+        icuuc_path=$dylib_dir/$icuuc_id_basename
+        icuuc_path_new=dylib/$icuuc_id_basename
+        icuuc_id_new=@loader_path/dylib/$icuuc_id_basename
+
+        # copy icuuc to the new directory
+        cp "$icuuc_path" "$icuuc_path_new"
+
+        # change icuuc's ID referenced by ALS
+        install_name_tool -change "$icuuc_id" "$icuuc_id_new" "$executable"
+
+        echo "icuuc referenced by ALS"
+        echo "    old ID  : $icuuc_id"
+        echo "    new ID  : $icuuc_id_new"
+        echo "    old path: $icuuc_path"
+        echo "    new path: $icuuc_path_new"
+
+        ################################################################################
+        # icui18n
+        ################################################################################
+
+        icui18n_id=$(otool -L "$executable" | grep icui18n | awk '{print $1}')
+        icui18n_id_basename=$(basename "$icui18n_id")
+
+        icui18n_path=$dylib_dir/$icui18n_id_basename
+        icui18n_path_new=dylib/$icui18n_id_basename
+        icui18n_id_new=@loader_path/dylib/$icui18n_id_basename
+
+        # copy icui18n to the new directory
+        cp "$icui18n_path" "$icui18n_path_new"
+
+        # change icui18n's ID referenced by ALS
+        install_name_tool -change "$icui18n_id" "$icui18n_id_new" "$executable"
+
+        echo "icui18n referenced by ALS"
+        echo "    old ID  : $icui18n_id"
+        echo "    new ID  : $icui18n_id_new"
+        echo "    old path: $icui18n_path"
+        echo "    new path: $icui18n_path_new"
+
+        ################################################################################
+        # icudata
+        ################################################################################
+
+        # otool -L "$icui18n_id" | grep icudata | awk '{print $1}'
+        icudata_id=$(otool -L "$icuuc_path" | grep icudata | awk '{print $1}')
+        icudata_id_basename=$(basename "$icudata_id")
+
+        icudata_path=$dylib_dir/$icudata_id_basename
+        icudata_path_new=dylib/$icudata_id_basename
+
+        # copy icudata to the new directory
+        cp "$icudata_path" "$icudata_path_new"
+
+        # no need of changing the ID because supposely it's already of "@loader_path"
+
+        echo "icudata referenced by icuuc"
+        echo "    old ID    : $icudata_id"
+        echo "    old path  : $icudata_path"
+        echo "    new path  : $icudata_path_new"
+
+
+    - name: 📦 Compress files
+      id: zip
+      run: |
+        # locate the data-dir
+        datadir=$(find "$(stack path --snapshot-install-root)/share" -type d -name "Agda-*")
+        echo "datadir: $datadir"
+
+        # locate the executable
+        executable=$(find "$(stack path --local-install-root)/bin" -name "als")
+        echo "executable: $executable"
+
+        # make a temporary directory for compresssing
+        mkdir zip
+        cp -r "$datadir" zip/data
+        if [[ ${{ runner.os }} == "macOS" ]]; then
+            cp -r dylib zip/dylib
+        fi
+        cp "$executable" zip/
+
+        # compress
+        if [[ ${{ runner.os }} == "Linux" ]]; then
+          cd zip
+          zip -r als-ubuntu.zip ./*
+          cd ..
+          mv zip/als-ubuntu.zip .
+        fi
+        if [[ ${{ runner.os }} == "macOS" ]]; then
+          cd zip
+          zip -r als-macos.zip ./*
+          cd ..
+          mv zip/als-macos.zip .
+        fi
+
+    - name: 🔨 Build and run tests
+      run: |
+      
+        stack test --ta --als-path=zip/als
+
+    # release (optional)
+    - name: 🚢 Release Artifacts
+      if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release upload ${{ github.ref_name }} als-ubuntu.zip --clobber
