@@ -2,6 +2,10 @@
 
 name: CI (Unix)
 
+defaults:
+  run:
+    shell: bash
+
 on:
   push:
     branches: [master, ci-*, ci]
@@ -22,16 +26,30 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: 🏗 Install yq
+    - name: 🏗 Install yq (Windows)
+      if: runner.os == 'Windows'
       uses: frenck/action-setup-yq@v1
 
-    - name: 🔍 Determine stack resolver & GHC
+    - name: 🔍 Determine Stack resolver & GHC version
       run: |
-        STACK_ROOT="$(stack path --stack-root)"
         STACK_RESOLVER=$(yq .resolver stack.yaml)
         GHC_VERSION=$(echo $(yq .compiler stack.yaml) | cut -c 5-)
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
-        echo GHC_VERSION="${GHC_VERSION}" >> "${GITHUB_ENV}"
+        echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
+
+    - name: 🏗 Setup Haskell
+      if : runner.os == 'macOS'
+      uses: haskell-actions/setup@v2
+      id: setup-haskell
+      with:
+        ghc-version: ${{ env.GHC_VERSION }}
+        enable-stack: true
+        stack-version: 'latest'
+  
+    - name: 🔍 Determine Stack root
+      run: |
+        STACK_ROOT="$(stack path --stack-root)"
+        echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
 
     # things to be restored:
     # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
@@ -60,19 +78,27 @@ jobs:
       run: |
         echo PKG_CONFIG_PATH="$(brew --prefix)/opt/icu4c/lib/pkgconfig" >> "${GITHUB_ENV}"
 
-    - name: ⏬ Setup Haskell
-      uses: haskell-actions/setup@v2
-      id: setup-haskell
-      with:
-        ghc-version: ${{ env.GHC_VERSION }}
-        enable-stack: true
-        stack-version: 'latest'
-  
-    - name: 🔨 Build
-      run: stack build
+    # - name: ⏬ Setup Haskell
+    #   uses: haskell-actions/setup@v2
+    #   id: setup-haskell
+    #   with:
+    #     ghc-version: ${{ env.GHC_VERSION }}
+    #     enable-stack: true
+    #     stack-version: 'latest'
 
-    - name: 🧪 Run tests
-      run: stack test
+    - name: 📸 Build Snapshot
+      run: |
+        stack build --no-terminal --only-snapshot -j1
+
+    - name: 🧰 Build Dependencies
+      run: |
+        stack build --no-terminal --only-dependencies
+  
+    # - name: 🔨 Build
+    #   run: stack build
+
+    # - name: 🧪 Run tests
+    #   run: stack test
   
     # things to be cached
 
@@ -215,10 +241,13 @@ jobs:
           mv zip/als-macos.zip .
         fi
 
-    - name: 🔨 Build and run tests
-      run: |
+    - name: 🧪 Run tests
+      run: stack test --ta --als-path=zip/als
+  
+    # - name: 🔨 Build and run tests
+    #   run: |
 
-        stack test --ta --als-path=zip/als
+    #     stack test --ta --als-path=zip/als
 
     # release (optional)
     - name: 🚢 Release Artifacts

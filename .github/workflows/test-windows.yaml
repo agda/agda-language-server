@@ -22,22 +22,30 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: 🏗 Install yq
+    - name: 🏗 Install yq (Windows)
+      if: runner.os == 'Windows'
       uses: frenck/action-setup-yq@v1
 
-    - name: 🔍 Determine stack root and resolver and GHC
+    - name: 🔍 Determine Stack resolver & GHC version
       run: |
-        STACK_ROOT="$(stack path --stack-root)"
         STACK_RESOLVER=$(yq .resolver stack.yaml)
         GHC_VERSION=$(echo $(yq .compiler stack.yaml) | cut -c 5-)
-        echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
-        echo GHC_VERSION="${GHC_VERSION}" >> "${GITHUB_ENV}"
-      # run: |
-      #   STACK_ROOT="$(stack --system-ghc --no-install-ghc path --stack-root || echo "C:/Users/runneradmin/AppData/Local/Programs/stack/x86_64-windows")"
-      #   echo "STACK_ROOT = ${STACK_ROOT}"
-      #   echo STACK_ROOT="${STACK_ROOT}" >> "${GITHUB_ENV}"
-      # What about C:/Users/runneradmin/AppData/Roaming/stack ?
+        echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
+
+    - name: 🏗 Setup Haskell
+      if : runner.os == 'macOS'
+      uses: haskell-actions/setup@v2
+      id: setup-haskell
+      with:
+        ghc-version: ${{ env.GHC_VERSION }}
+        enable-stack: true
+        stack-version: 'latest'
+  
+    - name: 🔍 Determine Stack root
+      run: |
+        STACK_ROOT="$(stack path --stack-root)"
+        echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
 
     # things to be restored:
     # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
@@ -65,23 +73,20 @@ jobs:
       run: |
         stack exec -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
 
-    # - name: 📸 Build Snapshot
-    #   run: |
-    #     stack build --no-terminal --only-snapshot -j1
+    - name: 📸 Build Snapshot
+      run: |
+        stack build --no-terminal --only-snapshot -j1
 
-    # - name: 🧰 Build Dependencies
-    #   run: |
-    #     stack build --no-terminal --only-dependencies
+    - name: 🧰 Build Dependencies
+      run: |
+        stack build --no-terminal --only-dependencies
 
-    # - name: 🔨 Build and run tests
-    #   run: |
-    #     stack test
 
-    - name: 🔨 Build
-      run: stack build
+    # - name: 🔨 Build
+    #   run: stack build
 
-    - name: 🧪 Run tests
-      run: stack test
+    # - name: 🧪 Run tests
+    #   run: stack test
 
     # things to be cached
 
@@ -130,6 +135,10 @@ jobs:
         Compress-Archive * als-windows.zip
         cd ..
         mv zip/als-windows.zip .
+
+    - name: 🧪 Run tests
+      run: stack test --ta --als-path=zip/als.exe
+
 
     # release (optional)
     - name: 🚢 Release Artifacts
