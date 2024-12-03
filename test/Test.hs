@@ -1,17 +1,30 @@
-module Test where
+import Data.Proxy (Proxy (..))
+import Data.Typeable (Typeable)
+import qualified Test.LSP as LSP
+import qualified Test.SrcLoc as SrcLoc
+import Test.Tasty
+import Test.Tasty.Options
 
-import qualified Test.SrcLoc                   as SrcLoc
-import qualified Test.LSP                   as LSP
-import           Test.Tasty                     ( TestTree
-                                                , defaultMain
-                                                , testGroup
-                                                )
+-- Define the custom option
+newtype AlsPathOption = AlsPathOption FilePath
+  deriving (Show, Typeable)
+
+instance IsOption AlsPathOption where
+  defaultValue = AlsPathOption "als"
+  parseValue = Just . AlsPathOption
+  optionName = return "als-path"
+  optionHelp = return "Path to the als executable"
 
 main :: IO ()
-main = defaultMain tests
+main = do
+  let opts = [Option (Proxy :: Proxy AlsPathOption)]
+      ingredients = includingOptions opts : defaultIngredients
+  defaultMainWithIngredients ingredients tests
 
 tests :: TestTree
-tests = testGroup "Tests" 
-    [SrcLoc.tests,
-        LSP.tests
+tests = askOption $ \(AlsPathOption alsPath) ->
+  testGroup
+    "Tests"
+    [ SrcLoc.tests,
+      LSP.tests alsPath
     ]

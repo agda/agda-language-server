@@ -12,15 +12,16 @@ import qualified Data.Aeson                    as JSON
 import Switchboard ( agdaCustomMethod )
 import Agda
 
-tests :: TestTree
-tests = 
+tests :: FilePath -> TestTree
+tests alsPath = 
   testGroup
     "LSP"
-    [ testCase "load" demo
+    [ testCase "load" (demo alsPath)
     ]
 
-demo :: IO ()
-demo = runSession "als" fullLatestClientCaps "test/data/" $ do
+demo :: FilePath -> IO ()
+demo alsPath = 
+  runSession alsPath fullLatestClientCaps "test/data/" $ do
   doc <- openDoc "A.agda" "agda"
 
   -- Use your favourite favourite combinators.
