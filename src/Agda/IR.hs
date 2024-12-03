@@ -40,6 +40,7 @@ data Response
     ResponseMakeCaseFunction [String]
   | ResponseMakeCaseExtendedLambda [String]
   | ResponseSolveAll [(Int, String)]
+  | ResponseMimer Int (Maybe String)
   | -- priority: 3
     ResponseJumpToError FilePath Int
   | ResponseEnd

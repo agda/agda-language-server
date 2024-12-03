@@ -8,6 +8,8 @@ module Agda
   , runAgda
   , sendCommand
   , getCommandLineOptions
+  , CommandReq(..)
+  , CommandRes(..)
   ) where
 
 import           Prelude                        hiding ( null )
@@ -17,7 +19,10 @@ import           Agda.Compiler.Builtin          ( builtinBackends )
 import           Agda.Convert                   ( fromResponse )
 import           Agda.Interaction.Base          ( Command
                                                 , Command'(Command, Done, Error)
+#if MIN_VERSION_Agda(2,7,0)
+#else
                                                 , CommandM
+#endif
                                                 , CommandState(optionsOnReload)
                                                 , IOTCM
                                                 , initCommandState
@@ -32,6 +37,10 @@ import           Agda.Interaction.InteractionTop
                                                 ( initialiseCommandQueue
                                                 , maybeAbort
                                                 , runInteraction
+#if MIN_VERSION_Agda(2,7,0)
+                                                , CommandM
+#else
+#endif
                                                 )
 import           Agda.Interaction.Options       ( CommandLineOptions
                                                   ( optAbsoluteIncludePaths
@@ -244,6 +253,7 @@ data CommandReq
   | CmdReq String
   deriving (Generic)
 
+instance ToJSON CommandReq
 instance FromJSON CommandReq
 
 data CommandRes

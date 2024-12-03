@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           agda-language-server
-version:        0.2.6.4.3.0
+version:        0.2.7.0.1.0
 synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 category:       Development
@@ -171,6 +171,7 @@ test-suite als-test
   type: exitcode-stdio-1.0
   main-is: Test.hs
   other-modules:
+      Test.LSP
       Test.SrcLoc
       Agda
       Agda.Convert
@@ -216,6 +217,7 @@ test-suite als-test
     , directory
     , filepath
     , lsp >=2
+    , lsp-test
     , lsp-types >=2
     , mtl
     , network
