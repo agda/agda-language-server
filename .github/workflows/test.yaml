@@ -1,6 +1,10 @@
-# modified from https://github.com/simonmichael/hledger/blob/master/.github/workflows/mac.yml
+# modified from https://github.com/simonmichael/hledger/blob/master/.github/workflows/linux.yml
 
-name: CI (macOS)
+name: CI
+
+defaults:
+  run:
+    shell: bash
 
 on:
   push:
@@ -11,93 +15,105 @@ on:
     branches: [master]
 
 jobs:
-  build:
-    runs-on: macos-latest
+  build-and-test:
+    runs-on: ${{ matrix.os }} 
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
+      fail-fast: false
     steps:
 
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: 🔍 Determine stack resolver
+    - name: 🏗 Install yq (Windows)
+      if: runner.os == 'Windows'
+      uses: frenck/action-setup-yq@v1
+
+    - name: 🔍 Determine Stack resolver & GHC version
       run: |
         STACK_RESOLVER=$(yq .resolver stack.yaml)
+        GHC_VERSION=$(echo $(yq .compiler stack.yaml) | cut -c 5-)
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
+        echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
+
+    - name: 🏗 Setup Haskell
+      if : runner.os == 'macOS'
+      uses: haskell-actions/setup@v2
+      id: setup-haskell
+      with:
+        ghc-version: ${{ env.GHC_VERSION }}
+        enable-stack: true
+        stack-version: 'latest'
+  
+    - name: 🔍 Determine Stack root
+      run: |
+        STACK_ROOT="$(stack path --stack-root)"
+        echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
 
     # things to be restored:
     # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
 
     - name: 💾 Restore cached stack global package db
       id:   stack-global
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
-        path: ~/.stack
-        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
+        path: ${{ env.STACK_ROOT }}
+        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
+             ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
 
     - name: 💾 Restore cached .stack-work
       id:   stack-work
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: .stack-work
-        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
+        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
+             ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
     # actions:
-
-    - name: Set PKG_CONFIG_PATH for the ICU library
+    - name: Set PKG_CONFIG_PATH for the ICU library (on macOS)
+      if: runner.os == 'macOS'
       run: |
         echo PKG_CONFIG_PATH="$(brew --prefix)/opt/icu4c/lib/pkgconfig" >> "${GITHUB_ENV}"
 
-    - name: ⏬ Setup Haskell
-      uses: haskell-actions/setup@v2
-      id: setup-haskell
-      with:
-        ghc-version: '9.2.8'
-        enable-stack: true
-        stack-version: 'latest'
+    - name: Install the icu library (on Windows)
+      if: runner.os == 'Windows'
+      run: |
+        stack exec -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
+
+    - name: 📸 Build Snapshot
+      run: stack build --no-terminal --only-snapshot -j1
+
+    - name: 🧰 Build Dependencies
+      run: stack build --no-terminal --only-dependencies
+
+    - name: 🧰 Build ALS
+      run: stack build
   
-    # - name: ⏬ Install stack
-    #   run: |
-    #     # mkdir -p ~/.local/bin
-    #     # export PATH=~/.local/bin:$PATH
-    #     ## Stack is preinstalled on the GHA runners
-    #     # brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack
-    #     # if [[ ! -x ~/.local/bin/stack ]]; then brew install gnu-tar; curl -sL https://get.haskellstack.org/stable/osx-x86_64.tar.gz | gtar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'; chmod a+x ~/.local/bin/stack; fi
-    #     stack --version
-
-    # - name: ⏬ Install GHC
-    #   run: |
-    #     stack setup --install-ghc
-
-    - name: ⏬ Install dependencies
-      run: |
-        stack build --only-dependencies
-
-    - name: 🔨 Build and run tests
-      run: |
-        stack test
-
+    - name: 🧰 Build Testings
+      run: stack build --test --no-terminal --only-dependencies
+  
     # things to be cached
 
     - name: 💾 Cache stack global package db
       if:   always() && steps.stack-global.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
-        path: ~/.stack
+        path: ${{ env.STACK_ROOT }}
         key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
     - name: 💾 Cache .stack-work
       if:   always() && steps.stack-work.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: .stack-work
         key: ${{ steps.stack-work.outputs.cache-primary-key }}
 
-    # release (optional)
 
-    - name: 🔗 Bundle ICU4C DLLs
+    - name: 📦 Bundle executable, DLLs and data files (on macOS)
+      if: runner.os == 'macOS'
       run: |  # Bundle icu4c DLLs
 
         # see if icu4c has been installed
@@ -109,9 +125,11 @@ jobs:
 
         # get the directory of the DDLs we want (icuuc, icui18n, icudata)
         dylib_dir=$(dirname "$(brew list icu4c | grep icuuc.dylib)")
+        echo "dylib_dir: $dylib_dir"
 
         # find the path of "als"
         executable=$(find "$(stack path --local-install-root)"/bin -name "als")
+        echo "executable: $executable"
 
         # remove the old dylib, and make a new one
         rm -rf dylib
@@ -184,31 +202,92 @@ jobs:
         echo "    old path  : $icudata_path"
         echo "    new path  : $icudata_path_new"
 
-
-    - name: 📦 Compress files
+    - name: 📦 Bundle executable, DLLs and data files (on Linux and macOS)
+      if: runner.os != 'Windows'
       id: zip
       run: |
         # locate the data-dir
         datadir=$(find "$(stack path --snapshot-install-root)/share" -type d -name "Agda-*")
+        echo "datadir: $datadir"
 
         # locate the executable
         executable=$(find "$(stack path --local-install-root)/bin" -name "als")
+        echo "executable: $executable"
 
         # make a temporary directory for compresssing
         mkdir zip
         cp -r "$datadir" zip/data
-        cp -r dylib zip/dylib
+        if [[ ${{ runner.os }} == "macOS" ]]; then
+            cp -r dylib zip/dylib
+        fi
         cp "$executable" zip/
 
         # compress
-        cd zip
-        zip -r als-macos.zip ./*
-        cd ..
-        mv zip/als-macos.zip .
+        if [[ ${{ runner.os }} == "Linux" ]]; then
+          cd zip
+          zip -r als-ubuntu.zip ./*
+          cd ..
+          mv zip/als-ubuntu.zip .
+        fi
+        if [[ ${{ runner.os }} == "macOS" ]]; then
+          cd zip
+          zip -r als-macos.zip ./*
+          cd ..
+          mv zip/als-macos.zip .
+        fi
 
+    - name: 📦 Bundle executable, DLLs and data files (on Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # locate the data-dir
+        $snapshot = (stack path --snapshot-install-root)
+        $datadir = (ls $snapshot\share *Agda-* -Recurse -Directory).FullName
+
+        # locate the executable
+        $local = (stack path --local-install-root)
+        $executable = (ls $local\bin *als.exe* -Recurse -File).FullName
+
+        # make a temporary directory for compresssing
+        mkdir zip
+        cp -r $datadir zip/data
+        cp $executable zip/
+
+        # include text-icu DLLs
+        $mingw64bin = (stack path --extra-library-dirs).split(", ") -match "\\bin"
+        ls $mingw64bin
+        cp (ls $mingw64bin *libicudt*) zip/
+        cp (ls $mingw64bin *libicuin*) zip/
+        cp (ls $mingw64bin *libicuuc*) zip/
+        ls zip
+
+        # compress
+        cd zip
+        Compress-Archive * als-windows.zip
+        cd ..
+        mv zip/als-windows.zip .
+  
+  
+    - name: 🧪 Run tests
+      run: stack test --ta --als-path=zip/als
+  
+    # release (optional)
     - name: 🚢 Release Artifacts
       if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gh release upload ${{ github.ref_name }} als-macos.zip --clobber
+        if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
+          gh release upload ${{ github.ref_name }} als-ubuntu.zip --clobber
+        fi
+        # arm64 macos
+        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
+          gh release upload ${{ github.ref_name }} als-macos-arm64.zip --clobber
+        fi
+        # x64 macos
+        if [[ ${{ matrix.os }} == "macos-13" ]]; then
+          gh release upload ${{ github.ref_name }} als-macos-x64.zip --clobber
+        fi
+        if [[ ${{ matrix.os }} == "windows-latest" ]]; then
+          gh release upload ${{ github.ref_name }} als-windows.zip --clobber
+        fi

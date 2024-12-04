@@ -21,3 +21,6 @@ node_modules/
 cabal.sandbox.config
 cabal.project.local
 *~
+
+
+*.agdai
