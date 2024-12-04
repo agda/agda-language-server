@@ -1,6 +1,6 @@
 # modified from https://github.com/simonmichael/hledger/blob/master/.github/workflows/linux.yml
 
-name: CI (Unix)
+name: CI
 
 defaults:
   run:
@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }} 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
       fail-fast: false
     steps:
 
@@ -78,13 +78,10 @@ jobs:
       run: |
         echo PKG_CONFIG_PATH="$(brew --prefix)/opt/icu4c/lib/pkgconfig" >> "${GITHUB_ENV}"
 
-    # - name: ⏬ Setup Haskell
-    #   uses: haskell-actions/setup@v2
-    #   id: setup-haskell
-    #   with:
-    #     ghc-version: ${{ env.GHC_VERSION }}
-    #     enable-stack: true
-    #     stack-version: 'latest'
+    - name: Install the icu library (on Windows)
+      if: runner.os == 'Windows'
+      run: |
+        stack exec -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
 
     - name: 📸 Build Snapshot
       run: stack build --no-terminal --only-snapshot -j1
@@ -94,13 +91,6 @@ jobs:
 
     - name: 🧰 Build ALS
       run: stack build
-  
-  
-    # - name: 🔨 Build
-    #   run: stack build
-
-    # - name: 🧪 Run tests
-    #   run: stack test
   
     # things to be cached
 
@@ -119,7 +109,7 @@ jobs:
         key: ${{ steps.stack-work.outputs.cache-primary-key }}
 
 
-    - name: 🔗 Bundle ICU4C DLLs (on macOS)
+    - name: 📦 Bundle executable, DLLs and data files (on macOS)
       if: runner.os == 'macOS'
       run: |  # Bundle icu4c DLLs
 
@@ -209,8 +199,8 @@ jobs:
         echo "    old path  : $icudata_path"
         echo "    new path  : $icudata_path_new"
 
-
-    - name: 📦 Compress files
+    - name: 📦 Bundle executable, DLLs and data files (on Linux and macOS)
+      if: runner.os != 'Windows'
       id: zip
       run: |
         # locate the data-dir
@@ -243,18 +233,53 @@ jobs:
           mv zip/als-macos.zip .
         fi
 
+    - name: 📦 Bundle executable, DLLs and data files (on Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # locate the data-dir
+        $snapshot = (stack path --snapshot-install-root)
+        $datadir = (ls $snapshot\share *Agda-* -Recurse -Directory).FullName
+
+        # locate the executable
+        $local = (stack path --local-install-root)
+        $executable = (ls $local\bin *als.exe* -Recurse -File).FullName
+
+        # make a temporary directory for compresssing
+        mkdir zip
+        cp -r $datadir zip/data
+        cp $executable zip/
+
+        # include text-icu DLLs
+        $mingw64bin = (stack path --extra-library-dirs).split(", ") -match "\\bin"
+        ls $mingw64bin
+        cp (ls $mingw64bin *libicudt*) zip/
+        cp (ls $mingw64bin *libicuin*) zip/
+        cp (ls $mingw64bin *libicuuc*) zip/
+        ls zip
+
+        # compress
+        cd zip
+        Compress-Archive * als-windows.zip
+        cd ..
+        mv zip/als-windows.zip .
+  
+  
     - name: 🧪 Run tests
       run: stack test --ta --als-path=zip/als
   
-    # - name: 🔨 Build and run tests
-    #   run: |
-
-    #     stack test --ta --als-path=zip/als
-
     # release (optional)
     - name: 🚢 Release Artifacts
       if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gh release upload ${{ github.ref_name }} als-ubuntu.zip --clobber
+        if [[ ${{ runner.os }} == "Linux" ]]; then
+          gh release upload ${{ github.ref_name }} als-ubuntu.zip --clobber
+        fi
+        if [[ ${{ runner.os }} == "macOS" ]]; then
+          gh release upload ${{ github.ref_name }} als-macos.zip --clobber
+        fi
+        if [[ ${{ runner.os }} == "Windows" ]]; then
+          gh release upload ${{ github.ref_name }} als-windows.zip --clobber
+        fi
