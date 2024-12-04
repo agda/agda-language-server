@@ -92,6 +92,9 @@ jobs:
     - name: 🧰 Build ALS
       run: stack build
   
+    - name: 🧰 Build Testings
+      run: stack build --test --no-terminal --only-dependencies
+  
     # things to be cached
 
     - name: 💾 Cache stack global package db
