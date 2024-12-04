@@ -6,6 +6,7 @@ import Agda
 import Control.Monad.IO.Class
 import qualified Data.Aeson as JSON
 import Language.LSP.Protocol.Message
+import Language.LSP.Protocol.Types
 import Language.LSP.Test
 import Switchboard (agdaCustomMethod)
 import Test.Tasty
@@ -24,13 +25,17 @@ demo alsPath = do
   runSession alsPath fullLatestClientCaps "test/data/" $ do
     doc <- openDoc "A.agda" "agda"
 
-    -- Use your favourite favourite combinators.
-    -- skipManyTill loggingNotification (count 1 publishDiagnosticsNotification)
+    -- hover
+    TResponseMessage _ _ rsp <- request SMethod_TextDocumentHover (HoverParams doc (Position 3 9) Nothing)
+    case rsp of
+      Right (InL (Hover (InL (MarkupContent _ content)) (Just (Range start end)))) -> liftIO $ do
+        content @?= "\n```agda-language-server\nAgda.Primitive.Set\n```\n"
+        start @?= Position 3 9
+        end @?= Position 3 9
+      _ -> liftIO $ assertFailure "Unexpected response"
 
+    -- agda-mode:load
     testCustomMethod "IOTCM \"test/data/A.agdaa\" NonInteractive Direct( Cmd_load \"test/data/A.agda\" [] )"
-
--- Or use one of the helper functions
--- getDocumentSymbols doc >>= liftIO . print
 
 -- | Sends a custom method request to the server and expects a response of `CmdRes Nothing`
 testCustomMethod :: String -> Session ()
