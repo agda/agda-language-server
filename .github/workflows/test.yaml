@@ -59,18 +59,18 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ env.STACK_ROOT }}
-        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
+        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
+             ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
 
     - name: 💾 Restore cached .stack-work
       id:   stack-work
       uses: actions/cache/restore@v4
       with:
         path: .stack-work
-        key: ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
+        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
         restore-keys: |
-             ${{ runner.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
+             ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
     # actions:
     - name: Set PKG_CONFIG_PATH for the ICU library (on macOS)
