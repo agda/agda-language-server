@@ -16,9 +16,10 @@ import qualified Data.Aeson as JSON
 import Data.Text (pack)
 import GHC.IO.IOMode (IOMode (ReadWriteMode))
 import Language.LSP.Protocol.Message
-import Language.LSP.Protocol.Types
+import Language.LSP.Protocol.Types (HoverParams (..), SaveOptions (..), TextDocumentIdentifier (..), TextDocumentSyncKind (..), TextDocumentSyncOptions (..), type (|?) (..))
 import Language.LSP.Server hiding (Options)
 import qualified Language.LSP.Server hiding (Options)
+import qualified Language.LSP.Server as LSP
 import Monad
 import qualified Network.Simple.TCP as TCP
 import Network.Socket (socketToHandle)
@@ -65,13 +66,13 @@ run options = do
               { forward = runLspT ctxEnv . runServerM env,
                 backward = liftIO
               },
-          options = defaultOptions
+          options = lspOptions
         }
 
--- lspOptions :: LSP.Options
--- lspOptions = defaultOptions { optTextDocumentSync = Just syncOptions }
+lspOptions :: LSP.Options
+lspOptions = defaultOptions {optTextDocumentSync = Just syncOptions}
 
--- -- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
+-- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
 -- syncOptions :: TextDocumentSyncOptions
 -- syncOptions =
 --   TextDocumentSyncOptions
@@ -81,13 +82,15 @@ run options = do
 --       _willSaveWaitUntil = Just False, -- receive willSave notifications from the client
 --       _save = Just $ InR saveOptions
 --     }
-
--- changeOptions :: TextDocumentSyncKind
--- changeOptions = TextDocumentSyncKind_Incremental
-
--- includes the document content on save, so that we don't have to read it from the disk
--- saveOptions :: SaveOptions
--- saveOptions = SaveOptions (Just True)
+syncOptions :: TextDocumentSyncOptions
+syncOptions =
+  TextDocumentSyncOptions
+    { _openClose = Just True, -- receive open and close notifications from the client
+      _change = Just TextDocumentSyncKind_Incremental, -- receive change notifications from the client
+      _willSave = Just False, -- receive willSave notifications from the client
+      _willSaveWaitUntil = Just False, -- receive willSave notifications from the client
+      _save = Just $ InR $ SaveOptions (Just True) -- includes the document content on save, so that we don't have to read it from the disk (not sure if this is still true in lsp 2)
+    }
 
 -- handlers of the LSP server
 handlers :: Handlers (ServerM (LspM Config))
@@ -98,8 +101,8 @@ handlers =
         let TRequestMessage _ _i _ params = req
         response <- Agda.sendCommand params
         responder $ Right response,
-      -- hover provider
-      requestHandler hoverMethod $ \req responder -> do
+      -- `textDocument/hover`
+      requestHandler SMethod_TextDocumentHover $ \req responder -> do
         let TRequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
         result <- Handler.onHover uri pos
         responder $ Right result,
@@ -108,10 +111,16 @@ handlers =
       --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
       --   responder result
 
-      -- must provide handler for `initialized` otherwise the client will get nasty error messages
+      -- `initialized`
       notificationHandler SMethod_Initialized $ \_notification -> return (),
-      -- must provide handler for `workspace/didChangeConfiguration` otherwise the client will get nasty error messages
-      notificationHandler SMethod_WorkspaceDidChangeConfiguration $ \_notification -> return ()
+      -- `workspace/didChangeConfiguration`
+      notificationHandler SMethod_WorkspaceDidChangeConfiguration $ \_notification -> return (),
+      -- `textDocument/didOpen`
+      notificationHandler SMethod_TextDocumentDidOpen $ \_notification -> return (),
+      -- `textDocument/didClose`
+      notificationHandler SMethod_TextDocumentDidClose $ \_notification -> return (),
+      -- `textDocument/didChange`
+      notificationHandler SMethod_TextDocumentDidChange $ \_notification -> return (),
+      -- `textDocument/didSave`
+      notificationHandler SMethod_TextDocumentDidSave $ \_notification -> return ()
     ]
-  where
-    hoverMethod = SMethod_TextDocumentHover
