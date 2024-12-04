@@ -81,6 +81,8 @@ jobs:
       run: |
         stack build --no-terminal --only-dependencies
 
+    - name: 🧪 Build ALS
+      run: stack build
 
     # - name: 🔨 Build
     #   run: stack build

@@ -87,12 +87,14 @@ jobs:
     #     stack-version: 'latest'
 
     - name: 📸 Build Snapshot
-      run: |
-        stack build --no-terminal --only-snapshot -j1
+      run: stack build --no-terminal --only-snapshot -j1
 
     - name: 🧰 Build Dependencies
-      run: |
-        stack build --no-terminal --only-dependencies
+      run: stack build --no-terminal --only-dependencies
+
+    - name: 🧰 Build ALS
+      run: stack build
+  
   
     # - name: 🔨 Build
     #   run: stack build
