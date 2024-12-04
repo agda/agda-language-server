@@ -3,6 +3,7 @@ module Main where
 import Control.Monad (when)
 import Options
 import Server (run)
+-- import Simple (run)
 import System.Console.GetOpt
 import System.Directory (doesDirectoryExist)
 import System.Environment
@@ -33,4 +34,5 @@ main = do
     then putStrLn usageMessage
     else do
       _ <- run options
+      -- _ <- run
       return ()
