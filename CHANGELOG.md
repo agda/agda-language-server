@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v0.2.7.0.1.1 - 2024-12-4
+
+### Added
+- #29: Integration testing for the language server
+- Prebuilt binaries for Intel x64 macOS 
+
+### Changed
+- Unfied workflow for building and testing the language server across all platforms
+
+## v0.2.7.0.1.0 - 2024-12-2
+
+### Added
+- #22: agda 2.6.4 by [@andreasabel](https://github.com/andreasabel)
+- #23: lsp 2 by [@andreasabel](https://github.com/andreasabel)
+
+### Fixed
+- Version information of the language server
+
 ## v0.2.6.4.0.3 - 2023-12-14
 
 ### Fixed

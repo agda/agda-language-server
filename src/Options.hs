@@ -59,7 +59,7 @@ options =
   ]
 
 usage :: String
-usage = "Agda v2.7.0.1 Language Server v0\nUsage: als [Options...]\n"
+usage = "Agda v2.7.0.1 Language Server v1\nUsage: als [Options...]\n"
 
 usageAboutAgdaOptions :: String
 usageAboutAgdaOptions =
