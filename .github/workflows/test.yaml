@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }} 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
       fail-fast: false
     steps:
 
@@ -277,12 +277,17 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        if [[ ${{ runner.os }} == "Linux" ]]; then
+        if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
           gh release upload ${{ github.ref_name }} als-ubuntu.zip --clobber
         fi
-        if [[ ${{ runner.os }} == "macOS" ]]; then
-          gh release upload ${{ github.ref_name }} als-macos.zip --clobber
+        # arm64 macos
+        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
+          gh release upload ${{ github.ref_name }} als-macos-arm64.zip --clobber
         fi
-        if [[ ${{ runner.os }} == "Windows" ]]; then
+        # x64 macos
+        if [[ ${{ matrix.os }} == "macos-13" ]]; then
+          gh release upload ${{ github.ref_name }} als-macos-x64.zip --clobber
+        fi
+        if [[ ${{ matrix.os }} == "windows-latest" ]]; then
           gh release upload ${{ github.ref_name }} als-windows.zip --clobber
         fi
