@@ -4,11 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v0.2.7.0.1.2 - 2024-12-4
+
+### Fixed
+- Release of artefacts on macOS
+
 ## v0.2.7.0.1.1 - 2024-12-4
 
 ### Added
 - #29: Integration testing for the language server
 - Prebuilt binaries for Intel x64 macOS 
+- Support for Agda-2.7.0.1
 
 ### Changed
 - Unfied workflow for building and testing the language server across all platforms

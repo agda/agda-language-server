@@ -229,11 +229,17 @@ jobs:
           cd ..
           mv zip/als-ubuntu.zip .
         fi
-        if [[ ${{ runner.os }} == "macOS" ]]; then
+        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
           cd zip
-          zip -r als-macos.zip ./*
+          zip -r als-macos-arm64.zip ./*
           cd ..
-          mv zip/als-macos.zip .
+          mv zip/als-macos-arm64.zip .
+        fi
+        if [[ ${{ matrix.os }} == "macos-13" ]]; then
+          cd zip
+          zip -r als-macos-x64.zip ./*
+          cd ..
+          mv zip/als-macos-x64.zip .
         fi
 
     - name: 📦 Bundle executable, DLLs and data files (on Windows)
