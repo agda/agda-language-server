@@ -19,8 +19,8 @@ jobs:
     runs-on: ${{ matrix.os }} 
     strategy:
       matrix:
-        os: [windows-latest]
-        agda: ['Agda-2.7.0.1']
+        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
+        agda: ['Agda-2.7.0.1', 'Agda-2.6.4.3']
       fail-fast: false
     steps:
 
@@ -91,7 +91,7 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ env.STACK_ROOT }}
-        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
+        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}-${{ matrix.agda }}
         restore-keys: |
              ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
 
@@ -100,7 +100,7 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: .stack-work
-        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}
+        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}-${{ matrix.agda }}
         restore-keys: |
              ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
