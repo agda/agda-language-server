@@ -19,8 +19,8 @@ jobs:
     runs-on: ${{ matrix.os }} 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
-        agda: ['2.7.0.1', '2.6.4.3']
+        os: [windows-latest]
+        agda: ['Agda-2.7.0.1']
       fail-fast: false
     steps:
 
@@ -33,25 +33,25 @@ jobs:
 
     - name: 🎛️ Determine which version of Agda to target
       run: |
-        STACK_YAML=$(echo stack-9.2-Agda-${{ matrix.agda }}.yaml)
-        STACK_YAML_ARG="--stack-yaml $(echo stack-9.2-Agda-${{ matrix.agda }}.yaml)"
+        STACK_YAML=$(echo stack-9.2-${{ matrix.agda }}.yaml)
+        STACK_YAML_ARG="--stack-yaml $(echo stack-9.2-${{ matrix.agda }}.yaml)"
 
         if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
-          ARTEFACT="als-Agda-${{ matrix.agda }}-ubuntu"
+          ARTEFACT="als-${{ matrix.agda }}-ubuntu"
         fi
         if [[ ${{ matrix.os }} == "macos-latest" ]]; then
-          ARTEFACT="als-Agda-${{ matrix.agda }}-macos-arm64"
+          ARTEFACT="als-${{ matrix.agda }}-macos-arm64"
         fi
         if [[ ${{ matrix.os }} == "macos-13" ]]; then
-          ARTEFACT="als-Agda-${{ matrix.agda }}-macos-x64"
+          ARTEFACT="als-${{ matrix.agda }}-macos-x64"
         fi
         if [[ ${{ matrix.os }} == "windows-latest" ]]; then
-          ARTEFACT="als-Agda-${{ matrix.agda }}-windows"
+          ARTEFACT="als-${{ matrix.agda }}-windows"
         fi
         
         echo STACK_YAML_ARG="${STACK_YAML_ARG}" >> "${GITHUB_ENV}"
         echo STACK_YAML="${STACK_YAML}"         >> "${GITHUB_ENV}"
-        echo ARTE="${ARTEFACT}"                 >> "${GITHUB_ENV}"
+        echo ARTEFACT="${ARTEFACT}"             >> "${GITHUB_ENV}"
 
     - name: 🎛️ Determine Stack resolver & GHC version
       run: |
@@ -288,9 +288,9 @@ jobs:
 
         # compress
         cd zip
-        Compress-Archive * $ARTEFACT.zip
+        Compress-Archive * "$ARTEFACT.zip"
         cd ..
-        mv zip/$ARTEFACT.zip .
+        mv zip/"$ARTEFACT.zip" .
   
   
     - name: 🧪 Run tests
