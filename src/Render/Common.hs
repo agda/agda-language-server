@@ -17,7 +17,10 @@ import Agda.Syntax.Common
       QωOrigin(..),
       LensCohesion(getCohesion),
       NameId(..),
-      Erased(..), asQuantity, Lock(..), LockOrigin (..), 
+      Erased(..), asQuantity, Lock(..), 
+#if MIN_VERSION_Agda(2,6,4)
+      LockOrigin (..), 
+#endif
 #if MIN_VERSION_Agda(2,7,0)
       OverlapMode (..),
 #endif
@@ -38,11 +41,7 @@ instance Render NameId where
 
 -- | MetaId
 instance Render MetaId where
-#if MIN_VERSION_Agda(2,6,3)
   render (MetaId n m) = text $ "_" ++ show n ++ "@" ++ show m
-#else
-  render (MetaId n) = text $ "_" ++ show n
-#endif
 
 -- | Relevance
 instance Render Relevance where
@@ -112,8 +111,12 @@ renderQuantity a d =
 
 instance Render Lock where
   render = \case
+#if MIN_VERSION_Agda(2,6,4)
     IsLock LockOLock -> "@lock"
     IsLock LockOTick -> "@tick"
+#else 
+    IsLock -> "@lock"
+#endif
     IsNotLock -> mempty
 
 #if MIN_VERSION_Agda(2,7,0)

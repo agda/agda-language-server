@@ -214,10 +214,8 @@ instance {-# OVERLAPS #-} ToJSON Agda.SrcFile where
 instance ToJSON Agda.AbsolutePath where
   toJSON (Agda.AbsolutePath path) = toJSON path
 
-#if MIN_VERSION_Agda(2,6,3)
 instance ToJSON Agda.RangeFile where
   toJSON (Agda.RangeFile path _maybeTopLevelModuleName) = toJSON path
-#endif
 
 --------------------------------------------------------------------------------
 

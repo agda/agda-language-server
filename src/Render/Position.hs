@@ -12,10 +12,8 @@ import Render.RichText
 instance Render AbsolutePath where
   render = text . filePath
 
-#if MIN_VERSION_Agda(2,6,3)
 instance Render RangeFile where
   render = render . rangeFilePath  -- TODO rangeFileName ?
-#endif
 
 --------------------------------------------------------------------------------
 

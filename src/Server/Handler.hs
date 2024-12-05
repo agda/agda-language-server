@@ -100,12 +100,7 @@ inferTypeOfText filepath text = runCommandM $ do
   let norm = AsIs
   -- localStateCommandM: restore TC state afterwards, do we need this here?
   typ <- localStateCommandM $ do
-#if MIN_VERSION_Agda(2,6,3)
-    (e, _attrs)
-#else
-    e
-#endif
-       <- lift $ runPM $ parse exprParser (unpack text)
+    (e, _attrs) <- lift $ runPM $ parse exprParser (unpack text)
     lift $ atTopLevel $ do
       concreteToAbstract_ e >>= typeInCurrent norm
 

@@ -109,10 +109,8 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
     "Check lock" <+> render lk <+> "allows" <+> render t
   render (UsableAtMod modality t) =
     "Is usable at" <+> render modality <+> render t
-#if MIN_VERSION_Agda(2,6,3)
   render (DataSort _name expr) =
     fsep [ "Sort", render expr, "allows data/record definitions" ]
-#endif
 
 -- | IPBoundary'
 instance Render c => Render (IPBoundary' c) where

@@ -26,9 +26,7 @@ import           Agda.Interaction.Base          ( Command
                                                 , CommandState(optionsOnReload)
                                                 , IOTCM
                                                 , initCommandState
-#if MIN_VERSION_Agda(2,6,3)
                                                 , parseIOTCM
-#endif
                                                 )
 #if MIN_VERSION_Agda(2,6,4)
 import           Agda.Syntax.Common.Pretty      ( render, vcat )
@@ -180,14 +178,6 @@ handleCommandReq (CmdReq cmd) = do
       provideCommand iotcm
       return $ CmdRes Nothing
 
-#if !MIN_VERSION_Agda(2,6,3)
-parseIOTCM :: String -> Either String IOTCM
-parseIOTCM raw = case listToMaybe $ reads raw of
-  Just (x, ""     ) -> Right x
-  Just (_, remnent) -> Left $ "not consumed: " ++ remnent
-  _                 -> Left $ "cannot read: " ++ raw
-#endif
-
 --------------------------------------------------------------------------------
 
 getCommandLineOptions
@@ -202,12 +192,8 @@ getCommandLineOptions = do
 
   result <- runExceptT $ do
     let p = parseBackendOptions builtinBackends merged defaultOptions
-#if MIN_VERSION_Agda(2,6,3)
     let (r, _warns) = runOptM p
     (bs, opts) <- ExceptT $ pure r
-#else
-    (bs, opts) <- ExceptT $ runOptM p
-#endif
     return opts
   case result of
     -- something bad happened, use the default options instead

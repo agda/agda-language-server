@@ -120,10 +120,6 @@ instance Render Expr where
     Rec _ xs -> sep ["record", bracesAndSemicolons (fmap render xs)]
     RecUpdate _ e xs ->
       sep ["record" <+> render e, bracesAndSemicolons (fmap render xs)]
-#if !MIN_VERSION_Agda(2,6,3)
-    ETel [] -> "()"
-    ETel tel -> fsep $ fmap render tel
-#endif
     Quote _ -> "quote"
     QuoteTerm _ -> "quoteTerm"
     Unquote _ -> "unquote"
@@ -550,10 +546,8 @@ instance Render Declaration where
       UnquoteDef _ xs t ->
         fsep ["unquoteDef" <+> fsep (fmap render xs) <+> "=", render t]
       Pragma pr -> sep ["{-#" <+> render pr, "#-}"]
-#if MIN_VERSION_Agda(2,6,3)
       UnquoteData _ x xs e ->
         fsep [ hsep [ "unquoteData", render x, fsep (fmap render xs), "=" ], render e ]
-#endif
 #if MIN_VERSION_Agda(2,6,4)
       Opaque _ ds ->
         namedBlock "opaque" ds
@@ -697,10 +691,8 @@ instance Render Pragma where
   render (PolarityPragma _ q occs) =
     hsep ("POLARITY" : render q : fmap render occs)
   render (NoUniverseCheckPragma _) = "NO_UNIVERSE_CHECK"
-#if MIN_VERSION_Agda(2,6,3)
   render (NotProjectionLikePragma _ q) =
     hsep [ "NOT_PROJECTION_LIKE", render q ]
-#endif
 #if MIN_VERSION_Agda(2,7,0)
   render (InjectiveForInferencePragma _ i) =
     hsep $ ["INJECTIVE_FOR_INFERENCE", render i]
@@ -716,20 +708,12 @@ instance Render Fixity where
         RightAssoc -> "infixr"
         NonAssoc -> "infix"
 
-#if MIN_VERSION_Agda(2,6,3)
 instance Render NotationPart where
   render = \case
     IdPart  x  -> text $ rangedThing x
     HolePart{} -> "_"
     VarPart {} -> "_"
     WildPart{} -> "_"
-#else
-instance Render GenPart where
-  render (IdPart x) = text $ rangedThing x
-  render BindHole {} = "_"
-  render NormalHole {} = "_"
-  render WildHole {} = "_"
-#endif
 
 instance Render Fixity' where
   render (Fixity' fix nota _)

@@ -26,6 +26,13 @@ packages:
   original:
     hackage: lsp-types-2.3.0.0@sha256:ca17a686bda5dc7ff04105ca7081dce5a90bcd050c8800a13efd68b7f0901f1c,34215
 - completed:
+    hackage: lsp-test-0.17.1.0@sha256:f54757a564b46783cf67b13f4cb4ebc45e43f5afc3604d9757ee387c091b73e9,4406
+    pantry-tree:
+      sha256: 66797a8efd50812189c410310dc0a9b72858ea3a3e78764e9cedd8f406df2564
+      size: 1561
+  original:
+    hackage: lsp-test-0.17.1.0@sha256:f54757a564b46783cf67b13f4cb4ebc45e43f5afc3604d9757ee387c091b73e9,4406
+- completed:
     hackage: mod-0.2.0.1@sha256:eeb316fef3a8c12f4e83bbeeea748e74d75fca54d4498d574ace92e464adb05a,2409
     pantry-tree:
       sha256: d469d7e415c1593f052d3ca647e4085ab759be378d25ca7d2eea0aab0083ce38

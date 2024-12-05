@@ -7,9 +7,7 @@ module Agda.Parser where
 import Agda.Syntax.Parser (parseFile, runPMIO, tokensParser)
 import Agda.Syntax.Parser.Tokens (Token)
 import Agda.Syntax.Position (Position' (posPos), PositionWithoutFile, Range, getRange, rEnd', rStart')
-#if MIN_VERSION_Agda(2,6,3)
 import Agda.Syntax.Position (RangeFile(RangeFile))
-#endif
 import Agda.Utils.FileName (mkAbsolute)
 import Monad ( ServerM )
 import Control.Monad.State
@@ -27,22 +25,12 @@ tokenAt :: LSP.Uri -> Text -> PositionWithoutFile -> ServerM (LspM Config) (Mayb
 tokenAt uri source position = case LSP.uriToFilePath uri of
   Nothing -> return Nothing
   Just filepath -> do
-    let file =
-#if MIN_VERSION_Agda(2,6,3)
-          RangeFile (mkAbsolute filepath) Nothing
-#else
-          mkAbsolute filepath
-#endif
+    let file = RangeFile (mkAbsolute filepath) Nothing
     (result, _warnings) <- liftIO $
       runPMIO $ do
         -- parse the file and get all tokens
         (r, _fileType) <- parseFile tokensParser file (unpack source)
-        let tokens =
-#if MIN_VERSION_Agda(2,6,3)
-              fst r
-#else
-              r
-#endif
+        let tokens = fst r
         -- find the token at the position
         return $ find (pointedBy position) tokens
     case result of

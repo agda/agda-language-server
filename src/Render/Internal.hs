@@ -25,12 +25,7 @@ instance Render a => Render (Substitution' a) where
         IdS -> "idS"
         EmptyS _ -> "emptyS"
         t :# rho -> mparens (p > 2) $ sep [pr 2 rho <> ",", renderPrec 3 t]
-#if MIN_VERSION_Agda(2,6,3)
-        Strengthen _ _ rho ->
-#else
-        Strengthen _ rho ->
-#endif
-          mparens (p > 9) $ "strS" <+> pr 10 rho
+        Strengthen _ _ rho -> mparens (p > 9) $ "strS" <+> pr 10 rho
         Wk n rho -> mparens (p > 9) $ text ("wkS " ++ show n) <+> pr 10 rho
         Lift n rho -> mparens (p > 9) $ text ("liftS " ++ show n) <+> pr 10 rho
 
@@ -170,9 +165,7 @@ instance Render Sort where
       MetaS x es -> renderPrec p $ MetaV x es
       DefS d es -> renderPrec p $ Def d es
       DummyS s -> parens $ text s
-#if MIN_VERSION_Agda(2,6,3)
       IntervalUniv -> "IntervalUniv"
-#endif
 #if MIN_VERSION_Agda(2,6,4)
    where
      suffix n = applyWhen (n /= 0) (++ show n)
@@ -223,6 +216,4 @@ instance Render Blocker where
   render (UnblockOnAny us)      = "any" <> parens (fsep $ punctuate "," $ map render $ Set.toList us)
   render (UnblockOnMeta m)      = render m
   render (UnblockOnProblem pid) = "problem" <+> render pid
-#if MIN_VERSION_Agda(2,6,3)
   render (UnblockOnDef q)       = "definition" <+> render q
-#endif
