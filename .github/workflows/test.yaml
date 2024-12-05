@@ -20,20 +20,43 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
+        agda: ['2.7.0.1', '2.6.4.3']
       fail-fast: false
     steps:
 
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: 🏗 Install yq (Windows)
+    - name: 📤 Install yq (Windows)
       if: runner.os == 'Windows'
       uses: frenck/action-setup-yq@v1
 
-    - name: 🔍 Determine Stack resolver & GHC version
+    - name: 🎛️ Determine which version of Agda to target
       run: |
-        STACK_RESOLVER=$(yq .resolver stack.yaml)
-        GHC_VERSION=$(echo $(yq .compiler stack.yaml) | cut -c 5-)
+        STACK_YAML=$(echo stack-9.2-Agda-${{ matrix.agda }}.yaml)
+        STACK_YAML_ARG="--stack-yaml $(echo stack-9.2-Agda-${{ matrix.agda }}.yaml)"
+
+        if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
+          ARTEFACT="als-Agda-${{ matrix.agda }}-ubuntu"
+        fi
+        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
+          ARTEFACT="als-Agda-${{ matrix.agda }}-macos-arm64"
+        fi
+        if [[ ${{ matrix.os }} == "macos-13" ]]; then
+          ARTEFACT="als-Agda-${{ matrix.agda }}-macos-x64"
+        fi
+        if [[ ${{ matrix.os }} == "windows-latest" ]]; then
+          ARTEFACT="als-Agda-${{ matrix.agda }}-windows"
+        fi
+        
+        echo STACK_YAML_ARG="${STACK_YAML_ARG}" >> "${GITHUB_ENV}"
+        echo STACK_YAML="${STACK_YAML}"         >> "${GITHUB_ENV}"
+        echo ARTE="${ARTEFACT}"                 >> "${GITHUB_ENV}"
+
+    - name: 🎛️ Determine Stack resolver & GHC version
+      run: |
+        STACK_RESOLVER=$(yq .resolver $STACK_YAML)
+        GHC_VERSION=$(echo $(yq .compiler $STACK_YAML) | cut -c 5-)
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
         echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
 
@@ -46,10 +69,19 @@ jobs:
         enable-stack: true
         stack-version: 'latest'
   
-    - name: 🔍 Determine Stack root
+    - name: 🎛️ Determine Stack root
       run: |
-        STACK_ROOT="$(stack path --stack-root)"
+        STACK_ROOT="$(stack path $STACK_YAML_ARG --stack-root)"
         echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
+
+    - name: 🔍 Review all variables
+      run: |
+        echo "STACK_YAML      = ${STACK_YAML}"
+        echo "STACK_YAML_ARG  = ${STACK_YAML_ARG}"
+        echo "STACK_RESOLVER  = ${STACK_RESOLVER}"
+        echo "ARTEFACT        = ${ARTEFACT}"
+        echo "GHC_VERSION     = ${GHC_VERSION}"
+        echo "STACK_ROOT      = ${STACK_ROOT}"
 
     # things to be restored:
     # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
@@ -73,27 +105,27 @@ jobs:
              ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
 
     # actions:
-    - name: Set PKG_CONFIG_PATH for the ICU library (on macOS)
+    - name: ⚙️ Set PKG_CONFIG_PATH for the ICU library (on macOS)
       if: runner.os == 'macOS'
       run: |
         echo PKG_CONFIG_PATH="$(brew --prefix)/opt/icu4c/lib/pkgconfig" >> "${GITHUB_ENV}"
 
-    - name: Install the icu library (on Windows)
+    - name: 📥 Install the icu library (on Windows)
       if: runner.os == 'Windows'
       run: |
-        stack exec -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
+        stack exec $STACK_YAML_ARG -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
 
     - name: 📸 Build Snapshot
-      run: stack build --no-terminal --only-snapshot -j1
+      run: stack build $STACK_YAML_ARG --no-terminal --only-snapshot -j1
 
-    - name: 🧰 Build Dependencies
-      run: stack build --no-terminal --only-dependencies
+    - name: 🏗️ Build Dependencies
+      run: stack build $STACK_YAML_ARG --no-terminal --only-dependencies
 
-    - name: 🧰 Build ALS
-      run: stack build
+    - name: 🏗️ Build ALS
+      run: stack build $STACK_YAML_ARG
   
-    - name: 🧰 Build Testings
-      run: stack build --test --no-terminal --only-dependencies
+    - name: 🏗️ Build Testings
+      run: stack build $STACK_YAML_ARG --test --no-terminal --only-dependencies
   
     # things to be cached
 
@@ -128,7 +160,7 @@ jobs:
         echo "dylib_dir: $dylib_dir"
 
         # find the path of "als"
-        executable=$(find "$(stack path --local-install-root)"/bin -name "als")
+        executable=$(find "$(stack path $STACK_YAML_ARG --local-install-root)"/bin -name "als")
         echo "executable: $executable"
 
         # remove the old dylib, and make a new one
@@ -207,11 +239,11 @@ jobs:
       id: zip
       run: |
         # locate the data-dir
-        datadir=$(find "$(stack path --snapshot-install-root)/share" -type d -name "Agda-*")
+        datadir=$(find "$(stack path $STACK_YAML_ARG --snapshot-install-root)/share" -type d -name "Agda-*")
         echo "datadir: $datadir"
 
         # locate the executable
-        executable=$(find "$(stack path --local-install-root)/bin" -name "als")
+        executable=$(find "$(stack path $STACK_YAML_ARG --local-install-root)/bin" -name "als")
         echo "executable: $executable"
 
         # make a temporary directory for compresssing
@@ -223,35 +255,22 @@ jobs:
         cp "$executable" zip/
 
         # compress
-        if [[ ${{ runner.os }} == "Linux" ]]; then
-          cd zip
-          zip -r als-ubuntu.zip ./*
-          cd ..
-          mv zip/als-ubuntu.zip .
-        fi
-        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
-          cd zip
-          zip -r als-macos-arm64.zip ./*
-          cd ..
-          mv zip/als-macos-arm64.zip .
-        fi
-        if [[ ${{ matrix.os }} == "macos-13" ]]; then
-          cd zip
-          zip -r als-macos-x64.zip ./*
-          cd ..
-          mv zip/als-macos-x64.zip .
-        fi
+        cd zip
+        zip -r $ARTEFACT.zip ./*
+        cd ..
+        mv zip/$ARTEFACT.zip .
+        
 
     - name: 📦 Bundle executable, DLLs and data files (on Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
         # locate the data-dir
-        $snapshot = (stack path --snapshot-install-root)
+        $snapshot = (stack path $STACK_YAML_ARG --snapshot-install-root)
         $datadir = (ls $snapshot\share *Agda-* -Recurse -Directory).FullName
 
         # locate the executable
-        $local = (stack path --local-install-root)
+        $local = (stack path $STACK_YAML_ARG --local-install-root)
         $executable = (ls $local\bin *als.exe* -Recurse -File).FullName
 
         # make a temporary directory for compresssing
@@ -260,7 +279,7 @@ jobs:
         cp $executable zip/
 
         # include text-icu DLLs
-        $mingw64bin = (stack path --extra-library-dirs).split(", ") -match "\\bin"
+        $mingw64bin = (stack path $STACK_YAML_ARG --extra-library-dirs).split(", ") -match "\\bin"
         ls $mingw64bin
         cp (ls $mingw64bin *libicudt*) zip/
         cp (ls $mingw64bin *libicuin*) zip/
@@ -269,31 +288,17 @@ jobs:
 
         # compress
         cd zip
-        Compress-Archive * als-windows.zip
+        Compress-Archive * $ARTEFACT.zip
         cd ..
-        mv zip/als-windows.zip .
+        mv zip/$ARTEFACT.zip .
   
   
     - name: 🧪 Run tests
-      run: stack test --ta --als-path=zip/als
+      run: stack test $STACK_YAML_ARG --ta --als-path=zip/als
   
     # release (optional)
     - name: 🚢 Release Artifacts
       if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
-          gh release upload ${{ github.ref_name }} als-ubuntu.zip --clobber
-        fi
-        # arm64 macos
-        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
-          gh release upload ${{ github.ref_name }} als-macos-arm64.zip --clobber
-        fi
-        # x64 macos
-        if [[ ${{ matrix.os }} == "macos-13" ]]; then
-          gh release upload ${{ github.ref_name }} als-macos-x64.zip --clobber
-        fi
-        if [[ ${{ matrix.os }} == "windows-latest" ]]; then
-          gh release upload ${{ github.ref_name }} als-windows.zip --clobber
-        fi
+      run: gh release upload ${{ github.ref_name }} $ARTEFACT.zip --clobber
