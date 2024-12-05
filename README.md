@@ -1,5 +1,16 @@
 # Agda Language Server
 
+## Supported versions of Agda
+
+These are the currently supported versions of Agda:
+* Agda-2.7.0.1
+* Agda-2.6.4.3
+* Agda-2.6.3
+
+All releases will come with binaries built with these versions of Agda.
+
+We plan to make the codebase compatible with **at most 3 versions of Agda** at a single time. Because otherwise we'd be drowned by CPP macros for conditional compilation.
+
 ## Installation
 
 The simplest way of acquiring Agda Language Server is through [agda-mode on VS Code](https://github.com/banacorn/agda-mode-vscode#agda-language-server).
