@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }} 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
         agda: ['Agda-2.7.0.1', 'Agda-2.6.4.3', 'Agda-2.6.3']
       fail-fast: false
     steps:
@@ -280,7 +280,6 @@ jobs:
 
         # include text-icu DLLs
         $mingw64bin = (stack path $STACK_YAML_ARG --extra-library-dirs).split(", ") -match "\\bin"
-        ls $mingw64bin
         cp (ls $mingw64bin *libicudt*) zip/
         cp (ls $mingw64bin *libicuin*) zip/
         cp (ls $mingw64bin *libicuuc*) zip/
@@ -288,10 +287,9 @@ jobs:
 
         # compress
         cd zip
-        Compress-Archive * "$ARTEFACT.zip"
+        Compress-Archive * "$($env:ARTEFACT).zip"
         cd ..
-        mv zip/"$ARTEFACT.zip" .
-  
+        mv zip/"$($env:ARTEFACT).zip" .
   
     - name: 🧪 Run tests
       run: stack test $STACK_YAML_ARG --ta --als-path=zip/als
