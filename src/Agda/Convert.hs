@@ -2,8 +2,6 @@
 
 module Agda.Convert where
 
-import Render ( Block(..), Inlines, renderATop, Render(..) )
-
 import Agda.IR (FromAgda (..))
 import qualified Agda.IR as IR
 import Agda.Interaction.Base
@@ -14,6 +12,9 @@ import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
 import Agda.Interaction.Highlighting.Precise (Aspects (..), DefinitionSite (..), HighlightingInfo, TokenBased (..))
 import qualified Agda.Interaction.Highlighting.Range as Highlighting
 import Agda.Interaction.InteractionTop (localStateCommandM)
+#if MIN_VERSION_Agda(2,7,0)
+import Agda.Interaction.Output ( OutputConstraint )
+#endif
 import Agda.Interaction.Response as R
 import Agda.Syntax.Abstract as A
 import Agda.Syntax.Abstract.Pretty (prettyATop)
@@ -22,7 +23,7 @@ import Agda.Syntax.Concrete as C
 import Agda.Syntax.Internal (alwaysUnblock)
 import Agda.Syntax.Position (HasRange (getRange), Range, noRange)
 import Agda.Syntax.Scope.Base
-import Agda.TypeChecking.Errors (getAllWarningsOfTCErr, prettyError, explainWhyInScope)
+import Agda.TypeChecking.Errors (explainWhyInScope, getAllWarningsOfTCErr, prettyError)
 import Agda.TypeChecking.Monad hiding (Function)
 import Agda.TypeChecking.Monad.MetaVars (withInteractionId)
 import Agda.TypeChecking.Pretty (prettyTCM)
@@ -35,14 +36,7 @@ import Agda.Utils.IO.TempFile (writeToTempFile)
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Agda.Utils.Maybe (catMaybes)
 import Agda.Utils.Null (empty)
-#if MIN_VERSION_Agda(2,6,4)
-import Agda.Syntax.Common.Pretty hiding (render)
--- import Prettyprinter hiding (Doc)
-import qualified Prettyprinter
-#else
-import Agda.Utils.Pretty hiding (render)
-#endif
-import Agda.Utils.RangeMap ( IsBasicRangeMap(toList) )
+import Agda.Utils.RangeMap (IsBasicRangeMap (toList))
 import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit (versionWithCommitInfo)
@@ -53,13 +47,17 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.String (IsString)
+import Render (Block (..), Inlines, Render (..), renderATop)
 import qualified Render
 
-#if MIN_VERSION_Agda(2,7,0)
-import Agda.Interaction.Output ( OutputConstraint )
+#if MIN_VERSION_Agda(2,6,4)
+import Agda.Syntax.Common.Pretty hiding (render)
+import qualified Prettyprinter
+#else
+import Agda.Utils.Pretty hiding (render)
 #endif
 
-responseAbbr :: IsString a => Response -> a
+responseAbbr :: (IsString a) => Response -> a
 responseAbbr res = case res of
   Resp_HighlightingInfo {} -> "Resp_HighlightingInfo"
   Resp_Status {} -> "Resp_Status"
@@ -273,7 +271,8 @@ fromDisplayInfo = \case
       return (prettyShow x, ":" <+> doc)
     let doc =
           "Definitions about"
-            <+> text (List.intercalate ", " $ words names) $$ nest 2 (align 10 hitDocs)
+            <+> text (List.intercalate ", " $ words names)
+            $$ nest 2 (align 10 hitDocs)
     return $ IR.DisplayInfoGeneric "Search About" [Unlabeled (Render.text $ show doc) Nothing Nothing]
   Info_WhyInScope why -> do
     doc <- explainWhyInScope why
@@ -331,18 +330,19 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
               if null boundaries
                 then []
                 else
-                  Header "Boundary" :
-                  fmap (\boundary -> Unlabeled (render boundary) (Just $ show $ pretty boundary) Nothing) boundaries
+                  Header "Boundary"
+                    : fmap (\boundary -> Unlabeled (render boundary) (Just $ show $ pretty boundary) Nothing) boundaries
         contextSect <- reverse . concat <$> mapM (renderResponseContext ii) resCtxs
         let constraintSect =
-                if null constraints
-                  then []
-                  else
-                    Header "Constraints" :
-                    fmap (\constraint -> Unlabeled (render constraint) (Just $ show $ pretty constraint) Nothing) constraints
+              if null constraints
+                then []
+                else
+                  Header "Constraints"
+                    : fmap (\constraint -> Unlabeled (render constraint) (Just $ show $ pretty constraint) Nothing) constraints
 
         return $
-          IR.DisplayInfoGeneric "Goal type etc" $ goalSect ++ auxSect ++ boundarySect ++ contextSect ++ constraintSect
+          IR.DisplayInfoGeneric "Goal type etc" $
+            goalSect ++ auxSect ++ boundarySect ++ contextSect ++ constraintSect
       Goal_CurrentGoal norm -> do
         (rendered, raw) <- prettyTypeOfMeta norm ii
         return $ IR.DisplayInfoCurrentGoal (Unlabeled rendered (Just raw) Nothing)
@@ -443,8 +443,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
   modality <- asksTC getModality
 #endif
   do
-    let
-        rawCtxName :: String
+    let rawCtxName :: String
         rawCtxName
           | n == x = prettyShow x
           | isInScope n == InScope = prettyShow n ++ " = " ++ prettyShow x
@@ -468,7 +467,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
           where
             c = render (getCohesion ai)
 
-        extras :: IsString a => [a]
+        extras :: (IsString a) => [a]
         extras =
           concat
             [ ["not in scope" | isInScope nis == C.NotInScope],
@@ -498,7 +497,7 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
     -- rendered
     renderedExpr <- renderATop expr
     let renderedType = (renderedCtxName <> renderedAttribute) Render.<+> ":" Render.<+> renderedExpr Render.<+> parenSep2 extras2
-      -- (Render.fsep $ Render.punctuate "," extras)
+    -- (Render.fsep $ Render.punctuate "," extras)
 
     -- result
     let typeItem = Unlabeled renderedType (Just rawType) Nothing
@@ -525,7 +524,6 @@ renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = wit
     parenSep2 docs
       | null docs = mempty
       | otherwise = (" " Render.<+>) $ Render.parens $ Render.fsep $ Render.punctuate "," docs
-
 
 -- | Pretty-prints the type of the meta-variable.
 prettyTypeOfMeta :: Rewrite -> InteractionId -> TCM (Inlines, String)

@@ -10,7 +10,7 @@ import Render.Concrete
 import Render.Interaction ()
 import Render.Internal ()
 import Render.Name ()
+import Render.Position ()
 import Render.RichText
 import Render.TypeChecking ()
-import Render.Position ()
 import Render.Utils ()

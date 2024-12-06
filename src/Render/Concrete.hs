@@ -5,23 +5,20 @@
 
 module Render.Concrete where
 
-import qualified Data.Text     as T
-import Data.Maybe (isNothing, maybeToList)
-import qualified Data.Strict.Maybe as Strict
-
 import Agda.Syntax.Common
-import           Agda.Syntax.Concrete
-import           Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
---import           Agda.Syntax.Position (noRange)
-import           Agda.Utils.List1 as List1 (toList, fromList)
-import qualified Agda.Utils.List1 as List1
-import qualified Agda.Utils.List2 as List2
+import Agda.Syntax.Concrete
+import Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
 import Agda.Utils.Float (toStringWithoutDotZero)
 import Agda.Utils.Function
-import Agda.Utils.Null
 import Agda.Utils.Functor (dget, (<&>))
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
-
+import Agda.Utils.List1 as List1 (fromList, toList)
+import qualified Agda.Utils.List1 as List1
+import qualified Agda.Utils.List2 as List2
+import Agda.Utils.Null
+import Data.Maybe (isNothing, maybeToList)
+import qualified Data.Strict.Maybe as Strict
+import qualified Data.Text as T
 import Render.Class
 import Render.Common
 import Render.Literal ()
@@ -33,23 +30,24 @@ import Prelude hiding (null)
 --------------------------------------------------------------------------------
 
 #if MIN_VERSION_Agda(2,7,0)
-instance Render a => Render (TacticAttribute' a) where
+instance (Render a) => Render (TacticAttribute' a) where
   render (TacticAttribute t) =
-    ifNull (render t) empty $ \ d -> "@" <> parens ("tactic" <+> d)
+    ifNull (render t) empty $ \d -> "@" <> parens ("tactic" <+> d)
 #endif
 
-instance Render a => Render (Ranged a) where
+instance (Render a) => Render (Ranged a) where
   render = render . rangedThing
 
-instance Render a => Render (WithHiding a) where
+instance (Render a) => Render (WithHiding a) where
   render w = renderHiding w id $ render $ dget w
 
 instance Render Modality where
-  render mod = hsep
-    [ render (getRelevance mod)
-    , render (getQuantity mod)
-    , render (getCohesion mod)
-    ]
+  render mod =
+    hsep
+      [ render (getRelevance mod),
+        render (getQuantity mod),
+        render (getCohesion mod)
+      ]
 
 -- | OpApp
 instance Render (OpApp Expr) where
@@ -57,7 +55,7 @@ instance Render (OpApp Expr) where
   render (SyntaxBindingLambda r bs e) = render (Lam r bs e)
 
 -- | MaybePlaceholder
-instance Render a => Render (MaybePlaceholder a) where
+instance (Render a) => Render (MaybePlaceholder a) where
   render Placeholder {} = "_"
   render (NoPlaceholder _ e) = render e
 
@@ -138,15 +136,12 @@ instance Render Expr where
       absurd Instance {} = "{{}}"
       absurd Hidden = "{}"
 
--- instance RenderTCM Expr where
---   renderTCM = render
-
 --------------------------------------------------------------------------------
 
 instance (Render a, Render b) => Render (Either a b) where
   render = either render render
 
-instance Render a => Render (FieldAssignment' a) where
+instance (Render a) => Render (FieldAssignment' a) where
   render (FieldAssignment x e) = sep [render x <+> "=", render e]
 
 instance Render ModuleAssignment where
@@ -165,7 +160,7 @@ instance Render LamClause where
 instance Render BoundName where
   render BName {boundName = x} = render x
 
-instance Render a => Render (Binder' a) where
+instance (Render a) => Render (Binder' a) where
   render (Binder mpat n) =
     let d = render n
      in case mpat of
@@ -177,42 +172,50 @@ instance Render a => Render (Binder' a) where
 -- | NamedBinding
 instance Render NamedBinding where
 #if MIN_VERSION_Agda(2,7,0)
-  render (NamedBinding withH
-           x@(Arg (ArgInfo h (Modality r q c) _o _fv (Annotation lock))
-               (Named _mn xb@(Binder _mp (BName _y _fix t _fin))))) =
-    applyWhen withH prH $
-    applyWhenJust (isLabeled x) (\ l -> (text l <+>) . ("=" <+>)) (render xb)
-      -- isLabeled looks at _mn and _y
-      -- pretty xb prints also the pattern _mp
-    where
-    prH = (render r <>)
-        . renderHiding h mparens
-        . (coh <+>)
-        . (qnt <+>)
-        . (lck <+>)
-        . (tac <+>)
-    coh = render c
-    qnt = render q
-    tac = render t
-    lck = render lock
-    -- Parentheses are needed when an attribute @... is printed
-    mparens = applyUnless (null coh && null qnt && null lck && null tac) parens
-#else 
+  render
+    ( NamedBinding
+        withH
+        x@( Arg
+              (ArgInfo h (Modality r q c) _o _fv (Annotation lock))
+              (Named _mn xb@(Binder _mp (BName _y _fix t _fin)))
+            )
+      ) =
+      applyWhen withH prH $
+        applyWhenJust (isLabeled x) (\l -> (text l <+>) . ("=" <+>)) (render xb)
+      where
+        -- isLabeled looks at _mn and _y
+        -- pretty xb prints also the pattern _mp
+
+        prH =
+          (render r <>)
+            . renderHiding h mparens
+            . (coh <+>)
+            . (qnt <+>)
+            . (lck <+>)
+            . (tac <+>)
+        coh = render c
+        qnt = render q
+        tac = render t
+        lck = render lock
+        -- Parentheses are needed when an attribute @... is printed
+        mparens = applyUnless (null coh && null qnt && null lck && null tac) parens
+
+#else
   render (NamedBinding withH x) =
     prH $
       if
-          | Just l <- isLabeled x -> text l <> " = " <> render xb
-          | otherwise -> render xb
+        | Just l <- isLabeled x -> text l <> " = " <> render xb
+        | otherwise -> render xb
     where
       xb = namedArg x
       bn = binderName xb
       prH
         | withH =
-          renderRelevance x
-            . renderHiding x mparens'
-            . renderCohesion x
-            . renderQuantity x
-            . renderTactic bn
+            renderRelevance x
+              . renderHiding x mparens'
+              . renderCohesion x
+              . renderQuantity x
+              . renderTactic bn
         | otherwise = id
       -- Parentheses are needed when an attribute @... is present
       mparens'
@@ -230,8 +233,6 @@ renderTactic' t = (render t <+>)
 renderTactic' Nothing d = d
 renderTactic' (Just t) d = "@" <> (parens ("tactic " <> render t) <+> d)
 #endif
-
-
 
 --------------------------------------------------------------------------------
 
@@ -297,18 +298,22 @@ instance Render WhereClause where
   render (AnyWhere _range [Module _ x [] ds])
 #endif
     | isNoName (unqualify x) =
-      vcat ["where", vcat $ fmap render ds]
+        vcat ["where", vcat $ fmap render ds]
   render (AnyWhere _range ds) = vcat ["where", vcat $ fmap render ds]
 #if MIN_VERSION_Agda(2,7,0)
   render (SomeWhere _ erased m a ds) =
-    vcat [ hsep $ privateWhenUserWritten a
-             [ "module", renderErased erased (render m), "where" ]
-         , vcat $ map render ds
-         ]
+    vcat
+      [ hsep $
+          privateWhenUserWritten
+            a
+            ["module", renderErased erased (render m), "where"],
+        vcat $ map render ds
+      ]
     where
       privateWhenUserWritten = \case
         PrivateAccess _ UserWritten -> ("private" :)
         _ -> id
+
 #else
 #if MIN_VERSION_Agda(2,6,4)
   render (SomeWhere _range _er m a ds) =
@@ -335,19 +340,19 @@ instance Render LHS where
     where
       renderWithd :: WithExpr -> Inlines
       renderWithd (Named nm wh) =
-        let e = render wh in
-        case nm of
-          Nothing -> e
-          Just n  -> render n <+> ":" <+> e
+        let e = render wh
+         in case nm of
+              Nothing -> e
+              Just n -> render n <+> ":" <+> e
 
 instance Render LHSCore where
   render (LHSHead f ps) = sep $ render f : fmap (parens . render) ps
   render (LHSProj d ps lhscore ps') =
     sep $
-      render d :
-      fmap (parens . render) ps
-        ++ parens (render lhscore) :
-      fmap (parens . render) ps'
+      render d
+        : fmap (parens . render) ps
+        ++ parens (render lhscore)
+        : fmap (parens . render) ps'
   render (LHSWith h wps ps) =
     if null ps
       then doc
@@ -384,16 +389,18 @@ instance Render Declaration where
               renderHiding i id $
                 renderCohesion i $
                   renderQuantity i $
-                    render $ TypeSig (setRelevance Relevant i) tac x e
+                    render $
+                      TypeSig (setRelevance Relevant i) tac x e
         where
           mkInst (InstanceDef _) f = sep ["instance", f]
           mkInst NotInstanceDef f = f
 #if MIN_VERSION_Agda(2,7,0)
-          mkOverlap i d | isYesOverlap i = "overlap" <+> d
+          mkOverlap i d
+            | isYesOverlap i = "overlap" <+> d
 #else
           mkOverlap i d | isOverlappable i = "overlap" <+> d
 #endif
-                        | otherwise        = d
+            | otherwise = d
       Field _ fs ->
         sep
           [ "field",
@@ -465,10 +472,9 @@ instance Render Declaration where
                 render e
               ]
           ]
-
 #if MIN_VERSION_Agda(2,7,0)
       Record _ erased x dir tel e cs -> pRecord erased x dir tel (Just e) cs
-#else 
+#else
 #if MIN_VERSION_Agda(2,6,4)
       Record _ _er x dir tel e cs -> pRecord x dir tel (Just e) cs
 #else
@@ -480,18 +486,19 @@ instance Render Declaration where
 #else
       RecordDef _ x dir tel cs -> pRecord x dir tel Nothing cs
 #endif
-#if MIN_VERSION_Agda(2,7,0)
-#else
+#if !MIN_VERSION_Agda(2,7,0)
       RecordDirective r -> pRecordDirective r
 #endif
       Infix f xs -> render f <+> fsep (punctuate "," $ fmap render (toList xs))
       Syntax n _ -> "syntax" <+> render n <+> "..."
       PatternSyn _ n as p ->
-        "pattern" <+> render n <+> fsep (fmap render as)
+        "pattern"
+          <+> render n
+          <+> fsep (fmap render as)
           <+> "="
           <+> render p
       Mutual _ ds -> namedBlock "mutual" ds
-      InterleavedMutual _ ds  -> namedBlock "interleaved mutual" ds
+      InterleavedMutual _ ds -> namedBlock "interleaved mutual" ds
       LoneConstructor _ ds -> namedBlock "constructor" ds
       Abstract _ ds -> namedBlock "abstract" ds
       Private _ _ ds -> namedBlock "private" ds
@@ -519,22 +526,24 @@ instance Render Declaration where
 #else
       ModuleMacro _ x m open i -> case m of
 #endif
-       (SectionApp _ [] e) | open == DoOpen, isNoName x ->
+        (SectionApp _ [] e)
+          | open == DoOpen,
+            isNoName x ->
+              fsep
+                [ render open,
+                  render e,
+                  render i
+                ]
+        (SectionApp _ tel e) ->
           fsep
-            [ render open,
-              render e,
-              render i
+            [ render open <+> "module" <+> render x <+> fcat (fmap render tel),
+              "=" <+> render e <+> render i
             ]
-       (SectionApp _ tel e) ->
-        fsep
-          [ render open <+> "module" <+> render x <+> fcat (fmap render tel),
-            "=" <+> render e <+> render i
-          ]
-       (RecordModuleInstance _ rec) ->
-        fsep
-          [ render open <+> "module" <+> render x,
-            "=" <+> render rec <+> "{{...}}"
-          ]
+        (RecordModuleInstance _ rec) ->
+          fsep
+            [ render open <+> "module" <+> render x,
+              "=" <+> render rec <+> "{{...}}"
+            ]
       Open _ x i -> hsep ["open", render x, render i]
       Import _ x rn open i ->
         hsep [render open, "import", render x, as rn, render i]
@@ -547,7 +556,7 @@ instance Render Declaration where
         fsep ["unquoteDef" <+> fsep (fmap render xs) <+> "=", render t]
       Pragma pr -> sep ["{-#" <+> render pr, "#-}"]
       UnquoteData _ x xs e ->
-        fsep [ hsep [ "unquoteData", render x, fsep (fmap render xs), "=" ], render e ]
+        fsep [hsep ["unquoteData", render x, fsep (fmap render xs), "="], render e]
 #if MIN_VERSION_Agda(2,6,4)
       Opaque _ ds ->
         namedBlock "opaque" ds
@@ -555,6 +564,7 @@ instance Render Declaration where
         fsep ("unfolding" : fmap render xs)
 #endif
     where
+
       namedBlock s ds =
         fsep
           [ text s,
@@ -563,7 +573,7 @@ instance Render Declaration where
 
 pHasEta0 :: HasEta0 -> Inlines
 pHasEta0 = \case
-  YesEta   -> "eta-equality"
+  YesEta -> "eta-equality"
   NoEta () -> "no-eta-equality"
 
 instance Render RecordDirective where
@@ -574,42 +584,49 @@ pRecordDirective ::
   Inlines
 pRecordDirective = \case
   Induction ind -> render ind
-  Constructor n inst -> hsep [ pInst, "constructor", render n ] where
-    pInst = case inst of
-      InstanceDef{} -> "instance"
-      NotInstanceDef{} -> mempty
+  Constructor n inst -> hsep [pInst, "constructor", render n]
+    where
+      pInst = case inst of
+        InstanceDef {} -> "instance"
+        NotInstanceDef {} -> mempty
   Eta eta -> pHasEta0 (rangedThing eta)
-  PatternOrCopattern{} -> "pattern"
+  PatternOrCopattern {} -> "pattern"
 
 #if MIN_VERSION_Agda(2,7,0)
-pRecord
-  :: Erased
-  -> Name
-  -> [RecordDirective]
-  -> [LamBinding]
-  -> Maybe Expr
-  -> [Declaration]
-  -> Inlines
-pRecord erased x directives tel me ds = vcat
+pRecord ::
+  Erased ->
+  Name ->
+  [RecordDirective] ->
+  [LamBinding] ->
+  Maybe Expr ->
+  [Declaration] ->
+  Inlines
+pRecord erased x directives tel me ds =
+  vcat
     [ sep
-      [ hsep  [ "record"
-              , renderErased erased (render x)
-              , fsep (map render tel)
-              ]
-      , pType me
-      ]
-    , vcat $ concat
-      [ map render directives
-      , map render ds
-      ]
+        [ hsep
+            [ "record",
+              renderErased erased (render x),
+              fsep (map render tel)
+            ],
+          pType me
+        ],
+      vcat $
+        concat
+          [ map render directives,
+            map render ds
+          ]
     ]
-  where pType (Just e) = hsep
-                [ ":"
-                , render e
-                , "where"
-                ]
-        pType Nothing  =
-                  "where"
+  where
+    pType (Just e) =
+      hsep
+        [ ":",
+          render e,
+          "where"
+        ]
+    pType Nothing =
+      "where"
+
 #else
 pRecord ::
   Name ->
@@ -692,10 +709,10 @@ instance Render Pragma where
     hsep ("POLARITY" : render q : fmap render occs)
   render (NoUniverseCheckPragma _) = "NO_UNIVERSE_CHECK"
   render (NotProjectionLikePragma _ q) =
-    hsep [ "NOT_PROJECTION_LIKE", render q ]
+    hsep ["NOT_PROJECTION_LIKE", render q]
 #if MIN_VERSION_Agda(2,7,0)
   render (InjectiveForInferencePragma _ i) =
-    hsep $ ["INJECTIVE_FOR_INFERENCE", render i]
+    hsep ["INJECTIVE_FOR_INFERENCE", render i]
   render (OverlapPragma _ x m) = hsep [render m, render x]
 #endif
 
@@ -710,10 +727,10 @@ instance Render Fixity where
 
 instance Render NotationPart where
   render = \case
-    IdPart  x  -> text $ rangedThing x
-    HolePart{} -> "_"
+    IdPart x -> text $ rangedThing x
+    HolePart {} -> "_"
     VarPart {} -> "_"
-    WildPart{} -> "_"
+    WildPart {} -> "_"
 
 instance Render Fixity' where
   render (Fixity' fix nota _)
@@ -721,7 +738,7 @@ instance Render Fixity' where
     | otherwise = "syntax" <+> render nota
 
 -- | Arg
-instance Render a => Render (Arg a) where
+instance (Render a) => Render (Arg a) where
   renderPrec p (Arg ai e) = renderHiding ai localParens $ renderPrec p' e
     where
       p'
@@ -732,7 +749,7 @@ instance Render a => Render (Arg a) where
         | otherwise = id
 
 -- | Named NamedName (Named_)
-instance Render e => Render (Named NamedName e) where
+instance (Render e) => Render (Named NamedName e) where
   renderPrec p (Named nm e)
     | Just s <- bareNameOf nm = mparens (p > 0) $ sep [text s <> " =", render e]
     | otherwise = renderPrec p e
@@ -767,7 +784,7 @@ bracesAndSemicolons (d : ds) = sep (["{" <+> d] ++ fmap (";" <+>) ds ++ ["}"])
 
 renderOpApp ::
   forall a.
-  Render a =>
+  (Render a) =>
   QName ->
   [NamedArg (MaybePlaceholder a)] ->
   [Inlines]
@@ -780,7 +797,7 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
       Name _ _ xs -> List1.toList xs
       NoName {} -> __IMPOSSIBLE__
 
-    prOp :: Render a => [Name] -> [NamePart] -> [NamedArg (MaybePlaceholder a)] -> [(Inlines, Maybe PositionInName)]
+    prOp :: (Render a) => [Name] -> [NamePart] -> [NamedArg (MaybePlaceholder a)] -> [(Inlines, Maybe PositionInName)]
     prOp ms (Hole : xs) (e : es) =
       case namedArg e of
         Placeholder p -> (qual ms $ render e, Just p) : prOp [] xs es
@@ -790,8 +807,8 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
     prOp ms (Id x : xs) es =
       ( qual ms $ render $ simpleName x,
         Nothing
-      ) :
-      prOp [] xs es
+      )
+        : prOp [] xs es
     -- Qualify the name part with the module.
     -- We then clear @ms@ such that the following name parts will not be qualified.
 

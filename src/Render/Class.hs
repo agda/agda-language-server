@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Render.Class
   ( Render (..),
@@ -12,11 +12,11 @@ module Render.Class
   )
 where
 
-import           Agda.Syntax.Fixity (Precedence (TopCtx))
+import Agda.Syntax.Fixity (Precedence (TopCtx))
 import qualified Agda.Syntax.Translation.AbstractToConcrete as A
-import qualified Agda.TypeChecking.Monad.Base               as A
-import           Agda.Utils.List1 (List1)
-import           Agda.Utils.List2 (List2)
+import qualified Agda.TypeChecking.Monad.Base as A
+import Agda.Utils.List1 (List1)
+import Agda.Utils.List2 (List2)
 #if MIN_VERSION_Agda(2,6,4)
 import           Agda.Syntax.Common.Pretty (Doc)
 import qualified Agda.Syntax.Common.Pretty as Doc
@@ -25,8 +25,8 @@ import           Agda.Utils.Pretty (Doc)
 import qualified Agda.Utils.Pretty as Doc
 #endif
 
-import           Data.Int (Int32)
-import           GHC.Exts ( IsList(toList) )
+import Data.Int (Int32)
+import GHC.Exts (IsList (toList))
 import Render.RichText
 
 --------------------------------------------------------------------------------
@@ -77,14 +77,15 @@ instance Render Bool where
 instance Render Doc where
   render = text . Doc.render
 
-instance Render a => Render (Maybe a) where
-  renderPrec p Nothing  = mempty
+instance (Render a) => Render (Maybe a) where
+  renderPrec p Nothing = mempty
   renderPrec p (Just x) = renderPrec p x
 
-instance Render a => Render [a] where
+instance (Render a) => Render [a] where
   render xs = "[" <> fsep (punctuate "," (fmap render xs)) <> "]"
-instance Render a => Render (List1 a) where
+
+instance (Render a) => Render (List1 a) where
   render = render . toList
 
-instance Render a => Render (List2 a) where
+instance (Render a) => Render (List2 a) where
   render = render . toList

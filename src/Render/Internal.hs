@@ -3,14 +3,12 @@
 
 module Render.Internal where
 
-import Control.Monad
-import qualified Data.List as List
-import qualified Data.Set as Set
-
 import Agda.Syntax.Common (Hiding (..), LensHiding (getHiding), Named (namedThing))
 import Agda.Syntax.Internal hiding (telToList)
 import Agda.Utils.Function (applyWhen)
-
+import Control.Monad
+import qualified Data.List as List
+import qualified Data.Set as Set
 import Render.Class
 import Render.Common (renderHiding)
 import Render.Concrete ()
@@ -18,7 +16,7 @@ import Render.RichText
 
 --------------------------------------------------------------------------------
 
-instance Render a => Render (Substitution' a) where
+instance (Render a) => Render (Substitution' a) where
   renderPrec = pr
     where
       pr p input = case input of
@@ -72,7 +70,7 @@ instance (Render t, Render e) => Render (Dom' t e) where
         | Just t <- domTactic dom = "@" <> parens ("tactic" <+> render t)
         | otherwise = mempty
 
-renderDom :: LensHiding a => a -> Inlines -> Inlines
+renderDom :: (LensHiding a) => a -> Inlines -> Inlines
 renderDom i =
   case getHiding i of
     NotHidden -> parens
@@ -93,7 +91,7 @@ instance Render Clause where
       pBody (Just b) Nothing = render b
       pBody (Just b) (Just t) = fsep [render b <+> ":", render t]
 
-instance Render a => Render (Tele (Dom a)) where
+instance (Render a) => Render (Tele (Dom a)) where
   render tel = fsep [renderDom a (text x <+> ":" <+> render (unDom a)) | (x, a) <- telToList tel]
     where
       telToList EmptyTel = []
@@ -118,7 +116,7 @@ instance Render Level where
 instance Render PlusLevel where
   renderPrec p (Plus n a) = renderPrecLevelSucs p n $ \p' -> renderPrec p' a
 
---instance Render LevelAtom where
+-- instance Render LevelAtom where
 -- LevelAtom is just Term
 --  renderPrec p a =
 --    case a of
@@ -130,51 +128,52 @@ instance Render PlusLevel where
 instance Render Sort where
   renderPrec p = \case
 #if MIN_VERSION_Agda(2,6,4)
-      Univ u (ClosedLevel n) -> text $ suffix n $ showUniv u
-      Univ u l -> mparens (p > 9) $ text (showUniv u) <+> renderPrec 10 l
-      Inf u n -> text $ suffix n $ showUniv u ++ "ω"
-      LevelUniv -> "LevelUniv"
+    Univ u (ClosedLevel n) -> text $ suffix n $ showUniv u
+    Univ u l -> mparens (p > 9) $ text (showUniv u) <+> renderPrec 10 l
+    Inf u n -> text $ suffix n $ showUniv u ++ "ω"
+    LevelUniv -> "LevelUniv"
 #else
-      Type (ClosedLevel 0) -> "Set"
-      Type (ClosedLevel n) -> text $ "Set" ++ show n
-      Type l -> mparens (p > 9) $ "Set" <+> renderPrec 10 l
-      Prop (ClosedLevel 0) -> "Prop"
-      Prop (ClosedLevel n) -> text $ "Prop" ++ show n
-      Prop l -> mparens (p > 9) $ "Prop" <+> renderPrec 10 l
-      Inf IsFibrant 0 -> "Setω"
-      Inf IsStrict 0 -> "SSetω"
-      Inf IsFibrant n -> text $ "Setω" ++ show n
-      Inf IsStrict n -> text $ "SSetω" ++ show n
-      SSet l -> mparens (p > 9) $ "SSet" <+> renderPrec 10 l
+    Type (ClosedLevel 0) -> "Set"
+    Type (ClosedLevel n) -> text $ "Set" ++ show n
+    Type l -> mparens (p > 9) $ "Set" <+> renderPrec 10 l
+    Prop (ClosedLevel 0) -> "Prop"
+    Prop (ClosedLevel n) -> text $ "Prop" ++ show n
+    Prop l -> mparens (p > 9) $ "Prop" <+> renderPrec 10 l
+    Inf IsFibrant 0 -> "Setω"
+    Inf IsStrict 0 -> "SSetω"
+    Inf IsFibrant n -> text $ "Setω" ++ show n
+    Inf IsStrict n -> text $ "SSetω" ++ show n
+    SSet l -> mparens (p > 9) $ "SSet" <+> renderPrec 10 l
 #endif
-      SizeUniv -> "SizeUniv"
-      LockUniv -> "LockUniv"
-      PiSort a _s1 s2 ->
-        mparens (p > 9) $
-          "piSort" <+> renderDom (domInfo a) (text (absName s2) <+> ":" <+> render (unDom a))
-            <+> parens
-              ( fsep
-                  [ text ("λ " ++ absName s2 ++ " ->"),
-                    render (unAbs s2)
-                  ]
-              )
-      FunSort a b ->
-        mparens (p > 9) $
-          "funSort" <+> renderPrec 10 a <+> renderPrec 10 b
-      UnivSort s -> mparens (p > 9) $ "univSort" <+> renderPrec 10 s
-      MetaS x es -> renderPrec p $ MetaV x es
-      DefS d es -> renderPrec p $ Def d es
-      DummyS s -> parens $ text s
-      IntervalUniv -> "IntervalUniv"
+    SizeUniv -> "SizeUniv"
+    LockUniv -> "LockUniv"
+    PiSort a _s1 s2 ->
+      mparens (p > 9) $
+        "piSort"
+          <+> renderDom (domInfo a) (text (absName s2) <+> ":" <+> render (unDom a))
+          <+> parens
+            ( fsep
+                [ text ("λ " ++ absName s2 ++ " ->"),
+                  render (unAbs s2)
+                ]
+            )
+    FunSort a b ->
+      mparens (p > 9) $
+        "funSort" <+> renderPrec 10 a <+> renderPrec 10 b
+    UnivSort s -> mparens (p > 9) $ "univSort" <+> renderPrec 10 s
+    MetaS x es -> renderPrec p $ MetaV x es
+    DefS d es -> renderPrec p $ Def d es
+    DummyS s -> parens $ text s
+    IntervalUniv -> "IntervalUniv"
 #if MIN_VERSION_Agda(2,6,4)
-   where
-     suffix n = applyWhen (n /= 0) (++ show n)
+    where
+      suffix n = applyWhen (n /= 0) (++ show n)
 #endif
 
 instance Render Type where
   renderPrec p (El _ a) = renderPrec p a
 
-instance Render tm => Render (Elim' tm) where
+instance (Render tm) => Render (Elim' tm) where
   renderPrec p (Apply v) = renderPrec p v
   renderPrec _ (Proj _o x) = "." <> render x
   renderPrec p (IApply _ _ r) = renderPrec p r
@@ -182,7 +181,7 @@ instance Render tm => Render (Elim' tm) where
 instance Render DBPatVar where
   renderPrec _ x = text $ patVarNameToString (dbPatVarName x) ++ "@" ++ show (dbPatVarIndex x)
 
-instance Render a => Render (Pattern' a) where
+instance (Render a) => Render (Pattern' a) where
   renderPrec n (VarP _o x) = renderPrec n x
   renderPrec _ (DotP _o t) = "." <> renderPrec 10 t
   renderPrec n (ConP c i nps) =
@@ -212,8 +211,8 @@ instance Render a => Render (Pattern' a) where
 -- Agda.Syntax.Internal.Blockers
 
 instance Render Blocker where
-  render (UnblockOnAll us)      = "all" <> parens (fsep $ punctuate "," $ map render $ Set.toList us)
-  render (UnblockOnAny us)      = "any" <> parens (fsep $ punctuate "," $ map render $ Set.toList us)
-  render (UnblockOnMeta m)      = render m
+  render (UnblockOnAll us) = "all" <> parens (fsep $ punctuate "," $ map render $ Set.toList us)
+  render (UnblockOnAny us) = "any" <> parens (fsep $ punctuate "," $ map render $ Set.toList us)
+  render (UnblockOnMeta m) = render m
   render (UnblockOnProblem pid) = "problem" <+> render pid
-  render (UnblockOnDef q)       = "definition" <+> render q
+  render (UnblockOnDef q) = "definition" <+> render q

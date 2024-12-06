@@ -15,10 +15,10 @@ import Prelude hiding (take)
 
 data CommandController
   = CommandController
+      -- | Unbounded Command queue
       (SizedChan IOTCM)
-      -- ^ Unbounded Command queue
+      -- | MVar for the Command consumer
       (MVar IOTCM)
-      -- ^ MVar for the Command consumer
 
 new :: IO CommandController
 new = CommandController <$> newSizedChan <*> newEmptyMVar

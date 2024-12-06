@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module Render.RichText
-  ( Block(..),
+  ( Block (..),
     Inlines (..),
     -- LinkTarget (..),
     space,
@@ -41,32 +41,30 @@ where
 
 -- import qualified Agda.Interaction.Options   as Agda
 -- import qualified Agda.Syntax.Concrete.Glyph as Agda
-import qualified Agda.Syntax.Position       as Agda
-import qualified Agda.Utils.FileName        as Agda
-import qualified Agda.Utils.Null            as Agda
-import           Agda.Utils.Suffix (toSubscriptDigit)
-
-import           Data.Aeson (ToJSON (toJSON), Value (Null))
-import           Data.Foldable (toList)
-import           Data.Sequence (Seq (..))
-import qualified Data.Sequence     as Seq
-import           Data.String (IsString (..))
-import qualified Data.Strict.Maybe as Strict
-
-import           GHC.Generics (Generic)
+import qualified Agda.Syntax.Position as Agda
+import qualified Agda.Utils.FileName as Agda
 import Agda.Utils.Null
+import qualified Agda.Utils.Null as Agda
+import Agda.Utils.Suffix (toSubscriptDigit)
+import Data.Aeson (ToJSON (toJSON), Value (Null))
+import Data.Foldable (toList)
+import Data.Sequence (Seq (..))
+import qualified Data.Sequence as Seq
+import qualified Data.Strict.Maybe as Strict
+import Data.String (IsString (..))
+import GHC.Generics (Generic)
 import Prelude hiding (null)
 
 --------------------------------------------------------------------------------
--- | Block elements
 
+-- | Block elements
 data Block
-  -- for blocks like "Goal" & "Have"
-  = Labeled Inlines (Maybe String) (Maybe Agda.Range) String String
-  -- for ordinary goals & context
-  | Unlabeled Inlines (Maybe String) (Maybe Agda.Range)
-  -- headers
-  | Header String
+  = -- for blocks like "Goal" & "Have"
+    Labeled Inlines (Maybe String) (Maybe Agda.Range) String String
+  | -- for ordinary goals & context
+    Unlabeled Inlines (Maybe String) (Maybe Agda.Range)
+  | -- headers
+    Header String
   deriving (Generic)
 
 instance ToJSON Block
@@ -83,20 +81,19 @@ instance Semigroup Inlines where
   Inlines as <> Inlines bs = Inlines (merge as bs)
     where
       merge :: Seq Inline -> Seq Inline -> Seq Inline
-      merge Empty      ys = ys
+      merge Empty ys = ys
       merge (xs :|> x) ys = merge xs (cons x ys)
 
       cons :: Inline -> Seq Inline -> Seq Inline
       cons (Text s c) (Text t d :<| xs)
         -- merge 2 adjacent Text if they have the same classnames
-        | c == d    = Text (s <> t) c :<| xs
+        | c == d = Text (s <> t) c :<| xs
         | otherwise = Text s c :<| Text t d :<| xs
       cons (Text s c) (Horz [] :<| xs) = cons (Text s c) xs
-      cons (Text s c) (Horz (Inlines t:ts) :<| xs)
+      cons (Text s c) (Horz (Inlines t : ts) :<| xs) =
         -- merge Text with Horz when possible
-        = Horz (Inlines (cons (Text s c) t) :ts) :<| xs
+        Horz (Inlines (cons (Text s c) t) : ts) :<| xs
       cons x xs = x :<| xs
-
 
 instance Monoid Inlines where
   mempty = Inlines mempty
@@ -124,7 +121,6 @@ instance Null Inlines where
 
 -- -- | see if the rendered text is "empty"
 
-
 infixr 6 <+>
 
 (<+>) :: Inlines -> Inlines -> Inlines
@@ -134,6 +130,7 @@ x <+> y
   | otherwise = x <> " " <> y
 
 infixl 6 <?>
+
 -- | A synonym for '<+>' at the moment
 (<?>) :: Inlines -> Inlines -> Inlines
 (<?>) = (<+>)
@@ -221,10 +218,9 @@ instance ToJSON Agda.RangeFile where
 
 -- | Utilities / Combinators
 
-
 -- TODO: implement this
 -- Modeled after `nest` defined in ‘Text.PrettyPrint.Annotated.HughesPJ’ (pretty-1.1.3.6)
--- 
+--
 -- Indent a Inline by a given number of positions (which may also be negative). `indent` satisfies the laws:
 --
 -- `indent`  0 x = x
@@ -317,6 +313,7 @@ showIndex = map toSubscriptDigit . show
 
 --------------------------------------------------------------------------------
 --
+
 -- | Picking the appropriate set of special characters depending on
 -- whether we are allowed to use unicode or have to limit ourselves
 -- to ascii.

@@ -3,43 +3,44 @@
 
 module Monad where
 
-import           Agda.IR
-
-import           Agda.Interaction.Base          ( IOTCM )
-import           Agda.TypeChecking.Monad        ( TCMT )
-import           Control.Concurrent
-import           Control.Monad.Reader
-import           Data.Text                      ( Text
-                                                , pack
-                                                )
-import           Server.CommandController       ( CommandController )
-import qualified Server.CommandController      as CommandController
-import           Server.ResponseController      ( ResponseController )
-import qualified Server.ResponseController     as ResponseController
-
-import           Data.IORef                     ( IORef
-                                                , modifyIORef'
-                                                , newIORef
-                                                , readIORef
-                                                , writeIORef
-                                                )
-import           Data.Maybe                     ( isJust )
-import           Language.LSP.Server            ( MonadLsp
-                                                , getConfig
-                                                )
-import qualified Language.LSP.Protocol.Types   as LSP
-import           Options
+import Agda.IR
+import Agda.Interaction.Base (IOTCM)
+import Agda.TypeChecking.Monad (TCMT)
+import Control.Concurrent
+import Control.Monad.Reader
+import Data.IORef
+  ( IORef,
+    modifyIORef',
+    newIORef,
+    readIORef,
+    writeIORef,
+  )
+import Data.Maybe (isJust)
+import Data.Text
+  ( Text,
+    pack,
+  )
+import qualified Language.LSP.Protocol.Types as LSP
+import Language.LSP.Server
+  ( MonadLsp,
+    getConfig,
+  )
+import Options
+import Server.CommandController (CommandController)
+import qualified Server.CommandController as CommandController
+import Server.ResponseController (ResponseController)
+import qualified Server.ResponseController as ResponseController
 
 --------------------------------------------------------------------------------
 
 data Env = Env
-  { envOptions            :: Options
-  , envDevMode            :: Bool
-  , envConfig             :: Config
-  , envLogChan            :: Chan Text
-  , envCommandController  :: CommandController
-  , envResponseChan       :: Chan Response
-  , envResponseController :: ResponseController
+  { envOptions :: Options,
+    envDevMode :: Bool,
+    envConfig :: Config,
+    envLogChan :: Chan Text,
+    envCommandController :: CommandController,
+    envResponseChan :: Chan Response,
+    envResponseController :: ResponseController
   }
 
 createInitEnv :: (MonadIO m, MonadLsp Config m) => Options -> m Env

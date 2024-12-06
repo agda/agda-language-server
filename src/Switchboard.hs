@@ -3,30 +3,31 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy, agdaCustomMethod ) where
+module Switchboard (Switchboard, new, setupLanguageContextEnv, destroy, agdaCustomMethod) where
 
-import Monad
+import qualified Agda
 import Control.Concurrent
-import qualified Server.ResponseController as ResponseController
 import Control.Monad
 import Control.Monad.Reader
-import qualified Agda
 import qualified Data.Aeson as JSON
-import qualified Data.Text.IO as Text
-import Language.LSP.Server
-import Data.Proxy (Proxy(Proxy))
-import Language.LSP.Protocol.Message
-import Language.LSP.Protocol.Types
-  hiding (TextDocumentSyncClientCapabilities (..))
 import Data.IORef
+import Data.Proxy (Proxy (Proxy))
+import qualified Data.Text.IO as Text
+import Language.LSP.Protocol.Message
+import Language.LSP.Protocol.Types hiding
+  ( TextDocumentSyncClientCapabilities (..),
+  )
+import Language.LSP.Server
+import Monad
 import Options (Config)
+import qualified Server.ResponseController as ResponseController
 import System.IO (stderr)
 
 data Switchboard = Switchboard
-  { sbPrintLog :: ThreadId
-  , sbSendResponse :: ThreadId
-  , sbRunAgda :: ThreadId
-  , sbLanguageContextEnv :: IORef (Maybe (LanguageContextEnv Config))
+  { sbPrintLog :: ThreadId,
+    sbSendResponse :: ThreadId,
+    sbRunAgda :: ThreadId,
+    sbLanguageContextEnv :: IORef (Maybe (LanguageContextEnv Config))
   }
 
 -- | All channels go in and out from here

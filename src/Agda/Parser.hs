@@ -6,17 +6,16 @@ module Agda.Parser where
 
 import Agda.Syntax.Parser (parseFile, runPMIO, tokensParser)
 import Agda.Syntax.Parser.Tokens (Token)
-import Agda.Syntax.Position (Position' (posPos), PositionWithoutFile, Range, getRange, rEnd', rStart')
-import Agda.Syntax.Position (RangeFile(RangeFile))
+import Agda.Syntax.Position (Position' (posPos), PositionWithoutFile, Range, RangeFile (RangeFile), getRange, rEnd', rStart')
 import Agda.Utils.FileName (mkAbsolute)
-import Monad ( ServerM )
 import Control.Monad.State
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text, unpack)
 import qualified Data.Text as Text
+import qualified Language.LSP.Protocol.Types as LSP
 import Language.LSP.Server (LspM)
-import qualified Language.LSP.Protocol.Types   as LSP
+import Monad (ServerM)
 import Options (Config)
 
 --------------------------------------------------------------------------------

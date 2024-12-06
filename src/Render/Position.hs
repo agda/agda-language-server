@@ -13,11 +13,11 @@ instance Render AbsolutePath where
   render = text . filePath
 
 instance Render RangeFile where
-  render = render . rangeFilePath  -- TODO rangeFileName ?
+  render = render . rangeFilePath -- TODO rangeFileName ?
 
 --------------------------------------------------------------------------------
 
-instance Render a => Render (Position' (Strict.Maybe a)) where
+instance (Render a) => Render (Position' (Strict.Maybe a)) where
   render (Pn Strict.Nothing _ l c) = render l <> "," <> render c
   render (Pn (Strict.Just f) _ l c) =
     render f <> ":" <> render l <> "," <> render c
@@ -39,7 +39,7 @@ instance Render IntervalWithoutFile where
         | sl == el = render ec
         | otherwise = render el <> "," <> render ec
 
-instance Render a => Render (Interval' (Strict.Maybe a)) where
+instance (Render a) => Render (Interval' (Strict.Maybe a)) where
   render i@(Interval s _) = file <> render (setIntervalFile () i)
     where
       file :: Inlines
@@ -47,5 +47,5 @@ instance Render a => Render (Interval' (Strict.Maybe a)) where
         Strict.Nothing -> mempty
         Strict.Just f -> render f <> ":"
 
-instance Render a => Render (Range' (Strict.Maybe a)) where
+instance (Render a) => Render (Range' (Strict.Maybe a)) where
   render r = maybe mempty render (rangeToIntervalWithFile r)

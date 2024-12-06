@@ -20,6 +20,7 @@ class FromAgdaTCM a b | a -> b where
   fromAgdaTCM :: a -> TCM b
 
 --------------------------------------------------------------------------------
+
 -- | IR for IOCTM
 data Response
   = -- non-last responses
