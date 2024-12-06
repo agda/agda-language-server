@@ -64,7 +64,15 @@ options =
   ]
 
 usage :: String
-usage = "Agda v2.7.0.1 Language Server v3\nUsage: als [Options...]\n"
+#if MIN_VERSION_Agda(2,7,0)
+usage = "Agda v2.7.0.1 Language Server v4\nUsage: als [Options...]\n"
+#endif
+#if MIN_VERSION_Agda(2,6,4)
+usage = "Agda v2.6.4.3 Language Server v4\nUsage: als [Options...]\n"
+#endif
+#if MIN_VERSION_Agda(2,6,3)
+usage = "Agda v2.6.3 Language Server v4\nUsage: als [Options...]\n"
+#endif
 
 usageAboutAgdaOptions :: String
 usageAboutAgdaOptions =
