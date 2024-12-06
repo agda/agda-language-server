@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v0.2.7.0.1.4 - 2024-12-6
+
+### Changed
+- Target only 3 versions of Agda at a time: Agda-2.7.0.1, Agda-2.6.4.3, and Agda-2.6.3.
+
 ## v0.2.7.0.1.3 - 2024-12-5
 
 ### Fixed
