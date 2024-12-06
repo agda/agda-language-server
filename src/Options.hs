@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module Options
@@ -64,26 +65,19 @@ options =
   ]
 
 usage :: String
+usage = 
 #if MIN_VERSION_Agda(2,7,0)
-usage = "Agda v2.7.0.1 Language Server v4\nUsage: als [Options...]\n"
-#endif
-#if MIN_VERSION_Agda(2,6,4)
-usage = "Agda v2.6.4.3 Language Server v4\nUsage: als [Options...]\n"
-#endif
-#if MIN_VERSION_Agda(2,6,3)
-usage = "Agda v2.6.3 Language Server v4\nUsage: als [Options...]\n"
+  "Agda v2.7.0.1 Language Server v4\nUsage: als [Options...]\n"
+#elif MIN_VERSION_Agda(2,6,4)
+  "Agda v2.6.4.3 Language Server v4\nUsage: als [Options...]\n"
+#elif MIN_VERSION_Agda(2,6,3)
+  "Agda v2.6.3 Language Server v4\nUsage: als [Options...]\n"
+#else
+  "Unsupported Agda version\n"
 #endif
 
 usageAboutAgdaOptions :: String
-usageAboutAgdaOptions =
-  "\n\
-  \  +AGDA [Options for Agda ...] -AGDA\n\
-  \    To pass command line options to Agda, put them in between '+AGDA' and '-AGDA'\n\
-  \    For example:\n\
-  \      als -p=3000 +AGDA --cubical -AGDA\n\
-  \    If you are using agda-mode on VS Code, put them in the Settings at:\n\
-  \      agdaMode.connection.commandLineOptions\n\
-  \"
+usageAboutAgdaOptions = "\n  +AGDA [Options for Agda ...] -AGDA\n    To pass command line options to Agda, put them in between '+AGDA' and '-AGDA'\n    For example:\n      als -p=3000 +AGDA --cubical -AGDA\n    If you are using agda-mode on VS Code, put them in the Settings at:\n      agdaMode.connection.commandLineOptions\n"
 
 parseOpts :: [String] -> IO (Options, [String])
 parseOpts argv = case getOpt Permute options argv of

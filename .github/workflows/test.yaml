@@ -130,14 +130,14 @@ jobs:
     # things to be cached
 
     - name: 💾 Cache stack global package db
-      if:   steps.stack-global.outputs.cache-hit != 'true'
+      if:   always() && steps.stack-global.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
         path: ${{ env.STACK_ROOT }}
         key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
     - name: 💾 Cache .stack-work
-      if:   steps.stack-work.outputs.cache-hit != 'true'
+      if:   always() && steps.stack-work.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
         path: .stack-work
