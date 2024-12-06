@@ -22,32 +22,26 @@ extra-source-files:
     CHANGELOG.md
     package.yaml
     stack.yaml
-    stack-9.2-Agda-2.6.2.2.yaml
     stack-9.2-Agda-2.6.3.yaml
-    stack-9.2-Agda-2.6.4.yaml
     stack-9.2-Agda-2.6.4.3.yaml
+    stack-9.2-Agda-2.7.0.1.yaml
 
 source-repository head
   type: git
   location: https://github.com/banacorn/agda-language-server
-
-flag Agda-2-6-2-2
-  description: Embed Agda-2.6.2.2
-  manual: True
-  default: False
 
 flag Agda-2-6-3
   description: Embed Agda-2.6.3
   manual: True
   default: False
 
-flag Agda-2-6-4
-  description: Embed Agda-2.6.4
+flag Agda-2-6-4-3
+  description: Embed Agda-2.6.4.3
   manual: True
   default: False
 
-flag Agda-2-6-4-3
-  description: Embed Agda-2.6.4.3
+flag Agda-2-7-0-1
+  description: Embed Agda-2.7.0.1
   manual: True
   default: False
 
@@ -108,18 +102,15 @@ library
     , text
     , text-icu
   default-language: Haskell2010
-  if flag(Agda-2-6-2-2)
-    build-depends:
-        Agda ==2.6.2.2
   if flag(Agda-2-6-3)
     build-depends:
         Agda ==2.6.3
-  if flag(Agda-2-6-4)
-    build-depends:
-        Agda ==2.6.4
   if flag(Agda-2-6-4-3)
     build-depends:
         Agda ==2.6.4.3
+  if flag(Agda-2-7-0-1)
+    build-depends:
+        Agda ==2.7.0.1
 
 executable als
   main-is: Main.hs
@@ -154,18 +145,15 @@ executable als
     , text
     , text-icu
   default-language: Haskell2010
-  if flag(Agda-2-6-2-2)
-    build-depends:
-        Agda ==2.6.2.2
   if flag(Agda-2-6-3)
     build-depends:
         Agda ==2.6.3
-  if flag(Agda-2-6-4)
-    build-depends:
-        Agda ==2.6.4
   if flag(Agda-2-6-4-3)
     build-depends:
         Agda ==2.6.4.3
+  if flag(Agda-2-7-0-1)
+    build-depends:
+        Agda ==2.7.0.1
 
 test-suite als-test
   type: exitcode-stdio-1.0
@@ -233,15 +221,12 @@ test-suite als-test
     , text
     , text-icu
   default-language: Haskell2010
-  if flag(Agda-2-6-2-2)
-    build-depends:
-        Agda ==2.6.2.2
   if flag(Agda-2-6-3)
     build-depends:
         Agda ==2.6.3
-  if flag(Agda-2-6-4)
-    build-depends:
-        Agda ==2.6.4
   if flag(Agda-2-6-4-3)
     build-depends:
         Agda ==2.6.4.3
+  if flag(Agda-2-7-0-1)
+    build-depends:
+        Agda ==2.7.0.1
