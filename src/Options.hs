@@ -4,6 +4,7 @@
 module Options
   ( Options (..),
     getOptionsFromArgv,
+    versionString,
     usageMessage,
     Config (..),
     initConfig,
@@ -37,12 +38,13 @@ usageMessage = usageInfo usage options ++ usageAboutAgdaOptions
 data Options = Options
   { optViaTCP :: Maybe Int,
     optRawAgdaOptions :: [String],
-    optHelp :: Bool
+    optHelp :: Bool,
+    optVersion :: Bool
   }
 
 defaultOptions :: Options
 defaultOptions =
-  Options {optViaTCP = Nothing, optRawAgdaOptions = [], optHelp = False}
+  Options {optViaTCP = Nothing, optRawAgdaOptions = [], optHelp = False, optVersion = False}
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -61,20 +63,31 @@ options =
           )
           "PORT"
       )
-      "talk with the editor via TCP port (4096 as default)"
+      "talk with the editor via TCP port (4096 as default)",
+    Option
+      ['V']
+      ["version"]
+      (NoArg (\opts -> opts {optVersion = True}))
+      "print version information and exit"
   ]
 
-usage :: String
-usage = 
+versionNumber :: Int
+versionNumber = 5
+
+versionString :: String
+versionString =
 #if MIN_VERSION_Agda(2,7,0)
-  "Agda v2.7.0.1 Language Server v4\nUsage: als [Options...]\n"
+  "Agda v2.7.0.1 Language Server v" <> show versionNumber
 #elif MIN_VERSION_Agda(2,6,4)
-  "Agda v2.6.4.3 Language Server v4\nUsage: als [Options...]\n"
+  "Agda v2.6.4.3 Language Server v" <> show versionNumber
 #elif MIN_VERSION_Agda(2,6,3)
-  "Agda v2.6.3 Language Server v4\nUsage: als [Options...]\n"
+  "Agda v2.6.3 Language Server v" <> show versionNumber
 #else
-  "Unsupported Agda version\n"
+  error "Unsupported Agda version"
 #endif
+
+usage :: String
+usage = versionString <> "\nUsage: als [Options...]\n"
 
 usageAboutAgdaOptions :: String
 usageAboutAgdaOptions = "\n  +AGDA [Options for Agda ...] -AGDA\n    To pass command line options to Agda, put them in between '+AGDA' and '-AGDA'\n    For example:\n      als -p=3000 +AGDA --cubical -AGDA\n    If you are using agda-mode on VS Code, put them in the Settings at:\n      agdaMode.connection.commandLineOptions\n"

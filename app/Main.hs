@@ -32,7 +32,10 @@ main = do
   options <- getOptionsFromArgv
   if optHelp options
     then putStrLn usageMessage
-    else do
-      _ <- run options
-      -- _ <- run
-      return ()
+    else
+      if optVersion options
+        then putStrLn versionString
+        else do
+          _ <- run options
+          -- _ <- run
+          return ()
