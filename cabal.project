@@ -1,0 +1,8 @@
+packages:
+  .
+  wasm-submodules/agda
+  wasm-submodules/foundation/basement
+  wasm-submodules/network
+  wasm-submodules/network-simple-0.4.2
+  wasm-submodules/lsp/lsp-types
+

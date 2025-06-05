@@ -72,7 +72,7 @@ options =
   ]
 
 versionNumber :: Int
-versionNumber = 5
+versionNumber = 5999
 
 versionString :: String
 versionString =
