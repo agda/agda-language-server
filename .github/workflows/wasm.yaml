@@ -1,0 +1,84 @@
+name: Compile WASM
+
+on: [push, pull_request, workflow_dispatch]
+
+env:
+  GHC_WASM_META_FLAVOUR: '9.10'
+  GHC_WASM_META_COMMIT_HASH: fe5573f28327d12a1c47ec61d6bbe0cc9d7983dd
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: als
+        submodules: recursive
+
+    - name: Try to restore cached .ghc-wasm
+      id: ghc-wasm-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ghc-wasm
+        key: ${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-r0-ghc-wasm
+
+    - name: Clone and setup ghc-wasm-meta
+      id: ghc-wasm-setup
+      if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
+      run: |
+        mkdir ghc-wasm-meta
+        cd ghc-wasm-meta
+        git config --global init.defaultBranch dontcare
+        git config --global advice.detachedHead false
+        git init
+        git remote add origin https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta.git
+        git fetch origin ${{ env.GHC_WASM_META_COMMIT_HASH }} --depth=1
+        git checkout FETCH_HEAD
+        FLAVOUR=${{ env.GHC_WASM_META_FLAVOUR }} ./setup.sh
+
+    - name: Delete cabal's store
+      if: steps.ghc-wasm-setup.outcome == 'success'
+      run: |
+        mv ~/.ghc-wasm/.cabal/config /tmp/cabal-config
+        rm -rf ~/.ghc-wasm/.cabal
+        mkdir ~/.ghc-wasm/.cabal
+        mv /tmp/cabal-config ~/.ghc-wasm/.cabal/config
+
+    - name: Cache ghc-wasm-meta
+      if: steps.ghc-wasm-setup.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.ghc-wasm
+        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
+
+    - name: Add ghc-wasm-meta to PATH
+      run: ~/.ghc-wasm/add_to_github_path.sh
+
+    # setup script also updates package store near the end
+    - name: Update wasm32 cabal
+      if: steps.ghc-wasm-setup.outcome == 'success' || steps.ghc-wasm-setup.outcome == 'skipped'
+      run: wasm32-wasi-cabal update
+
+    - name: Build als
+      run: |
+        ~/.ghc-wasm/cabal/bin/cabal update
+        ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
+        mkdir ~/out
+        cd als/wasm-submodules/network
+        autoreconf -i
+        cd ../..
+        echo "---------------- First build attmept (should timeout) ----------------"
+        timeout 30m wasm32-wasi-cabal build || true
+        echo "---------------- Second build attempt (should succeed) ----------------"
+        wasm32-wasi-cabal build
+        echo "---------------- DONE ----------------"
+        cp $(wasm32-wasi-cabal list-bin als) ~/out
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: als
+        path: ~/out
+        include-hidden-files: true
