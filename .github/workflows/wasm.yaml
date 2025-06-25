@@ -4,7 +4,7 @@ on: [push, pull_request, workflow_dispatch]
 
 env:
   GHC_WASM_META_FLAVOUR: '9.10'
-  GHC_WASM_META_COMMIT_HASH: fe5573f28327d12a1c47ec61d6bbe0cc9d7983dd
+  GHC_WASM_META_COMMIT_HASH: '913a51e58b330f00e3b0ad5b89184cad328ea109'
 
 jobs:
   build:
@@ -69,9 +69,11 @@ jobs:
         cd als/wasm-submodules/network
         autoreconf -i
         cd ../..
-        echo "---------------- First build attmept (should timeout) ----------------"
-        timeout 30m wasm32-wasi-cabal build || true
-        echo "---------------- Second build attempt (should succeed) ----------------"
+        echo "---------------- lsp-types First build attmept (should timeout) ----------------"
+        timeout 10m wasm32-wasi-cabal build lib:lsp-types || true
+        echo "---------------- lsp-types Second build attempt (should succeed) ----------------"
+        wasm32-wasi-cabal build lib:lsp-types
+        echo "---------------- Build everything else ----------------"
         wasm32-wasi-cabal build
         echo "---------------- DONE ----------------"
         cp $(wasm32-wasi-cabal list-bin als) ~/out
