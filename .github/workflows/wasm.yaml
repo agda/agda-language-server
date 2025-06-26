@@ -22,11 +22,13 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: ~/.ghc-wasm
-        key: ${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-r0-ghc-wasm
+        key: "ghc-wasm-${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ hashFiles('.ghc-wasm/**') }}"
+        restore-keys: |
+          'ghc-wasm-${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-'
 
     - name: Clone and setup ghc-wasm-meta
       id: ghc-wasm-setup
-      if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
+      if: steps.ghc-wasm-cache-restore.outputs.cache-matched-key == ''
       run: |
         mkdir ghc-wasm-meta
         cd ghc-wasm-meta
@@ -78,6 +80,9 @@ jobs:
         mkdir ~/out
         wasm32-wasi-cabal build
         cp $(wasm32-wasi-cabal list-bin als) ~/out
+
+    - name: Clean up cabal logs
+      run: rm -rf ~/.ghc-wasm/.cabal/logs
 
     - name: Cache ghc-wasm-meta
       uses: actions/cache/save@v4
