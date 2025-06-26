@@ -58,19 +58,22 @@ jobs:
       with:
         timeout_minutes: 10
         max_attempts: 2
-        command: wasm32-wasi-cabal build lib:lsp-types
+        command: cd als && wasm32-wasi-cabal build lib:lsp-types
 
     - name: 'Build dep: agda'
+      working-directory: './als'
       run: wasm32-wasi-cabal build lib:agda
 
     - name: Build every dependency else
+      working-directory: './als'
       run: |
-        cd als/wasm-submodules/network
+        cd wasm-submodules/network
         autoreconf -i
         cd ../..
         wasm32-wasi-cabal build --dependencies-only
 
     - name: Build als
+      working-directory: './als'
       run: |
         mkdir ~/out
         wasm32-wasi-cabal build
