@@ -1,4 +1,4 @@
-# How to build on WASM
+# How to build for WASM
 
 1. Setup a working ghc (tested with v9.10) with WASM backend and wasm32-wasi-cabal.
 2. `cd` into `wasm-submodules/network` and run `autoreconf -i`.
@@ -22,6 +22,6 @@ Node.js v22.14.0
 ```
 
 At this moment, you should terminate the process and run it again.
-If this does *not* occur to you or you can fix it, please let me know.
+This is a known issue ([ghc#26106](https://gitlab.haskell.org/ghc/ghc/-/issues/26106)). If this does *not* occur to you or you can fix it, please report to that issue.
 
 If everything works properly, it should build a `als.wasm`.

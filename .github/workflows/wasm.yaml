@@ -38,21 +38,6 @@ jobs:
         git checkout FETCH_HEAD
         FLAVOUR=${{ env.GHC_WASM_META_FLAVOUR }} ./setup.sh
 
-    - name: Delete cabal's store
-      if: steps.ghc-wasm-setup.outcome == 'success'
-      run: |
-        mv ~/.ghc-wasm/.cabal/config /tmp/cabal-config
-        rm -rf ~/.ghc-wasm/.cabal
-        mkdir ~/.ghc-wasm/.cabal
-        mv /tmp/cabal-config ~/.ghc-wasm/.cabal/config
-
-    - name: Cache ghc-wasm-meta
-      if: steps.ghc-wasm-setup.outcome == 'success'
-      uses: actions/cache/save@v4
-      with:
-        path: ~/.ghc-wasm
-        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
-
     - name: Add ghc-wasm-meta to PATH
       run: ~/.ghc-wasm/add_to_github_path.sh
 
@@ -61,22 +46,42 @@ jobs:
       if: steps.ghc-wasm-setup.outcome == 'success' || steps.ghc-wasm-setup.outcome == 'skipped'
       run: wasm32-wasi-cabal update
 
-    - name: Build als
+    - name: Install native utilities
       run: |
+        echo ">>> Update cabal"
         ~/.ghc-wasm/cabal/bin/cabal update
+        echo ">>> Install alex and happy"
         ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
-        mkdir ~/out
+
+    - name: 'Build dep: lsp-types'
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 10
+        max_attempts: 2
+        command: wasm32-wasi-cabal build lib:lsp-types
+
+    - name: 'Build dep: agda'
+      run: wasm32-wasi-cabal build lib:agda
+
+    - name: Build every dependency else
+      run: |
         cd als/wasm-submodules/network
         autoreconf -i
         cd ../..
-        echo "---------------- lsp-types First build attmept (should timeout) ----------------"
-        timeout 10m wasm32-wasi-cabal build lib:lsp-types || true
-        echo "---------------- lsp-types Second build attempt (should succeed) ----------------"
-        wasm32-wasi-cabal build lib:lsp-types
-        echo "---------------- Build everything else ----------------"
+        wasm32-wasi-cabal build --dependencies-only
+
+    - name: Build als
+      run: |
+        mkdir ~/out
         wasm32-wasi-cabal build
-        echo "---------------- DONE ----------------"
         cp $(wasm32-wasi-cabal list-bin als) ~/out
+
+    - name: Cache ghc-wasm-meta
+      uses: actions/cache/save@v4
+      if: always()
+      with:
+        path: ~/.ghc-wasm
+        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
