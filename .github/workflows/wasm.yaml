@@ -33,8 +33,8 @@ jobs:
       id: dist-newstyle-cache-restore
       uses: actions/cache/restore@v4
       with:
-        path: dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('dist-newstyle/**') }}
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
         restore-keys: |
           dist-newstyle-${{ env.CI_CACHE_KEY }}-
 
@@ -84,8 +84,8 @@ jobs:
       uses: actions/cache/save@v4
       if: steps.build-dep-lsp-types.outcome == 'success' && steps.build-dep-agda.outcome == 'success'
       with:
-        path: dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('dist-newstyle/**') }}
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
 
     - name: Build every dependency else
       working-directory: './als'
@@ -109,7 +109,7 @@ jobs:
       uses: actions/cache/save@v4
       if: always()
       with:
-        path:
+        path: |
           ~/.cabal
           ~/.ghc-wasm
         key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
