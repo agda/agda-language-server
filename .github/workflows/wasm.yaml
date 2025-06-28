@@ -17,14 +17,26 @@ jobs:
         path: als
         submodules: recursive
 
+    - name: Compute cache key
+      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
+
     - name: Try to restore cached .ghc-wasm
       id: ghc-wasm-cache-restore
       uses: actions/cache/restore@v4
       with:
-        path: ~/.ghc-wasm
-        key: 'ghc-wasm-${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}'
+        path: |
+          ~/.cabal
+          ~/.ghc-wasm
+        key: ghc-wasm-${{ env.CI_CACHE_KEY }}
+
+    - name: Try to restore cached dist-newstyle
+      id: dist-newstyle-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('dist-newstyle/**') }}
         restore-keys: |
-          'ghc-wasm-${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-'
+          dist-newstyle-${{ env.CI_CACHE_KEY }}-
 
     - name: Clone and setup ghc-wasm-meta
       id: ghc-wasm-setup
@@ -57,14 +69,23 @@ jobs:
 
     - name: 'Build dep: lsp-types'
       uses: nick-fields/retry@v3
+      id: build-dep-lsp-types
       with:
         timeout_minutes: 10
         max_attempts: 2
         command: cd als && wasm32-wasi-cabal build lib:lsp-types
 
     - name: 'Build dep: agda'
+      id: build-dep-agda
       working-directory: './als'
       run: wasm32-wasi-cabal build lib:agda
+
+    - name: Cache dist-newstyle
+      uses: actions/cache/save@v4
+      if: steps.build-dep-lsp-types.outcome == 'success' && steps.build-dep-agda.outcome == 'success'
+      with:
+        path: dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('dist-newstyle/**') }}
 
     - name: Build every dependency else
       working-directory: './als'
@@ -82,14 +103,16 @@ jobs:
         cp $(wasm32-wasi-cabal list-bin als) ~/out
 
     - name: Clean up cabal logs
-      run: rm -rf ~/.ghc-wasm/.cabal/logs
+      run: rm -rf ~/.cabal/logs ~/.ghc-wasm/.cabal/logs
 
     - name: Cache ghc-wasm-meta
       uses: actions/cache/save@v4
       if: always()
       with:
-        path: ~/.ghc-wasm
-        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}-${{ hashFiles('.ghc-wasm/**') }}
+        path:
+          ~/.cabal
+          ~/.ghc-wasm
+        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
