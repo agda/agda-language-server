@@ -24,10 +24,15 @@ jobs:
       id: ghc-wasm-cache-restore
       uses: actions/cache/restore@v4
       with:
-        path: |
-          ~/.cabal
-          ~/.ghc-wasm
+        path: ~/.ghc-wasm
         key: ghc-wasm-${{ env.CI_CACHE_KEY }}
+
+    - name: Try to restore cached native cabal
+      id: native-cabal-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.config/cabal
+        key: native-cabal-${{ env.CI_CACHE_KEY }}
 
     - name: Try to restore cached dist-newstyle
       id: dist-newstyle-cache-restore
@@ -103,15 +108,20 @@ jobs:
         cp $(wasm32-wasi-cabal list-bin als) ~/out
 
     - name: Clean up cabal logs
-      run: rm -rf ~/.cabal/logs ~/.ghc-wasm/.cabal/logs
+      run: rm -rf ~/.config/cabal/logs ~/.ghc-wasm/.cabal/logs
+
+    - name: Cache native cabal
+      uses: actions/cache/save@v4
+      if: always()
+      with:
+        path: ~/.config/cabal
+        key: ${{ steps.native-cabal-cache-restore.outputs.cache-primary-key }}
 
     - name: Cache ghc-wasm-meta
       uses: actions/cache/save@v4
       if: always()
       with:
-        path: |
-          ~/.cabal
-          ~/.ghc-wasm
+        path: ~/.ghc-wasm
         key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
 
     - name: Upload artifact
