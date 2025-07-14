@@ -43,7 +43,7 @@ flag Agda-2-6-4-3
 flag Agda-2-7-0-1
   description: Embed Agda-2.7.0.1
   manual: True
-  default: True
+  default: False
 
 library
   exposed-modules:
@@ -100,7 +100,6 @@ library
     , stm
     , strict
     , text
-    -- , text-icu
   default-language: Haskell2010
   if flag(Agda-2-6-3)
     build-depends:
@@ -143,7 +142,6 @@ executable als
     , stm
     , strict
     , text
-    -- , text-icu
   default-language: Haskell2010
   if flag(Agda-2-6-3)
     build-depends:
@@ -219,7 +217,6 @@ test-suite als-test
     , tasty-hunit
     , tasty-quickcheck
     , text
-    -- , text-icu
   default-language: Haskell2010
   if flag(Agda-2-6-3)
     build-depends:

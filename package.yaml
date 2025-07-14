@@ -68,7 +68,6 @@ dependencies:
   - strict
   - stm
   - text
-  - text-icu
   - process
   - prettyprinter
 

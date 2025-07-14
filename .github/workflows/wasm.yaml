@@ -106,7 +106,7 @@ jobs:
       working-directory: './als'
       run: |
         mkdir ~/out
-        wasm32-wasi-cabal build
+        wasm32-wasi-cabal build --flag=Agda-2-7-0-1
         cp $(wasm32-wasi-cabal list-bin als) ~/out
 
     - name: Clean up native/wasm cabal logs
