@@ -74,6 +74,10 @@ jobs:
         echo ">>> Install alex and happy"
         ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
 
+    - name: Run cabal configure
+      working-directory: './als'
+      run: wasm32-wasi-cabal configure --flag=Agda-2-7-0-1
+
     - name: 'Build dep: lsp-types'
       uses: nick-fields/retry@v3
       id: build-dep-lsp-types
@@ -106,7 +110,7 @@ jobs:
       working-directory: './als'
       run: |
         mkdir ~/out
-        wasm32-wasi-cabal build --flag=Agda-2-7-0-1
+        wasm32-wasi-cabal build
         cp $(wasm32-wasi-cabal list-bin als) ~/out
 
     - name: Clean up native/wasm cabal logs
