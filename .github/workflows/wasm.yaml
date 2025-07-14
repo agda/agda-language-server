@@ -4,7 +4,7 @@ on: [push, pull_request, workflow_dispatch]
 
 env:
   GHC_WASM_META_FLAVOUR: '9.10'
-  GHC_WASM_META_COMMIT_HASH: '913a51e58b330f00e3b0ad5b89184cad328ea109'
+  GHC_WASM_META_COMMIT_HASH: '7927129e42bcd6a54b9e06e26455803fa4878261'
 
 jobs:
   build:
