@@ -118,7 +118,7 @@ jobs:
 
     - name: Cache native cabal
       uses: actions/cache/save@v4
-      if: always()
+      if: steps.ghc-wasm-setup.outcome == 'success'
       with:
         path: |
           ~/.config/cabal
@@ -127,7 +127,7 @@ jobs:
 
     - name: Cache ghc-wasm-meta
       uses: actions/cache/save@v4
-      if: always()
+      if: steps.ghc-wasm-setup.outcome == 'success'
       with:
         path: ~/.ghc-wasm
         key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
