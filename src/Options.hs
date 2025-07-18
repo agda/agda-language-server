@@ -72,11 +72,13 @@ options =
   ]
 
 versionNumber :: Int
-versionNumber = 5999
+versionNumber = 5
 
 versionString :: String
 versionString =
-#if MIN_VERSION_Agda(2,7,0)
+#ifdef wasm32_HOST_ARCH
+  "Agda v2.7.0.1 Language Server (WebAssembly build) v" <> show versionNumber
+#elif MIN_VERSION_Agda(2,7,0)
   "Agda v2.7.0.1 Language Server v" <> show versionNumber
 #elif MIN_VERSION_Agda(2,6,4)
   "Agda v2.6.4.3 Language Server v" <> show versionNumber
