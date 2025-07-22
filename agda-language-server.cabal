@@ -110,6 +110,9 @@ library
   if flag(Agda-2-7-0-1)
     build-depends:
         Agda ==2.7.0.1
+  if arch(wasm32)
+    build-depends:
+        unix >=2.8.0.0 && <2.9
 
 executable als
   main-is: Main.hs
