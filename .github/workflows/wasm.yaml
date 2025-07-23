@@ -1,6 +1,12 @@
 name: Compile WASM
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [master, ci-*, ci]
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+  pull_request:
+    branches: [master]
 
 env:
   GHC_WASM_META_FLAVOUR: '9.10'
@@ -74,9 +80,11 @@ jobs:
         echo ">>> Install alex and happy"
         ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
 
-    - name: Run cabal configure
+    - name: Cabal configure
       working-directory: './als'
-      run: wasm32-wasi-cabal configure --flag=Agda-2-7-0-1
+      run: |
+        mv cabal.project.wasm32 cabal.project
+        wasm32-wasi-cabal configure --flag=Agda-2-7-0-1
 
     - name: 'Build dep: lsp-types'
       uses: nick-fields/retry@v3

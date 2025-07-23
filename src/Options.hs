@@ -77,7 +77,7 @@ versionNumber = 5
 versionString :: String
 versionString =
 #ifdef wasm32_HOST_ARCH
-  "Agda v2.7.0.1 Language Server (WebAssembly build) v" <> show versionNumber
+  "Agda v2.7.0.1 Language Server v" <> show versionNumber <> " (WebAssembly build)"
 #elif MIN_VERSION_Agda(2,7,0)
   "Agda v2.7.0.1 Language Server v" <> show versionNumber
 #elif MIN_VERSION_Agda(2,6,4)
