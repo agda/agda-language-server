@@ -1,6 +1,12 @@
 name: Compile WASM
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [master, ci-*, ci]
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+  pull_request:
+    branches: [master]
 
 env:
   GHC_WASM_META_FLAVOUR: '9.10'
