@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           agda-language-server
-version:        0.2.7.0.1.4
+version:        0.2.7.0.1.5
 synopsis:       An implementation of language server protocal (LSP) for Agda 2.
 description:    Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 category:       Development
@@ -94,13 +94,12 @@ library
     , lsp-types >=2
     , mtl
     , network
-    , network-simple
+    , network-simple == 0.4.2
     , prettyprinter
     , process
     , stm
     , strict
     , text
-    , text-icu
   default-language: Haskell2010
   if flag(Agda-2-6-3)
     build-depends:
@@ -111,6 +110,9 @@ library
   if flag(Agda-2-7-0-1)
     build-depends:
         Agda ==2.7.0.1
+  if arch(wasm32)
+    build-depends:
+        unix >=2.8.0.0 && <2.9
 
 executable als
   main-is: Main.hs
@@ -123,7 +125,7 @@ executable als
       OverloadedStrings
       PatternSynonyms
       TypeOperators
-  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
+  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
       Agda
     , aeson
@@ -137,13 +139,12 @@ executable als
     , lsp-types >=2
     , mtl
     , network
-    , network-simple
+    , network-simple == 0.4.2
     , prettyprinter
     , process
     , stm
     , strict
     , text
-    , text-icu
   default-language: Haskell2010
   if flag(Agda-2-6-3)
     build-depends:
@@ -195,7 +196,7 @@ test-suite als-test
       OverloadedStrings
       PatternSynonyms
       TypeOperators
-  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -threaded -rtsopts -with-rtsopts=-N -Werror=incomplete-patterns -fno-warn-orphans
+  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
   build-depends:
       Agda
     , aeson
@@ -209,7 +210,7 @@ test-suite als-test
     , lsp-types >=2
     , mtl
     , network
-    , network-simple
+    , network-simple == 0.4.2
     , prettyprinter
     , process
     , stm
@@ -219,7 +220,6 @@ test-suite als-test
     , tasty-hunit
     , tasty-quickcheck
     , text
-    , text-icu
   default-language: Haskell2010
   if flag(Agda-2-6-3)
     build-depends:
