@@ -82,6 +82,8 @@ library
       PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
+  if !arch(wasm32)
+    ghc-options: -threaded -with-rtsopts=-N
   build-depends:
       Agda
     , aeson
@@ -126,6 +128,8 @@ executable als
       PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
+  if !arch(wasm32)
+    ghc-options: -threaded -with-rtsopts=-N
   build-depends:
       Agda
     , aeson
@@ -197,6 +201,8 @@ test-suite als-test
       PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
+  if !arch(wasm32)
+    ghc-options: -threaded -with-rtsopts=-N
   build-depends:
       Agda
     , aeson

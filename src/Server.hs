@@ -50,10 +50,10 @@ run options = do
       -- Switchboard.destroy switchboard
       return 0
     Nothing -> do
-      #if defined(wasm32_HOST_ARCH)
+#if defined(wasm32_HOST_ARCH)
       liftIO $ setFdOption stdInput NonBlockingRead True
         `catchIO` (\ e -> hPutStrLn stderr $ "Failed to enable nonblocking on stdin: " ++ (show e) ++ "\nThe WASM module might not behave correctly.")
-      #endif
+#endif
       runServer (serverDefn options)
   where
     serverDefn :: Options -> ServerDefinition Config

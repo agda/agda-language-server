@@ -2,7 +2,7 @@
 
 1. Setup a working ghc (tested with v9.10) with WASM backend and wasm32-wasi-cabal.
 2. `cd` into `wasm-submodules/network` and run `autoreconf -i`.
-3. In the project root, run `wasm32-wasi-cabal build`.
+3. In the project root, run `cp cabal.project{.wasm32,}`, and then `wasm32-wasi-cabal build`.
 
 The process might output the following:
 
@@ -24,4 +24,4 @@ Node.js v22.14.0
 At this moment, you should terminate the process and run it again.
 This is a known issue ([ghc#26106](https://gitlab.haskell.org/ghc/ghc/-/issues/26106)). If this does *not* occur to you or you can fix it, please report to that issue.
 
-If everything works properly, it should build a `als.wasm`.
+If everything works properly, it should build a binary `als.wasm`.
