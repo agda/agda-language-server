@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
-        agda: ['Agda-2.7.0.1', 'Agda-2.6.4.3', 'Agda-2.6.3']
+        agda: ['Agda-2.7.0.1', 'Agda-2.6.4.3']
       fail-fast: false
     steps:
 
@@ -33,8 +33,8 @@ jobs:
 
     - name: 🎛️ Determine which version of Agda to target
       run: |
-        STACK_YAML=$(echo stack-9.2-${{ matrix.agda }}.yaml)
-        STACK_YAML_ARG="--stack-yaml $(echo stack-9.2-${{ matrix.agda }}.yaml)"
+        STACK_YAML=$(echo stack-9.10.2-${{ matrix.agda }}.yaml)
+        STACK_YAML_ARG="--stack-yaml $(echo stack-9.10.2-${{ matrix.agda }}.yaml)"
 
         if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
           ARTEFACT="als-${{ matrix.agda }}-ubuntu"

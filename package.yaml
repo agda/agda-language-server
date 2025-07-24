@@ -11,9 +11,8 @@ extra-source-files:
 - CHANGELOG.md
 - package.yaml
 - stack.yaml
-- stack-9.2-Agda-2.6.3.yaml
-- stack-9.2-Agda-2.6.4.3.yaml
-- stack-9.2-Agda-2.7.0.1.yaml
+- stack-9.10.2-Agda-2.6.4.3.yaml
+- stack-9.10.2-Agda-2.7.0.1.yaml
 
 # Metadata used when publishing your package
 synopsis:            An implementation of language server protocal (LSP) for Agda 2.
@@ -25,10 +24,6 @@ category:            Development
 description:         Please see the README on GitHub at <https://github.com/agda/agda-language-server#readme>
 
 flags:
-  Agda-2-6-3:
-    description: Embed Agda-2.6.3
-    manual: true
-    default: false
   Agda-2-6-4-3:
     description: Embed Agda-2.6.4.3
     manual: true
@@ -39,9 +34,6 @@ flags:
     default: false
 
 when:
-- condition: "flag(Agda-2-6-3)"
-  dependencies:
-    - Agda == 2.6.3
 - condition: "flag(Agda-2-6-4-3)"
   dependencies:
     - Agda == 2.6.4.3

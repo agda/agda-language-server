@@ -12,6 +12,8 @@ extra-deps:
 - network-simple-0.4.2@sha256:3614a0b7e51bcafb5643c3dc3a3a89d20a99671998c8814eb6fc55fa99e38444,1375
 
 flags:
+  agda-language-server:
+    Agda-2-6-4-3: true
   Agda:
     # optimise-heavily: true
     enable-cluster-counting: true
