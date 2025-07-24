@@ -82,8 +82,6 @@ library
       PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
-  if !arch(wasm32)
-    ghc-options: -threaded -with-rtsopts=-N
   build-depends:
       Agda
     , aeson
@@ -96,7 +94,7 @@ library
     , lsp-types >=2
     , mtl
     , network
-    , network-simple == 0.4.2
+    , network-simple ==0.4.2
     , prettyprinter
     , process
     , stm
@@ -115,6 +113,8 @@ library
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
+  if !arch(wasm32)
+    ghc-options: -threaded -with-rtsopts=-N
 
 executable als
   main-is: Main.hs
@@ -128,8 +128,6 @@ executable als
       PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
-  if !arch(wasm32)
-    ghc-options: -threaded -with-rtsopts=-N
   build-depends:
       Agda
     , aeson
@@ -143,7 +141,7 @@ executable als
     , lsp-types >=2
     , mtl
     , network
-    , network-simple == 0.4.2
+    , network-simple ==0.4.2
     , prettyprinter
     , process
     , stm
@@ -159,6 +157,11 @@ executable als
   if flag(Agda-2-7-0-1)
     build-depends:
         Agda ==2.7.0.1
+  if arch(wasm32)
+    build-depends:
+        unix >=2.8.0.0 && <2.9
+  if !arch(wasm32)
+    ghc-options: -threaded -with-rtsopts=-N
 
 test-suite als-test
   type: exitcode-stdio-1.0
@@ -201,8 +204,6 @@ test-suite als-test
       PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
-  if !arch(wasm32)
-    ghc-options: -threaded -with-rtsopts=-N
   build-depends:
       Agda
     , aeson
@@ -216,7 +217,7 @@ test-suite als-test
     , lsp-types >=2
     , mtl
     , network
-    , network-simple == 0.4.2
+    , network-simple ==0.4.2
     , prettyprinter
     , process
     , stm
@@ -236,3 +237,8 @@ test-suite als-test
   if flag(Agda-2-7-0-1)
     build-depends:
         Agda ==2.7.0.1
+  if arch(wasm32)
+    build-depends:
+        unix >=2.8.0.0 && <2.9
+  if !arch(wasm32)
+    ghc-options: -threaded -with-rtsopts=-N
