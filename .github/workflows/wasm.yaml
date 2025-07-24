@@ -1,0 +1,148 @@
+name: Compile WASM
+
+on:
+  push:
+    branches: [master, ci-*, ci]
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+  pull_request:
+    branches: [master]
+
+env:
+  GHC_WASM_META_FLAVOUR: '9.10'
+  GHC_WASM_META_COMMIT_HASH: '7927129e42bcd6a54b9e06e26455803fa4878261'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: als
+        submodules: recursive
+
+    - name: Compute cache key
+      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
+
+    - name: Try to restore cached .ghc-wasm
+      id: ghc-wasm-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ghc-wasm
+        key: ghc-wasm-${{ env.CI_CACHE_KEY }}
+
+    - name: Try to restore cached native cabal
+      id: native-cabal-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.config/cabal
+          ~/.cache/cabal
+        key: native-cabal-${{ env.CI_CACHE_KEY }}
+
+    - name: Try to restore cached dist-newstyle
+      id: dist-newstyle-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        restore-keys: |
+          dist-newstyle-${{ env.CI_CACHE_KEY }}-
+
+    - name: Clone and setup ghc-wasm-meta
+      id: ghc-wasm-setup
+      if: steps.ghc-wasm-cache-restore.outputs.cache-matched-key == ''
+      run: |
+        mkdir ghc-wasm-meta
+        cd ghc-wasm-meta
+        git config --global init.defaultBranch dontcare
+        git config --global advice.detachedHead false
+        git init
+        git remote add origin https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta.git
+        git fetch origin ${{ env.GHC_WASM_META_COMMIT_HASH }} --depth=1
+        git checkout FETCH_HEAD
+        FLAVOUR=${{ env.GHC_WASM_META_FLAVOUR }} ./setup.sh
+
+    - name: Add ghc-wasm-meta to PATH
+      run: ~/.ghc-wasm/add_to_github_path.sh
+
+    # setup script also updates package store near the end
+    - name: Update wasm32 cabal
+      if: steps.ghc-wasm-setup.outcome == 'success' || steps.ghc-wasm-setup.outcome == 'skipped'
+      run: wasm32-wasi-cabal update
+
+    - name: Install native utilities
+      run: |
+        echo ">>> Update cabal"
+        ~/.ghc-wasm/cabal/bin/cabal update
+        echo ">>> Install alex and happy"
+        ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
+
+    - name: Cabal configure
+      working-directory: './als'
+      run: |
+        mv cabal.project.wasm32 cabal.project
+        wasm32-wasi-cabal configure --flag=Agda-2-7-0-1
+
+    - name: 'Build dep: lsp-types'
+      uses: nick-fields/retry@v3
+      id: build-dep-lsp-types
+      with:
+        timeout_minutes: 10
+        max_attempts: 2
+        command: cd als && wasm32-wasi-cabal build lib:lsp-types
+
+    - name: 'Build dep: agda'
+      id: build-dep-agda
+      working-directory: './als'
+      run: wasm32-wasi-cabal build lib:agda
+
+    - name: Cache dist-newstyle
+      uses: actions/cache/save@v4
+      if: steps.build-dep-lsp-types.outcome == 'success' && steps.build-dep-agda.outcome == 'success'
+      with:
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+
+    - name: Build every dependency else
+      working-directory: './als'
+      run: |
+        cd wasm-submodules/network
+        autoreconf -i
+        cd ../..
+        wasm32-wasi-cabal build --dependencies-only
+
+    - name: Build als
+      working-directory: './als'
+      run: |
+        mkdir ~/out
+        wasm32-wasi-cabal build
+        cp $(wasm32-wasi-cabal list-bin als) ~/out
+
+    - name: Clean up native/wasm cabal logs
+      run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs
+
+    - name: Cache native cabal
+      uses: actions/cache/save@v4
+      if: steps.ghc-wasm-setup.outcome == 'success'
+      with:
+        path: |
+          ~/.config/cabal
+          ~/.cache/cabal
+        key: ${{ steps.native-cabal-cache-restore.outputs.cache-primary-key }}
+
+    - name: Cache ghc-wasm-meta
+      uses: actions/cache/save@v4
+      if: steps.ghc-wasm-setup.outcome == 'success'
+      with:
+        path: ~/.ghc-wasm
+        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: als
+        path: ~/out
+        include-hidden-files: true

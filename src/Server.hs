@@ -28,6 +28,12 @@ import qualified Server.Handler as Handler
 import Switchboard (Switchboard, agdaCustomMethod)
 import qualified Switchboard
 
+#if defined(wasm32_HOST_ARCH)
+import Agda.Utils.IO (catchIO)
+import System.IO (hPutStrLn, stderr)
+import System.Posix.IO (stdInput, setFdOption, FdOption (..))
+#endif
+
 --------------------------------------------------------------------------------
 
 run :: Options -> IO Int
@@ -44,6 +50,10 @@ run options = do
       -- Switchboard.destroy switchboard
       return 0
     Nothing -> do
+#if defined(wasm32_HOST_ARCH)
+      liftIO $ setFdOption stdInput NonBlockingRead True
+        `catchIO` (\ e -> hPutStrLn stderr $ "Failed to enable nonblocking on stdin: " ++ (show e) ++ "\nThe WASM module might not behave correctly.")
+#endif
       runServer (serverDefn options)
   where
     serverDefn :: Options -> ServerDefinition Config

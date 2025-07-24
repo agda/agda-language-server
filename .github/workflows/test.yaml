@@ -19,8 +19,8 @@ jobs:
     runs-on: ${{ matrix.os }} 
     strategy:
       matrix:
-        os: [windows-latest]
-        agda: ['Agda-2.7.0.1']
+        os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
+        agda: ['Agda-2.7.0.1', 'Agda-2.6.4.3', 'Agda-2.6.3']
       fail-fast: false
     steps:
 
@@ -289,10 +289,7 @@ jobs:
         cd zip
         Compress-Archive * "$($env:ARTEFACT).zip"
         cd ..
-        ls zip
         mv zip/"$($env:ARTEFACT).zip" .
-        ls 
-  
   
     - name: 🧪 Run tests
       run: stack test $STACK_YAML_ARG --ta --als-path=zip/als
