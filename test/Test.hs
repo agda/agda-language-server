@@ -1,7 +1,12 @@
+{-# LANGUAGE CPP #-}
+
 import Data.Proxy (Proxy (..))
 import Data.Typeable (Typeable)
 import qualified Test.LSP as LSP
 import qualified Test.SrcLoc as SrcLoc
+#if defined(wasm32_HOST_ARCH)
+import qualified Test.WASM as WASM
+#endif
 import Test.Tasty
 import Test.Tasty.Options
 
@@ -27,4 +32,7 @@ tests = askOption $ \(AlsPathOption alsPath) ->
     "Tests"
     [ SrcLoc.tests,
       LSP.tests alsPath
+#if defined(wasm32_HOST_ARCH)
+    , WASM.tests alsPath
+#endif
     ]

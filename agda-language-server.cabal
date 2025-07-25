@@ -157,6 +157,7 @@ test-suite als-test
   other-modules:
       Test.LSP
       Test.SrcLoc
+      Test.WASM
       Agda
       Agda.Convert
       Agda.IR

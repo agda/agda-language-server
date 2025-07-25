@@ -82,8 +82,6 @@ versionString =
   "Agda v2.7.0.1 Language Server v" <> show versionNumber
 #elif MIN_VERSION_Agda(2,6,4)
   "Agda v2.6.4.3 Language Server v" <> show versionNumber
-#elif MIN_VERSION_Agda(2,6,3)
-  "Agda v2.6.3 Language Server v" <> show versionNumber
 #else
   error "Unsupported Agda version"
 #endif
