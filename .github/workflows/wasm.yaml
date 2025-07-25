@@ -21,7 +21,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         path: als
-        submodules: recursive
+        submodules: true
 
     - name: Compute cache key
       run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
@@ -106,12 +106,14 @@ jobs:
         path: als/dist-newstyle
         key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
 
-    - name: Build every dependency else
+    - name: Build dependencies
       working-directory: './als'
       run: |
+        # Setup network submodule autotools
         cd wasm-submodules/network
         autoreconf -i
         cd ../..
+        # Build all dependencies (cabal git deps + network submodule)
         wasm32-wasi-cabal build --dependencies-only
 
     - name: Build als

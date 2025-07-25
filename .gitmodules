@@ -1,16 +1,4 @@
-[submodule "wasm-submodules/agda"]
-	path = wasm-submodules/agda
-    url = git@github.com:agda-web/agda.git
-[submodule "wasm-submodules/foundation"]
-	path = wasm-submodules/foundation
-	url = git@github.com:haskell-wasm/foundation.git
 [submodule "wasm-submodules/network"]
 	path = wasm-submodules/network
 	url = https://github.com/haskell-wasm/network
-[submodule "wasm-submodules/network-simple-0.4.2"]
-	path = wasm-submodules/network-simple-0.4.2
-	url = https://github.com/k0001/network-simple
-[submodule "wasm-submodules/lsp"]
-	path = wasm-submodules/lsp
-	url = git@github.com:agda-web/lsp.git
 
