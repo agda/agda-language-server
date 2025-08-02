@@ -145,11 +145,12 @@ executable als
   if flag(Agda-2-7-0-1)
     build-depends:
         Agda ==2.7.0.1
-  if arch(wasm32)
-    build-depends:
-        unix >=2.8.0.0 && <2.9
   if !arch(wasm32)
     ghc-options: -threaded -with-rtsopts=-N
+  else
+    build-depends:
+        unix >=2.8.0.0 && <2.9
+    ghc-options: -with-rtsopts=-V1
 
 test-suite als-test
   type: exitcode-stdio-1.0
@@ -223,8 +224,9 @@ test-suite als-test
   if flag(Agda-2-7-0-1)
     build-depends:
         Agda ==2.7.0.1
-  if arch(wasm32)
-    build-depends:
-        unix >=2.8.0.0 && <2.9
   if !arch(wasm32)
     ghc-options: -threaded -with-rtsopts=-N
+  else
+    build-depends:
+        unix >=2.8.0.0 && <2.9
+    ghc-options: -with-rtsopts=-V1
