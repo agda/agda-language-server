@@ -43,6 +43,7 @@ where
 -- import qualified Agda.Syntax.Concrete.Glyph as Agda
 import qualified Agda.Syntax.Position as Agda
 import qualified Agda.Utils.FileName as Agda
+import Agda.Utils.List (caseList, last1)
 import Agda.Utils.Null
 import qualified Agda.Utils.Null as Agda
 import Agda.Utils.Suffix (toSubscriptDigit)
@@ -293,13 +294,9 @@ mparens :: Bool -> Inlines -> Inlines
 mparens True = parens
 mparens False = id
 
--- | From braces'
+-- | From braces'. v2.7.0.1
 braces' :: Inlines -> Inlines
-braces' d =
-  let s = show d
-   in if Agda.null s
-        then braces d
-        else braces (spaceIfDash (head s) <> d <> spaceIfDash (last s))
+braces' d = caseList (show d) (braces d {-else-}) $ \c cs -> braces (spaceIfDash c <> d <> spaceIfDash (last1 c cs))
   where
     -- Add space to avoid starting a comment (Ulf, 2010-09-13, #269)
     -- Andreas, 2018-07-21, #3161: Also avoid ending a comment
