@@ -32,7 +32,7 @@ stack install
 
 ## Versioning
 
-The version is _x.a.b.c.d.y_ where _a.b.c.d_ is the 4-digit Agda version (2.6.4.0), _x_ is 0 but may be bumped for revolutionary changes to the agda-language-server, and _y_ is for patch releases.
+Single-digit versioning for the language server itself - people mostly just care about the Agda version it supports anyway.
 
 ## Why make it standalone?
 
