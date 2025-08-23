@@ -87,6 +87,7 @@ import           Language.LSP.Server            ( getConfig )
 import           Monad
 import           Options                        ( Config(configRawAgdaOptions)
                                                 , Options(optRawAgdaOptions)
+                                                , versionNumber
                                                 )
 
 getAgdaVersion :: String
@@ -167,7 +168,7 @@ sendCommand value = do
 
 
 handleCommandReq :: MonadIO m => CommandReq -> ServerM m CommandRes
-handleCommandReq CmdReqSYN    = return $ CmdResACK Agda.getAgdaVersion
+handleCommandReq CmdReqSYN    = return $ CmdResACK Agda.getAgdaVersion versionNumber
 handleCommandReq (CmdReq cmd) = do
   case parseIOTCM cmd of
     Left err -> do
@@ -245,6 +246,7 @@ instance FromJSON CommandReq
 data CommandRes
   = CmdResACK -- ^ For server to complete a 2-way handshake
       String   -- ^ Version number of Agda
+      Int -- ^ Version number of the language server
   | CmdRes -- ^ Response for 'CmdReq'
       (Maybe CommandErr) -- ^ 'Nothing' to indicate success
   deriving (Generic)

@@ -5,7 +5,6 @@
 These are the currently supported versions of Agda:
 * Agda-2.7.0.1
 * Agda-2.6.4.3
-* Agda-2.6.3
 
 All releases will come with binaries built with these versions of Agda.
 

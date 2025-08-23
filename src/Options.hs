@@ -4,6 +4,7 @@
 module Options
   ( Options (..),
     getOptionsFromArgv,
+    versionNumber,
     versionString,
     usageMessage,
     Config (..),
@@ -72,7 +73,7 @@ options =
   ]
 
 versionNumber :: Int
-versionNumber = 5
+versionNumber = 6
 
 versionString :: String
 versionString =
