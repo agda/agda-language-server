@@ -18,8 +18,9 @@ import Agda.Syntax.Common
     MetaId (MetaId),
     NameId (..),
     Named (namedThing),
-
+#if MIN_VERSION_Agda(2,7,0)
     OverlapMode (..),
+#endif
 
     Quantity (..),
     QωOrigin (..),
