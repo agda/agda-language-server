@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
-        agda: ['Agda-2.7.0.1', 'Agda-2.6.4.3']
+        agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
       fail-fast: false
     steps:
 

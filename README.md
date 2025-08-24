@@ -3,6 +3,7 @@
 ## Supported versions of Agda
 
 These are the currently supported versions of Agda:
+* Agda-2.8.0
 * Agda-2.7.0.1
 * Agda-2.6.4.3
 
