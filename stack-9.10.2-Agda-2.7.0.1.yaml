@@ -12,7 +12,7 @@ extra-deps:
 
 flags:
   agda-language-server:
-    Agda-2-7-0-1: true
+    Agda-2-7-0: true
   Agda:
     # optimise-heavily: true
     enable-cluster-counting: true

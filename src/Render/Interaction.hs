@@ -119,26 +119,15 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
 
 -- | IPBoundary'
 instance (Render c) => Render (IPBoundary' c) where
-#if MIN_VERSION_Agda(2,6,4)
   render (IPBoundary m) = vcat $ flip fmap (Map.toList m) $ \case
     (boundary, rhs) ->
       fsep (punctuate "," xs) <+> "⊢" <+> render rhs
       where
         xs = flip fmap (IntMap.toList boundary) $ \(l, r) ->
           text $ concat ["@", show l, " = ", if r then "i1" else "i0"]
-#else
-  render (IPBoundary eqs val meta over) = do
-    let xs  = fmap (\(l, r) -> render l <+> "=" <+> render r) eqs
-        rhs = case over of
-          Overapplied    -> "=" <+> render meta
-          NotOverapplied -> mempty
-    fsep (punctuate "," xs) <+> "⊢" <+> render val <+> rhs
-#endif
 
-#if MIN_VERSION_Agda(2,6,4)
 instance Render c => Render (IPFace' c) where
   render (IPFace' eqs val) = do
     let
       xs = map (\ (l,r) -> render l <+> "=" <+> render r) eqs
     fsep (punctuate "," xs) <+> "⊢" <+> render val
-#endif

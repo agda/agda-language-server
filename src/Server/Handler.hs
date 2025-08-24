@@ -24,8 +24,13 @@ import           Agda.Interaction.Highlighting.Precise
 import qualified Agda.Interaction.Imports      as Imp
 import           Agda.Interaction.InteractionTop
                                                 ( cmd_load'
+#if MIN_VERSION_Agda(2,8,0)
+#else
                                                 , localStateCommandM
-#if MIN_VERSION_Agda(2,7,0)
+#endif
+
+#if MIN_VERSION_Agda(2,8,0)
+#elif MIN_VERSION_Agda(2,7,0)
                                                 , CommandM
 #else
 #endif
@@ -47,12 +52,15 @@ import           Agda.Syntax.Translation.ConcreteToAbstract
 import           Agda.TypeChecking.Monad        ( HasOptions(commandLineOptions)
                                                 , setInteractionOutputCallback
                                                 )
-import           Agda.TypeChecking.Warnings     ( runPM )
-#if MIN_VERSION_Agda(2,6,4)
-import           Agda.Syntax.Common.Pretty      ( render )
-#else
-import           Agda.Utils.Pretty              ( render )
+#if MIN_VERSION_Agda(2,8,0)
+import           Agda.Interaction.Command       ( CommandM, localStateCommandM )
+import           Agda.TypeChecking.Monad.Trace  ( runPM )
 #endif
+#if MIN_VERSION_Agda(2,8,0)
+#else
+import           Agda.TypeChecking.Warnings     ( runPM )
+#endif
+import           Agda.Syntax.Common.Pretty      ( render )
 import           Control.Concurrent.STM
 import           Control.Monad.Reader
 import           Control.Monad.State

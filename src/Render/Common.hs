@@ -12,20 +12,28 @@ import Agda.Syntax.Common
     LensQuantity (getQuantity),
     LensRelevance (getRelevance),
     Lock (..),
-#if MIN_VERSION_Agda(2,6,4)
+
     LockOrigin (..),
-#endif
+
     MetaId (MetaId),
     NameId (..),
     Named (namedThing),
 #if MIN_VERSION_Agda(2,7,0)
     OverlapMode (..),
 #endif
+
     Quantity (..),
     QωOrigin (..),
     Relevance (..),
     RewriteEqn' (..),
     asQuantity,
+#if MIN_VERSION_Agda(2,8,0)
+    OriginRelevant (..), 
+    OriginIrrelevant (..), 
+    OriginShapeIrrelevant (..), 
+    PolarityModality (..),
+    ModalPolarity (..),
+#endif
   )
 import Agda.Utils.Functor ((<&>))
 import Agda.Utils.List1 (toList)
@@ -33,6 +41,7 @@ import qualified Agda.Utils.List1 as List1
 import qualified Agda.Utils.Null as Agda
 import Render.Class
 import Render.RichText
+import Data.Text (Text)
 
 --------------------------------------------------------------------------------
 
@@ -44,11 +53,40 @@ instance Render NameId where
 instance Render MetaId where
   render (MetaId n m) = text $ "_" ++ show n ++ "@" ++ show m
 
+#if MIN_VERSION_Agda(2,8,0)
+-- | OriginRelevant
+instance Render OriginRelevant where
+  render = \case
+    ORelInferred {} -> mempty
+    ORelRelevant {} -> "@relevant"
+
+instance Render OriginIrrelevant where
+  render = \case
+    OIrrInferred {} -> mempty
+    OIrrDot {} -> "."
+    OIrrIrr {} -> "@irr"
+    OIrrIrrelevant {} -> "@irrelevant"
+
+instance Render OriginShapeIrrelevant where
+  render = \case
+    OShIrrInferred {} -> mempty
+    OShIrrDotDot {} -> ".."
+    OShIrrShIrr {} -> "@shirr"
+    OShIrrShapeIrrelevant {} -> "@shape-irrelevant"
+#endif
+
 -- | Relevance
+#if MIN_VERSION_Agda(2,8,0)
+instance Render Relevance where
+  render (Relevant o) = render o
+  render (Irrelevant o) = Agda.ifNull (render o) "." id
+  render (ShapeIrrelevant o) = Agda.ifNull (render o) ".." id
+#else
 instance Render Relevance where
   render Relevant = mempty
   render Irrelevant = "."
   render NonStrict = ".."
+#endif
 
 -- | Quantity
 instance Render Quantity where
@@ -75,6 +113,21 @@ instance Render Cohesion where
   render Flat = "@♭"
   render Continuous = mempty
   render Squash = "@⊤"
+
+-- | Polarity
+
+#if MIN_VERSION_Agda(2,8,0)
+instance Render ModalPolarity where
+  render p = case p of
+    UnusedPolarity -> "@unused"
+    StrictlyPositive -> "@++"
+    Positive -> "@+"
+    Negative -> "@-"
+    MixedPolarity -> mempty
+
+instance Render PolarityModality where
+  render (PolarityModality p _ _) = render p
+#endif
 
 --------------------------------------------------------------------------------
 
@@ -112,12 +165,8 @@ renderQuantity a d =
 
 instance Render Lock where
   render = \case
-#if MIN_VERSION_Agda(2,6,4)
     IsLock LockOLock -> "@lock"
     IsLock LockOTick -> "@tick"
-#else
-    IsLock -> "@lock"
-#endif
     IsNotLock -> mempty
 
 #if MIN_VERSION_Agda(2,7,0)

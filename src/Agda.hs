@@ -28,16 +28,18 @@ import           Agda.Interaction.Base          ( Command
                                                 , initCommandState
                                                 , parseIOTCM
                                                 )
-#if MIN_VERSION_Agda(2,6,4)
-import           Agda.Syntax.Common.Pretty      ( render, vcat )
+
+#if MIN_VERSION_Agda(2,8,0)
+import           Agda.Interaction.Command       ( CommandM )
 #endif
+import           Agda.Syntax.Common.Pretty      ( render, vcat )
 import           Agda.Interaction.InteractionTop
                                                 ( initialiseCommandQueue
                                                 , maybeAbort
                                                 , runInteraction
-#if MIN_VERSION_Agda(2,7,0)
+#if MIN_VERSION_Agda(2,8,0)
+#elif MIN_VERSION_Agda(2,7,0)
                                                 , CommandM
-#else
 #endif
                                                 )
 import           Agda.Interaction.Options       ( CommandLineOptions
@@ -87,6 +89,7 @@ import           Language.LSP.Server            ( getConfig )
 import           Monad
 import           Options                        ( Config(configRawAgdaOptions)
                                                 , Options(optRawAgdaOptions)
+                                                , versionNumber
                                                 )
 
 getAgdaVersion :: String
@@ -167,7 +170,7 @@ sendCommand value = do
 
 
 handleCommandReq :: MonadIO m => CommandReq -> ServerM m CommandRes
-handleCommandReq CmdReqSYN    = return $ CmdResACK Agda.getAgdaVersion
+handleCommandReq CmdReqSYN    = return $ CmdResACK Agda.getAgdaVersion versionNumber
 handleCommandReq (CmdReq cmd) = do
   case parseIOTCM cmd of
     Left err -> do
@@ -219,11 +222,7 @@ runAgda p = do
     s2s <- prettyTCWarnings' =<< getAllWarningsOfTCErr err
     s1  <- prettyError err
     let ss       = filter (not . null) $ s2s ++ [s1]
-#if MIN_VERSION_Agda(2,6,4)
     let errorMsg = render $ vcat ss
-#else
-    let errorMsg = unlines ss
-#endif
     return (Left errorMsg)
 
   handleImpossible :: Impossible -> TCM (Either String a)
@@ -245,6 +244,7 @@ instance FromJSON CommandReq
 data CommandRes
   = CmdResACK -- ^ For server to complete a 2-way handshake
       String   -- ^ Version number of Agda
+      Int -- ^ Version number of the language server
   | CmdRes -- ^ Response for 'CmdReq'
       (Maybe CommandErr) -- ^ 'Nothing' to indicate success
   deriving (Generic)
