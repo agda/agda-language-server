@@ -324,7 +324,7 @@ jobs:
           --prerelease
 
     - name: 📤 Upload artifacts to dev release
-      if: github.ref == 'refs/heads/dev'
+      if: github.ref == 'refs/heads/dev' && matrix.agda == 'Agda-2.8.0'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
