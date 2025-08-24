@@ -60,11 +60,7 @@ import           Agda.TypeChecking.Monad.Trace  ( runPM )
 #else
 import           Agda.TypeChecking.Warnings     ( runPM )
 #endif
-#if MIN_VERSION_Agda(2,6,4)
 import           Agda.Syntax.Common.Pretty      ( render )
-#else
-import           Agda.Utils.Pretty              ( render )
-#endif
 import           Control.Concurrent.STM
 import           Control.Monad.Reader
 import           Control.Monad.State

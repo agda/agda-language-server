@@ -329,11 +329,7 @@ instance Render RHS where
 
 instance Render WhereClause where
   render NoWhere = mempty
-#if MIN_VERSION_Agda(2,6,4)
   render (AnyWhere _range [Module _ _ x [] ds])
-#else
-  render (AnyWhere _range [Module _ x [] ds])
-#endif
     | isNoName (unqualify x) =
         vcat ["where", vcat $ fmap render ds]
   render (AnyWhere _range ds) = vcat ["where", vcat $ fmap render ds]
@@ -352,11 +348,7 @@ instance Render WhereClause where
         _ -> id
 
 #else
-#if MIN_VERSION_Agda(2,6,4)
   render (SomeWhere _range _er m a ds) =
-#else
-  render (SomeWhere _range m a ds) =
-#endif
     vcat
       [ hsep $
           applyWhen
@@ -465,11 +457,7 @@ instance Render Declaration where
             render rhs,
             render wh
           ]
-#if MIN_VERSION_Agda(2,6,4)
       DataSig _ _er x tel e ->
-#else
-      DataSig _ x tel e ->
-#endif
         fsep
           [ hsep
               [ "data",
@@ -481,11 +469,7 @@ instance Render Declaration where
                 render e
               ]
           ]
-#if MIN_VERSION_Agda(2,6,4)
       Data _ _er x tel e cs ->
-#else
-      Data _ x tel e cs ->
-#endif
         fsep
           [ hsep
               [ "data",
@@ -509,11 +493,7 @@ instance Render Declaration where
             "where",
             vcat $ fmap render cs
           ]
-#if MIN_VERSION_Agda(2,6,4)
       RecordSig _ _er x tel e ->
-#else
-      RecordSig _ x tel e ->
-#endif
         sep
           [ hsep
               [ "record",
@@ -528,11 +508,7 @@ instance Render Declaration where
 #if MIN_VERSION_Agda(2,7,0)
       Record _ erased x dir tel e cs -> pRecord erased x dir tel (Just e) cs
 #else
-#if MIN_VERSION_Agda(2,6,4)
       Record _ _er x dir tel e cs -> pRecord x dir tel (Just e) cs
-#else
-      Record _ x dir tel e cs -> pRecord x dir tel (Just e) cs
-#endif
 #endif
 #if MIN_VERSION_Agda(2,7,0)
       RecordDef _ x dir tel cs -> pRecord defaultErased x dir tel Nothing cs
@@ -560,11 +536,7 @@ instance Render Declaration where
       Postulate _ ds -> namedBlock "postulate" ds
       Primitive _ ds -> namedBlock "primitive" ds
       Generalize _ ds -> namedBlock "variable" ds
-#if MIN_VERSION_Agda(2,6,4)
       Module _ _er x tel ds ->
-#else
-      Module _ x tel ds ->
-#endif
         fsep
           [ hsep
               [ "module",
@@ -591,11 +563,7 @@ instance Render Declaration where
             , "=" <+> render rec <+> "{{...}}"
             ]
 #else
-#if MIN_VERSION_Agda(2,6,4)
       ModuleMacro _ _er x m open i -> case m of
-#else
-      ModuleMacro _ x m open i -> case m of
-#endif
         (SectionApp _ [] e)
           | open == DoOpen,
             isNoName x ->
@@ -628,12 +596,10 @@ instance Render Declaration where
       Pragma pr -> sep ["{-#" <+> render pr, "#-}"]
       UnquoteData _ x xs e ->
         fsep [hsep ["unquoteData", render x, fsep (fmap render xs), "="], render e]
-#if MIN_VERSION_Agda(2,6,4)
       Opaque _ ds ->
         namedBlock "opaque" ds
       Unfolding _ xs ->
         fsep ("unfolding" : fmap render xs)
-#endif
     where
 
       namedBlock s ds =
@@ -834,11 +800,7 @@ instance (Render e) => Render (Named NamedName e) where
 
 instance Render Pattern where
   render = \case
-#if MIN_VERSION_Agda(2,6,4)
     IdentP _ x -> render x
-#else
-    IdentP x -> render x
-#endif
     AppP p1 p2 -> fsep [render p1, render p2]
     RawAppP _ ps -> fsep $ fmap render (List2.toList ps)
     OpAppP _ q _ ps -> fsep $ renderOpApp q (fmap (fmap (fmap (NoPlaceholder Strict.Nothing))) (toList ps))

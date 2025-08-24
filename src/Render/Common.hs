@@ -158,12 +158,8 @@ renderQuantity a d =
 
 instance Render Lock where
   render = \case
-#if MIN_VERSION_Agda(2,6,4)
     IsLock LockOLock -> "@lock"
     IsLock LockOTick -> "@tick"
-#else
-    IsLock -> "@lock"
-#endif
     IsNotLock -> mempty
 
 #if MIN_VERSION_Agda(2,7,0)

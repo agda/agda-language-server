@@ -28,13 +28,11 @@ import           Agda.Interaction.Base          ( Command
                                                 , initCommandState
                                                 , parseIOTCM
                                                 )
-#if MIN_VERSION_Agda(2,6,4)
 
 #if MIN_VERSION_Agda(2,8,0)
 import           Agda.Interaction.Command       ( CommandM )
 #endif
 import           Agda.Syntax.Common.Pretty      ( render, vcat )
-#endif
 import           Agda.Interaction.InteractionTop
                                                 ( initialiseCommandQueue
                                                 , maybeAbort
@@ -224,11 +222,7 @@ runAgda p = do
     s2s <- prettyTCWarnings' =<< getAllWarningsOfTCErr err
     s1  <- prettyError err
     let ss       = filter (not . null) $ s2s ++ [s1]
-#if MIN_VERSION_Agda(2,6,4)
     let errorMsg = render $ vcat ss
-#else
-    let errorMsg = unlines ss
-#endif
     return (Left errorMsg)
 
   handleImpossible :: Impossible -> TCM (Either String a)

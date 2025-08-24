@@ -55,12 +55,8 @@ import Data.String (IsString)
 import Render (Block (..), Inlines, Render (..), renderATop)
 import qualified Render
 
-#if MIN_VERSION_Agda(2,6,4)
 import Agda.Syntax.Common.Pretty hiding (render)
 import qualified Prettyprinter
-#else
-import Agda.Utils.Pretty hiding (render)
-#endif
 
 responseAbbr :: (IsString a) => Response -> a
 responseAbbr res = case res of
@@ -332,12 +328,8 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
 
         auxSect <- case aux of
           GoalOnly -> return []
-#if MIN_VERSION_Agda(2,6,4)
           GoalAndHave expr bndry -> do
             -- TODO: render bndry
-#else
-          GoalAndHave expr -> do
-#endif
             rendered <- renderATop expr
             raw <- show <$> prettyATop expr
             return [Labeled rendered (Just raw) Nothing "Have" "special"]
@@ -407,11 +399,7 @@ prettyResponseContext ::
   ResponseContextEntry ->
   TCM [(String, Doc)]
 prettyResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = withInteractionId ii $ do
-#if MIN_VERSION_Agda(2,6,4)
   modality <- currentModality
-#else
-  modality <- asksTC getModality
-#endif
   do
     let prettyCtxName :: String
         prettyCtxName
@@ -460,11 +448,7 @@ renderResponseContext ::
   ResponseContextEntry ->
   TCM [Block]
 renderResponseContext ii (ResponseContextEntry n x (Arg ai expr) letv nis) = withInteractionId ii $ do
-#if MIN_VERSION_Agda(2,6,4)
   modality <- currentModality
-#else
-  modality <- asksTC getModality
-#endif
   do
     let rawCtxName :: String
         rawCtxName
