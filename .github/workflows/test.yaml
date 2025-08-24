@@ -11,6 +11,7 @@ on:
     branches: [master, ci-*, ci]
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'dev' # Development pre-releases
   pull_request:
     branches: [master]
 
@@ -295,8 +296,30 @@ jobs:
       run: stack test $STACK_YAML_ARG --ta --als-path=zip/als
   
     # release (optional)
-    - name: 🚢 Release Artifacts
+    - name: 🚢 Release Artifacts (stable)
       if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: gh release upload ${{ github.ref_name }} $ARTEFACT.zip --clobber
+
+    # dev release (optional)
+    - name: 🚢 Create/Update Dev Release
+      if: github.ref == 'refs/tags/dev' && matrix.os == 'ubuntu-latest' && matrix.agda == 'Agda-2.8.0'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Delete existing dev release if it exists
+        gh release delete dev --cleanup-tag -y || true
+        
+        # Create new dev pre-release
+        gh release create dev \
+          --title "Development Release (dev)" \
+          --notes "Development pre-release build from latest changes. This is a pre-release for testing purposes." \
+          --prerelease
+
+    - name: 📤 Upload artifacts to dev release
+      if: github.ref == 'refs/tags/dev'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release upload dev $ARTEFACT.zip --clobber

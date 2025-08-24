@@ -22,6 +22,14 @@ You can also download prebuilt binaries [from the release page](https://github.c
 
 Supported platforms: **Windows**, **Mac**, and **Ubuntu**.
 
+#### Development releases
+
+For testing the latest features and bug fixes, you can download development pre-releases:
+- **Stable releases**: Tagged as `v6`, `v7`, etc. - recommended for general use
+- **Development releases**: Tagged as `dev` - latest features, may be unstable
+
+Development releases are updated as needed and contain the latest changes from the main branch.
+
 ### Build from source
 
 You will need [Haskell Stack](https://docs.haskellstack.org/en/stable/README/) to build the project:
@@ -51,4 +59,15 @@ To make development easier, you can host the language server locally at `localho
 Add `lsp://localhost:4096` to `agdaMode.connection.paths` in VS Code's settings, then hit <kbd>C-x</kbd> <kbd>C-s</kbd> to select it as the endpoint.
 
 This allows you to reload the language server in the REPL without recompiling and reinstalling the whole project every time you make changes.
+
+### Creating development releases
+
+To create a development pre-release, tag the commit with the moving tag `dev`:
+
+```bash
+git tag -f dev
+git push -f origin dev
+```
+
+This creates/updates the `dev` pre-release with artifacts for all supported Agda versions and platforms.
 
