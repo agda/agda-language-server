@@ -22,6 +22,7 @@ module Render.RichText
     braces',
     dbraces,
     mparens,
+    textNonEmpty,
     hcat,
     hsep,
     sep,
@@ -200,7 +201,11 @@ instance Show Inline where
 instance {-# OVERLAPS #-} ToJSON Agda.Range
 
 instance ToJSON (Agda.Interval' ()) where
+#if MIN_VERSION_Agda(2,8,0)
+  toJSON (Agda.Interval () start end) = toJSON (start, end)
+#else
   toJSON (Agda.Interval start end) = toJSON (start, end)
+#endif
 
 instance ToJSON (Agda.Position' ()) where
   toJSON (Agda.Pn () pos line col) = toJSON [line, col, pos]
@@ -289,10 +294,16 @@ leftIdiomBrkt = _leftIdiomBrkt specialCharacters
 rightIdiomBrkt = _rightIdiomBrkt specialCharacters
 emptyIdiomBrkt = _emptyIdiomBrkt specialCharacters
 
--- | Apply 'parens' to 'Doc' if boolean is true.
+-- | Apply 'parens' to 'Inlines' if boolean is true.
 mparens :: Bool -> Inlines -> Inlines
 mparens True = parens
 mparens False = id
+
+-- | Return 'empty' for empty strings.
+textNonEmpty :: String -> Inlines
+textNonEmpty = \case
+  "" -> empty
+  s  -> text s
 
 -- | From braces'. v2.7.0.1
 braces' :: Inlines -> Inlines

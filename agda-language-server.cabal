@@ -39,6 +39,11 @@ flag Agda-2-7-0-1
   manual: True
   default: False
 
+flag Agda-2-8-0
+  description: Embed Agda-2.8.0
+  manual: True
+  default: False
+
 library
   exposed-modules:
       Agda

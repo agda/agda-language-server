@@ -26,6 +26,8 @@ import qualified Agda.Utils.Pretty as Doc
 #endif
 
 import Data.Int (Int32)
+import Data.Text (Text)
+import Data.Word (Word32)
 import GHC.Exts (IsList (toList))
 import Render.RichText
 
@@ -68,10 +70,16 @@ instance Render Int where
 instance Render Int32 where
   render = text . show
 
+instance Render Word32 where
+  render = text . show
+
 instance Render Integer where
   render = text . show
 
 instance Render Bool where
+  render = text . show
+
+instance Render Text where
   render = text . show
 
 instance Render Doc where

@@ -10,9 +10,9 @@ import Agda.Syntax.Concrete
 import Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
 import Agda.Utils.Float (toStringWithoutDotZero)
 import Agda.Utils.Function
-import Agda.Utils.Functor (dget, (<&>))
+import Agda.Utils.Functor (dget, (<&>), for)
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
-import Agda.Utils.List1 as List1 (fromList, toList)
+import Agda.Utils.List1 as List1 (fromList, toList, List1)
 import qualified Agda.Utils.List1 as List1
 import qualified Agda.Utils.List2 as List2
 import Agda.Utils.Null
@@ -26,6 +26,7 @@ import Render.Name ()
 import Render.RichText
 import Render.TypeChecking ()
 import Prelude hiding (null)
+import qualified Agda.Syntax.Common.Aspect as Asp
 
 --------------------------------------------------------------------------------
 
@@ -81,8 +82,15 @@ instance Render Expr where
       case appView expr of
         AppView e1 args -> fsep $ render e1 : fmap render args
     RawApp _ es -> fsep $ fmap render (List2.toList es)
+#if MIN_VERSION_Agda(2,8,0)
+    OpApp _ q _ es -> fsep $ renderOpApp280 (Asp.Name Nothing True) q es
+    WithApp _ e es -> fsep $ render e : fmap (("|" <+>) . render) (toList es)
+    KnownOpApp nk _ q _ es -> fsep $ renderOpApp280 (Asp.Name (Just nk) True) q es
+#else
     OpApp _ q _ es -> fsep $ renderOpApp q es
     WithApp _ e es -> fsep $ render e : fmap ((text' ["delimiter"] "|" <+>) . render) es
+    KnownOpApp _ _ q _ es -> fsep $ renderOpApp q es
+#endif
     HiddenArg _ e -> braces' $ render e
     InstanceArg _ e -> dbraces $ render e
     Lam _ bs (AbsurdLam _ h) -> lambda <+> fsep (fmap render (toList bs)) <+> absurd h
@@ -115,9 +123,15 @@ instance Render Expr where
     Dot _ e -> "." <> render e
     DoubleDot _ e -> ".." <> render e
     Absurd _ -> "()"
+#if MIN_VERSION_Agda(2,8,0)
+    Rec _ _ xs -> sep ["record", bracesAndSemicolons (fmap render xs)]
+    RecUpdate _ _ e xs ->
+      sep ["record" <+> render e, bracesAndSemicolons (fmap render xs)]
+#else
     Rec _ xs -> sep ["record", bracesAndSemicolons (fmap render xs)]
     RecUpdate _ e xs ->
       sep ["record" <+> render e, bracesAndSemicolons (fmap render xs)]
+#endif
     Quote _ -> "quote"
     QuoteTerm _ -> "quoteTerm"
     Unquote _ -> "unquote"
@@ -127,10 +141,7 @@ instance Render Expr where
     Equal _ a b -> render a <+> "=" <+> render b
     Ellipsis _ -> "..."
     Generalized e -> render e
-#if MIN_VERSION_Agda(2,6,4)
     KnownIdent _ q -> render q
-    KnownOpApp _ _ q _ es -> fsep $ renderOpApp q es
-#endif
     where
       absurd NotHidden = "()"
       absurd Instance {} = "{{}}"
@@ -161,17 +172,46 @@ instance Render BoundName where
   render BName {boundName = x} = render x
 
 instance (Render a) => Render (Binder' a) where
+#if MIN_VERSION_Agda(2,8,0)
+  render (Binder mpat UserBinderName n) =
+    applyWhenJust mpat (\ pat -> (<+> ("@" <+> parens (render pat)))) $ render n
+  render (Binder pat InsertedBinderName n) = case pat of
+    Just pat -> parens (render pat)
+    Nothing  -> render n
+#else
   render (Binder mpat n) =
     let d = render n
      in case mpat of
           Nothing -> d
           Just pat -> d <+> "@" <+> parens (render pat)
+#endif
 
 --------------------------------------------------------------------------------
 
 -- | NamedBinding
 instance Render NamedBinding where
-#if MIN_VERSION_Agda(2,7,0)
+#if MIN_VERSION_Agda(2,8,0)
+  render (NamedBinding withH
+           x@(Arg (ArgInfo h (Modality r q c p) _o _fv (Annotation lock))
+               (Named _mn xb@(Binder _mp _ (BName _y _fix t _fin))))) =
+    applyWhen withH prH $
+    applyWhenJust (isLabeled x) (\ l -> (text l <+>) . ("=" <+>)) (render xb)
+    where
+    prH = renderRelevance r
+        . renderHiding h mparens
+        . (coh <+>)
+        . (qnt <+>)
+        . (pol <+>)
+        . (lck <+>)
+        . (tac <+>)
+    coh = render c
+    qnt = render q
+    pol = render p
+    tac = render t
+    lck = render lock
+    -- Parentheses are needed when an attribute @... is printed
+    mparens = applyUnless (null coh && null qnt && null lck && null tac && null pol) parens
+#elif MIN_VERSION_Agda(2,7,0)
   render
     ( NamedBinding
         withH
@@ -183,9 +223,6 @@ instance Render NamedBinding where
       applyWhen withH prH $
         applyWhenJust (isLabeled x) (\l -> (text l <+>) . ("=" <+>)) (render xb)
       where
-        -- isLabeled looks at _mn and _y
-        -- pretty xb prints also the pattern _mp
-
         prH =
           (render r <>)
             . renderHiding h mparens
@@ -358,11 +395,19 @@ instance Render LHSCore where
       then doc
       else sep $ parens doc : fmap (parens . render) ps
     where
-      doc = sep $ render h : fmap (("|" <+>) . render) wps
+      doc = sep $ render h : fmap (("|" <+>) . render) (toList wps)
   render (LHSEllipsis r p) = "..."
 
 instance Render ModuleApplication where
+#if MIN_VERSION_Agda(2,8,0)
+  render (SectionApp _ bs x es) = fsep $ concat
+      [ map render bs
+      , [ "=", render x ]
+      , map render es
+      ]
+#else
   render (SectionApp _ bs e) = fsep (fmap render bs) <+> "=" <+> render e
+#endif
   render (RecordModuleInstance _ rec) = "=" <+> render rec <+> "{{...}}"
 
 instance Render DoStmt where
@@ -382,6 +427,13 @@ instance Render Declaration where
           [ renderTactic' tac $ renderRelevance i $ renderCohesion i $ renderQuantity i $ render x <+> ":",
             render e
           ]
+#if MIN_VERSION_Agda(2,8,0)
+      FieldSig inst tac x (Arg i e) ->
+        mkInst inst $ mkOverlap i $
+        -- We print relevance before hiding, need to clear it before printing the rest of the attributes with TypeSig.
+        renderRelevance i $ renderHiding i id $
+        render $ TypeSig (setRelevance relevant i) tac x e
+#else
       FieldSig inst tac x (Arg i e) ->
         mkInst inst $
           mkOverlap i $
@@ -391,6 +443,7 @@ instance Render Declaration where
                   renderQuantity i $
                     render $
                       TypeSig (setRelevance Relevant i) tac x e
+#endif
         where
           mkInst (InstanceDef _) f = sep ["instance", f]
           mkInst NotInstanceDef f = f
@@ -521,6 +574,23 @@ instance Render Declaration where
               ],
             vcat $ fmap render ds
           ]
+#if MIN_VERSION_Agda(2,8,0)
+      ModuleMacro _ NotErased{} x (SectionApp _ [] y es) DoOpen i
+        | isNoName x ->
+        sep [ render DoOpen
+            , fsep $ render y : map render es
+            , render i
+            ]
+      ModuleMacro _ erased x (SectionApp _ tel y es) open i ->
+        sep [ render open <+> "module" <+>
+              renderErased erased (render x) <+> fsep (map render tel)
+            , fsep $ concat [ [ "=", render y ], map render es, [ render i ] ]
+            ]
+      ModuleMacro _ erased x (RecordModuleInstance _ rec) open _i ->
+        sep [ render open <+> "module" <+> renderErased erased (render x)
+            , "=" <+> render rec <+> "{{...}}"
+            ]
+#else
 #if MIN_VERSION_Agda(2,6,4)
       ModuleMacro _ _er x m open i -> case m of
 #else
@@ -544,6 +614,7 @@ instance Render Declaration where
             [ render open <+> "module" <+> render x,
               "=" <+> render rec <+> "{{...}}"
             ]
+#endif
       Open _ x i -> hsep ["open", render x, render i]
       Import _ x rn open i ->
         hsep [render open, "import", render x, as rn, render i]
@@ -676,10 +747,17 @@ instance Render Pragma where
   render (BuiltinPragma _ b x) = hsep ["BUILTIN", text (rangedThing b), render x]
   render (RewritePragma _ _ xs) =
     hsep ["REWRITE", hsep $ fmap render xs]
+#if MIN_VERSION_Agda(2,8,0)
+  render (CompilePragma _ b x e) =
+    hsep [ "COMPILE", render (rangedThing b), render x, textNonEmpty e ]
+  render (ForeignPragma _ b s) =
+    vcat $ hsep [ "FOREIGN", render (rangedThing b) ] : map text (lines s)
+#else
   render (CompilePragma _ b x e) =
     hsep ["COMPILE", text (rangedThing b), render x, text e]
   render (ForeignPragma _ b s) =
     vcat $ text ("FOREIGN " ++ rangedThing b) : fmap text (lines s)
+#endif
   render (StaticPragma _ i) =
     hsep ["STATIC", render i]
   render (InjectivePragma _ i) =
@@ -763,18 +841,27 @@ instance Render Pattern where
 #endif
     AppP p1 p2 -> fsep [render p1, render p2]
     RawAppP _ ps -> fsep $ fmap render (List2.toList ps)
-    OpAppP _ q _ ps -> fsep $ renderOpApp q (fmap (fmap (fmap (NoPlaceholder Strict.Nothing))) ps)
+    OpAppP _ q _ ps -> fsep $ renderOpApp q (fmap (fmap (fmap (NoPlaceholder Strict.Nothing))) (toList ps))
     HiddenP _ p -> braces' $ render p
     InstanceP _ p -> dbraces $ render p
     ParenP _ p -> parens $ render p
     WildP _ -> "_"
     AsP _ x p -> render x <> "@" <> render p
+#if MIN_VERSION_Agda(2,8,0)
+    DotP _ _ p      -> "." <> render p
+#else
     DotP _ p -> "." <> render p
+#endif
     AbsurdP _ -> "()"
     LitP _ l -> render l
     QuoteP _ -> "quote"
+#if MIN_VERSION_Agda(2,8,0)
+    RecP _ _ fs     -> sep [ "record", bracesAndSemicolons (map render fs) ]
+    EqualP _ es     -> sep $ for (toList es) (\ (e1, e2) -> parens $ sep [render e1, "=", render e2])
+#else
     RecP _ fs -> sep ["record", bracesAndSemicolons (fmap render fs)]
     EqualP _ es -> sep $ [parens (sep [render e1, "=", render e2]) | (e1, e2) <- es]
+#endif
     EllipsisP _ mp -> "..."
     WithP _ p -> "|" <+> render p
 
@@ -782,6 +869,7 @@ bracesAndSemicolons :: [Inlines] -> Inlines
 bracesAndSemicolons [] = "{}"
 bracesAndSemicolons (d : ds) = sep (["{" <+> d] ++ fmap (";" <+>) ds ++ ["}"])
 
+-- `prettyOpApp` for Agda 2.7.0.1 and below
 renderOpApp ::
   forall a.
   (Render a) =>
@@ -815,6 +903,61 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
     prOp _ [] es = fmap (\e -> (render e, Nothing)) es
 
     qual ms' doc = hcat $ punctuate "." $ fmap render ms' ++ [doc]
+
+    -- Section underscores should be printed without surrounding
+    -- whitespace. This function takes care of that.
+    merge :: [Inlines] -> [(Inlines, Maybe PositionInName)] -> [Inlines]
+    merge before [] = reverse before
+    merge before ((d, Nothing) : after) = merge (d : before) after
+    merge before ((d, Just Beginning) : after) = mergeRight before d after
+    merge before ((d, Just End) : after) = case mergeLeft d before of
+      (d', bs) -> merge (d' : bs) after
+    merge before ((d, Just Middle) : after) = case mergeLeft d before of
+      (d', bs) -> mergeRight bs d' after
+
+    mergeRight before d after =
+      reverse before
+        ++ case merge [] after of
+          [] -> [d]
+          a : as -> (d <> a) : as
+
+    mergeLeft d before = case before of
+      [] -> (d, [])
+      b : bs -> (b <> d, bs)
+
+-- `prettyOpApp` for Agda 2.8.0 and above
+renderOpApp280 :: 
+  forall a.
+  (Render a) =>
+  Asp.Aspect ->
+  QName ->
+  List1 (NamedArg (MaybePlaceholder a)) ->
+  [Inlines]
+renderOpApp280 asp q es = merge [] $ prOp ms xs $ List1.toList es
+  where
+    -- ms: the module part of the name.
+    ms = List1.init (qnameParts q)
+    -- xs: the concrete name (alternation of @Id@ and @Hole@)
+    xs = case unqualify q of
+           Name _ _ xs    -> List1.toList xs
+           NoName{}       -> __IMPOSSIBLE__
+
+    prOp :: (Render a) => [Name] -> [NamePart] -> [NamedArg (MaybePlaceholder a)] -> [(Inlines, Maybe PositionInName)]
+    prOp ms (Hole : xs) (e : es) =
+      case namedArg e of
+        Placeholder p -> (qual ms $ render e, Just p) : prOp [] xs es
+        NoPlaceholder {} -> (render e, Nothing) : prOp ms xs es
+          -- Module qualifier needs to go on section holes (#3072)
+    prOp _  (Hole : _)  []       = __IMPOSSIBLE__
+    prOp ms (Id x : xs) es       = ( qual ms $ render $ simpleName x
+                                   , Nothing
+                                   ) : prOp [] xs es
+      -- Qualify the name part with the module.
+      -- We then clear @ms@ such that the following name parts will not be qualified.
+
+    prOp _  []       es          = map (\e -> (render e, Nothing)) es
+
+    qual ms doc = hcat $ punctuate "." $ map render ms ++ [doc]
 
     -- Section underscores should be printed without surrounding
     -- whitespace. This function takes care of that.

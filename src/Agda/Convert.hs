@@ -11,7 +11,12 @@ import Agda.Interaction.EmacsTop (showInfoError)
 import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
 import Agda.Interaction.Highlighting.Precise (Aspects (..), DefinitionSite (..), HighlightingInfo, TokenBased (..))
 import qualified Agda.Interaction.Highlighting.Range as Highlighting
+#if MIN_VERSION_Agda(2,8,0)
+import Agda.Interaction.Command (localStateCommandM)
+import Agda.TypeChecking.Monad.Base (topLevelModuleFilePath)
+#else
 import Agda.Interaction.InteractionTop (localStateCommandM)
+#endif
 #if MIN_VERSION_Agda(2,7,0)
 import Agda.Interaction.Output ( OutputConstraint )
 #endif
@@ -130,7 +135,11 @@ fromHighlightingInfo h remove method modFile =
         (defSite <$> definitionSite aspects)
       where
         defSite (DefinitionSite moduleName offset _ _) =
+#if MIN_VERSION_Agda(2,8,0)
+          (filePath (topLevelModuleFilePath modFile moduleName), offset)
+#else
           (filePath (Map.findWithDefault __IMPOSSIBLE__ moduleName modFile), offset)
+#endif
 
     infos :: [IR.HighlightingInfo]
     infos = fmap fromAspects (toList h)
@@ -151,8 +160,13 @@ fromDisplayInfo :: DisplayInfo -> TCM IR.DisplayInfo
 fromDisplayInfo = \case
   Info_CompilationOk _ ws -> do
     -- filter
+#if MIN_VERSION_Agda(2,8,0)
+    filteredWarnings <- filterTCWarnings (tcWarnings ws)
+    filteredErrors <- filterTCWarnings (nonFatalErrors ws)
+#else
     let filteredWarnings = filterTCWarnings (tcWarnings ws)
     let filteredErrors = filterTCWarnings (nonFatalErrors ws)
+#endif
     -- serializes
     warnings <- mapM prettyTCM filteredWarnings
     errors <- mapM prettyTCM filteredErrors
@@ -172,8 +186,13 @@ fromDisplayInfo = \case
 
     -- errors / warnings
     -- filter
+#if MIN_VERSION_Agda(2,8,0)
+    filteredWarnings <- filterTCWarnings (tcWarnings ws)
+    filteredErrors <- filterTCWarnings (nonFatalErrors ws)
+#else
     let filteredWarnings = filterTCWarnings (tcWarnings ws)
     let filteredErrors = filterTCWarnings (nonFatalErrors ws)
+#endif
     -- serializes
     warnings <- mapM prettyTCM filteredWarnings
     errors <- mapM prettyTCM filteredErrors
@@ -322,9 +341,13 @@ lispifyGoalSpecificDisplayInfo ii kind = localTCState $
             rendered <- renderATop expr
             raw <- show <$> prettyATop expr
             return [Labeled rendered (Just raw) Nothing "Have" "special"]
-          GoalAndElaboration term -> do
-            let rendered = render term
-            raw <- show <$> TCP.prettyTCM term
+          GoalAndElaboration expr -> do
+#if MIN_VERSION_Agda(2,8,0)
+            rendered <- renderATop expr
+#else
+            let rendered = render expr
+#endif
+            raw <- show <$> TCP.prettyTCM expr
             return [Labeled rendered (Just raw) Nothing "Elaborates to" "special"]
         let boundarySect =
               if null boundaries

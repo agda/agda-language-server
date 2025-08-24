@@ -29,15 +29,19 @@ import           Agda.Interaction.Base          ( Command
                                                 , parseIOTCM
                                                 )
 #if MIN_VERSION_Agda(2,6,4)
+
+#if MIN_VERSION_Agda(2,8,0)
+import           Agda.Interaction.Command       ( CommandM )
+#endif
 import           Agda.Syntax.Common.Pretty      ( render, vcat )
 #endif
 import           Agda.Interaction.InteractionTop
                                                 ( initialiseCommandQueue
                                                 , maybeAbort
                                                 , runInteraction
-#if MIN_VERSION_Agda(2,7,0)
+#if MIN_VERSION_Agda(2,8,0)
+#elif MIN_VERSION_Agda(2,7,0)
                                                 , CommandM
-#else
 #endif
                                                 )
 import           Agda.Interaction.Options       ( CommandLineOptions
