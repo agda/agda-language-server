@@ -62,12 +62,10 @@ This allows you to reload the language server in the REPL without recompiling an
 
 ### Creating development releases
 
-To create a development pre-release, tag the commit with the moving tag `dev`:
+To create a development pre-release, push to the `dev` branch:
 
 ```bash
-git tag -f dev
-git push -f origin dev
+git push origin master:dev
 ```
 
-This creates/updates the `dev` pre-release with artifacts for all supported Agda versions and platforms.
-
+This creates/updates the `dev` pre-release with artifacts for the latest Agda version on all platforms.
