@@ -26,11 +26,13 @@ import Agda.Syntax.Common
     Relevance (..),
     RewriteEqn' (..),
     asQuantity,
+#if MIN_VERSION_Agda(2,8,0)
     OriginRelevant (..), 
     OriginIrrelevant (..), 
     OriginShapeIrrelevant (..), 
     PolarityModality (..),
     ModalPolarity (..),
+#endif
   )
 import Agda.Utils.Functor ((<&>))
 import Agda.Utils.List1 (toList)
@@ -50,6 +52,7 @@ instance Render NameId where
 instance Render MetaId where
   render (MetaId n m) = text $ "_" ++ show n ++ "@" ++ show m
 
+#if MIN_VERSION_Agda(2,8,0)
 -- | OriginRelevant
 instance Render OriginRelevant where
   render = \case
@@ -69,6 +72,7 @@ instance Render OriginShapeIrrelevant where
     OShIrrDotDot {} -> ".."
     OShIrrShIrr {} -> "@shirr"
     OShIrrShapeIrrelevant {} -> "@shape-irrelevant"
+#endif
 
 -- | Relevance
 #if MIN_VERSION_Agda(2,8,0)
@@ -111,6 +115,7 @@ instance Render Cohesion where
 
 -- | Polarity
 
+#if MIN_VERSION_Agda(2,8,0)
 instance Render ModalPolarity where
   render p = case p of
     UnusedPolarity -> "@unused"
@@ -121,6 +126,7 @@ instance Render ModalPolarity where
 
 instance Render PolarityModality where
   render (PolarityModality p _ _) = render p
+#endif
 
 --------------------------------------------------------------------------------
 

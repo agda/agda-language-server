@@ -29,12 +29,12 @@ source-repository head
   type: git
   location: https://github.com/banacorn/agda-language-server
 
-flag Agda-2-6-4-3
+flag Agda-2-6-4
   description: Embed Agda-2.6.4.3
   manual: True
   default: False
 
-flag Agda-2-7-0-1
+flag Agda-2-7-0
   description: Embed Agda-2.7.0.1
   manual: True
   default: False
@@ -100,12 +100,15 @@ library
     , strict
     , text
   default-language: Haskell2010
-  if flag(Agda-2-6-4-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4.3
-  if flag(Agda-2-7-0-1)
+  if flag(Agda-2-7-0)
     build-depends:
         Agda ==2.7.0.1
+  if flag(Agda-2-8-0)
+    build-depends:
+        Agda ==2.8.0
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
@@ -144,12 +147,15 @@ executable als
     , strict
     , text
   default-language: Haskell2010
-  if flag(Agda-2-6-4-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4.3
-  if flag(Agda-2-7-0-1)
+  if flag(Agda-2-7-0)
     build-depends:
         Agda ==2.7.0.1
+  if flag(Agda-2-8-0)
+    build-depends:
+        Agda ==2.8.0
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
@@ -222,12 +228,15 @@ test-suite als-test
     , tasty-quickcheck
     , text
   default-language: Haskell2010
-  if flag(Agda-2-6-4-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4.3
-  if flag(Agda-2-7-0-1)
+  if flag(Agda-2-7-0)
     build-depends:
         Agda ==2.7.0.1
+  if flag(Agda-2-8-0)
+    build-depends:
+        Agda ==2.8.0
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
