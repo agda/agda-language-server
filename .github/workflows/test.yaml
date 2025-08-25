@@ -442,7 +442,10 @@ jobs:
       run: |
         mkdir ~/out
         wasm32-wasi-cabal build
-        cp $(wasm32-wasi-cabal list-bin als) ~/out
+        WASM_BINARY_PATH=$(wasm32-wasi-cabal list-bin als)
+        WASM_BINARY_NAME=$(basename "$WASM_BINARY_PATH")
+        cp "$WASM_BINARY_PATH" ~/out
+        echo "WASM_BINARY_NAME=$WASM_BINARY_NAME" >> $GITHUB_ENV
 
     - name: Clean up native/wasm cabal logs
       run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs
@@ -468,5 +471,12 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd ~/out
-        mv als als-dev-wasm
-        gh release upload dev als-dev-wasm --clobber
+        ls -la
+        echo "Looking for WASM binary: $WASM_BINARY_NAME"
+        if [ -f "$WASM_BINARY_NAME" ]; then
+          mv "$WASM_BINARY_NAME" als-dev-wasm
+          gh release upload dev als-dev-wasm --clobber
+        else
+          echo "WASM binary '$WASM_BINARY_NAME' not found in ~/out"
+          exit 1
+        fi
