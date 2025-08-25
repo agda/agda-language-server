@@ -475,7 +475,7 @@ jobs:
         echo "Looking for WASM binary: $WASM_BINARY_NAME"
         if [ -f "$WASM_BINARY_NAME" ]; then
           mv "$WASM_BINARY_NAME" als-dev-wasm
-          gh release upload dev als-dev-wasm --clobber
+          gh release upload dev als-dev-wasm --clobber --repo ${{ github.repository }}
         else
           echo "WASM binary '$WASM_BINARY_NAME' not found in ~/out"
           exit 1
