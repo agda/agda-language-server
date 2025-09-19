@@ -1,11 +1,7 @@
 packages:
   .
+  wasm-submodules/agda
   wasm-submodules/network
-
-source-repository-package
-  type: git
-  location: https://github.com/agda-web/agda.git
-  tag: 87cac9ce17932321dc1a0fdaed83436de22fa0aa
 
 source-repository-package
   type: git  
