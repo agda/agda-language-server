@@ -127,24 +127,10 @@ instance Render PlusLevel where
 
 instance Render Sort where
   renderPrec p = \case
-#if MIN_VERSION_Agda(2,6,4)
     Univ u (ClosedLevel n) -> text $ suffix n $ showUniv u
     Univ u l -> mparens (p > 9) $ text (showUniv u) <+> renderPrec 10 l
     Inf u n -> text $ suffix n $ showUniv u ++ "ω"
     LevelUniv -> "LevelUniv"
-#else
-    Type (ClosedLevel 0) -> "Set"
-    Type (ClosedLevel n) -> text $ "Set" ++ show n
-    Type l -> mparens (p > 9) $ "Set" <+> renderPrec 10 l
-    Prop (ClosedLevel 0) -> "Prop"
-    Prop (ClosedLevel n) -> text $ "Prop" ++ show n
-    Prop l -> mparens (p > 9) $ "Prop" <+> renderPrec 10 l
-    Inf IsFibrant 0 -> "Setω"
-    Inf IsStrict 0 -> "SSetω"
-    Inf IsFibrant n -> text $ "Setω" ++ show n
-    Inf IsStrict n -> text $ "SSetω" ++ show n
-    SSet l -> mparens (p > 9) $ "SSet" <+> renderPrec 10 l
-#endif
     SizeUniv -> "SizeUniv"
     LockUniv -> "LockUniv"
     PiSort a _s1 s2 ->
@@ -165,10 +151,8 @@ instance Render Sort where
     DefS d es -> renderPrec p $ Def d es
     DummyS s -> parens $ text s
     IntervalUniv -> "IntervalUniv"
-#if MIN_VERSION_Agda(2,6,4)
     where
       suffix n = applyWhen (n /= 0) (++ show n)
-#endif
 
 instance Render Type where
   renderPrec p (El _ a) = renderPrec p a

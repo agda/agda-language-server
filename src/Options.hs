@@ -4,6 +4,7 @@
 module Options
   ( Options (..),
     getOptionsFromArgv,
+    versionNumber,
     versionString,
     usageMessage,
     Config (..),
@@ -72,12 +73,14 @@ options =
   ]
 
 versionNumber :: Int
-versionNumber = 5
+versionNumber = 6
 
 versionString :: String
 versionString =
 #ifdef wasm32_HOST_ARCH
   "Agda v2.7.0.1 Language Server v" <> show versionNumber <> " (WebAssembly build)"
+#elif MIN_VERSION_Agda(2,8,0)
+  "Agda v2.8.0 Language Server v" <> show versionNumber
 #elif MIN_VERSION_Agda(2,7,0)
   "Agda v2.7.0.1 Language Server v" <> show versionNumber
 #elif MIN_VERSION_Agda(2,6,4)

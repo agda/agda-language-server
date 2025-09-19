@@ -8,7 +8,7 @@ defaults:
 
 on:
   push:
-    branches: [master, ci-*, ci]
+    branches: [master, ci-*, ci, dev]
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
-        agda: ['Agda-2.7.0.1', 'Agda-2.6.4.3']
+        agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
       fail-fast: false
     steps:
 
@@ -36,17 +36,24 @@ jobs:
         STACK_YAML=$(echo stack-9.10.2-${{ matrix.agda }}.yaml)
         STACK_YAML_ARG="--stack-yaml $(echo stack-9.10.2-${{ matrix.agda }}.yaml)"
 
+        # Determine artifact naming based on branch/tag
+        if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          PREFIX="als-dev"
+        else
+          PREFIX="als"
+        fi
+
         if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
-          ARTEFACT="als-${{ matrix.agda }}-ubuntu"
+          ARTEFACT="$PREFIX-${{ matrix.agda }}-ubuntu"
         fi
         if [[ ${{ matrix.os }} == "macos-latest" ]]; then
-          ARTEFACT="als-${{ matrix.agda }}-macos-arm64"
+          ARTEFACT="$PREFIX-${{ matrix.agda }}-macos-arm64"
         fi
         if [[ ${{ matrix.os }} == "macos-13" ]]; then
-          ARTEFACT="als-${{ matrix.agda }}-macos-x64"
+          ARTEFACT="$PREFIX-${{ matrix.agda }}-macos-x64"
         fi
         if [[ ${{ matrix.os }} == "windows-latest" ]]; then
-          ARTEFACT="als-${{ matrix.agda }}-windows"
+          ARTEFACT="$PREFIX-${{ matrix.agda }}-windows"
         fi
         
         echo STACK_YAML_ARG="${STACK_YAML_ARG}" >> "${GITHUB_ENV}"
@@ -295,8 +302,181 @@ jobs:
       run: stack test $STACK_YAML_ARG --ta --als-path=zip/als
   
     # release (optional)
-    - name: 🚢 Release Artifacts
+    - name: 🚢 Release Artifacts (stable)
       if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: gh release upload ${{ github.ref_name }} $ARTEFACT.zip --clobber
+
+    # dev release (optional)
+    - name: 🚢 Create/Update Dev Release
+      if: github.ref == 'refs/heads/dev' && matrix.agda == 'Agda-2.8.0' && matrix.os == 'ubuntu-latest'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Delete existing dev release if it exists
+        gh release delete dev --cleanup-tag -y || true
+        
+        # Create new dev pre-release
+        gh release create dev \
+          --title "Development Release (dev)" \
+          --notes "Development pre-release build from latest changes. This is a pre-release for testing purposes." \
+          --prerelease
+
+    - name: 📤 Upload artifacts to dev release
+      if: github.ref == 'refs/heads/dev' && matrix.agda == 'Agda-2.8.0'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release upload dev $ARTEFACT.zip --clobber
+
+  build-wasm:
+    name: Build WASM
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-22.04
+    
+    env:
+      GHC_WASM_META_FLAVOUR: '9.10'
+      GHC_WASM_META_COMMIT_HASH: '7927129e42bcd6a54b9e06e26455803fa4878261'
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: als
+        submodules: true
+
+    - name: Compute cache key
+      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
+
+    - name: Try to restore cached .ghc-wasm
+      id: ghc-wasm-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ghc-wasm
+        key: ghc-wasm-${{ env.CI_CACHE_KEY }}
+
+    - name: Try to restore cached native cabal
+      id: native-cabal-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.config/cabal
+          ~/.cache/cabal
+        key: native-cabal-${{ env.CI_CACHE_KEY }}
+
+    - name: Try to restore cached dist-newstyle
+      id: dist-newstyle-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        restore-keys: |
+          dist-newstyle-${{ env.CI_CACHE_KEY }}-
+
+    - name: Clone and setup ghc-wasm-meta
+      id: ghc-wasm-setup
+      if: steps.ghc-wasm-cache-restore.outputs.cache-matched-key == ''
+      run: |
+        mkdir ghc-wasm-meta
+        cd ghc-wasm-meta
+        git config --global init.defaultBranch dontcare
+        git config --global advice.detachedHead false
+        git init
+        git remote add origin https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta.git
+        git fetch origin ${{ env.GHC_WASM_META_COMMIT_HASH }} --depth=1
+        git checkout FETCH_HEAD
+        FLAVOUR=${{ env.GHC_WASM_META_FLAVOUR }} ./setup.sh
+
+    - name: Add ghc-wasm-meta to PATH
+      run: ~/.ghc-wasm/add_to_github_path.sh
+
+    - name: Update wasm32 cabal
+      if: steps.ghc-wasm-setup.outcome == 'success' || steps.ghc-wasm-setup.outcome == 'skipped'
+      run: wasm32-wasi-cabal update
+
+    - name: Install native utilities
+      run: |
+        echo ">>> Update cabal"
+        ~/.ghc-wasm/cabal/bin/cabal update
+        echo ">>> Install alex and happy"
+        ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
+
+    - name: Cabal configure
+      working-directory: './als'
+      run: |
+        mv cabal.project.wasm32 cabal.project
+        wasm32-wasi-cabal configure --flag=Agda-2-8-0
+
+    - name: 'Build dep: lsp-types'
+      uses: nick-fields/retry@v3
+      id: build-dep-lsp-types
+      with:
+        timeout_minutes: 10
+        max_attempts: 2
+        command: cd als && wasm32-wasi-cabal build lib:lsp-types
+
+    - name: 'Build dep: agda'
+      id: build-dep-agda
+      working-directory: './als'
+      run: wasm32-wasi-cabal build lib:agda
+
+    - name: Cache dist-newstyle
+      uses: actions/cache/save@v4
+      if: steps.build-dep-lsp-types.outcome == 'success' && steps.build-dep-agda.outcome == 'success'
+      with:
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+
+    - name: Build dependencies
+      working-directory: './als'
+      run: |
+        # Setup network submodule autotools
+        cd wasm-submodules/network
+        autoreconf -i
+        cd ../..
+        # Build all dependencies (cabal git deps + network submodule)
+        wasm32-wasi-cabal build --dependencies-only
+
+    - name: Build als
+      working-directory: './als'
+      run: |
+        mkdir ~/out
+        wasm32-wasi-cabal build
+        WASM_BINARY_PATH=$(wasm32-wasi-cabal list-bin als)
+        WASM_BINARY_NAME=$(basename "$WASM_BINARY_PATH")
+        cp "$WASM_BINARY_PATH" ~/out
+        echo "WASM_BINARY_NAME=$WASM_BINARY_NAME" >> $GITHUB_ENV
+
+    - name: Clean up native/wasm cabal logs
+      run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs
+
+    - name: Cache native cabal
+      uses: actions/cache/save@v4
+      if: steps.ghc-wasm-setup.outcome == 'success'
+      with:
+        path: |
+          ~/.config/cabal
+          ~/.cache/cabal
+        key: ${{ steps.native-cabal-cache-restore.outputs.cache-primary-key }}
+
+    - name: Cache ghc-wasm-meta
+      uses: actions/cache/save@v4
+      if: steps.ghc-wasm-setup.outcome == 'success'
+      with:
+        path: ~/.ghc-wasm
+        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
+
+    - name: 📤 Upload WASM to dev release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd ~/out
+        ls -la
+        echo "Looking for WASM binary: $WASM_BINARY_NAME"
+        if [ -f "$WASM_BINARY_NAME" ]; then
+          mv "$WASM_BINARY_NAME" als-dev-wasm
+          gh release upload dev als-dev-wasm --clobber --repo ${{ github.repository }}
+        else
+          echo "WASM binary '$WASM_BINARY_NAME' not found in ~/out"
+          exit 1
+        fi

@@ -42,6 +42,9 @@ toAgdaRange table path (LSP.Range start end) =
     interval :: IntervalWithoutFile
     interval =
       Interval
+#if MIN_VERSION_Agda(2,8,0)
+          ()
+#endif
         (toAgdaPositionWithoutFile table start)
         (toAgdaPositionWithoutFile table end)
     mkRangeFile path = RangeFile path Nothing

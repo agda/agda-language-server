@@ -22,6 +22,7 @@ module Render.RichText
     braces',
     dbraces,
     mparens,
+    textNonEmpty,
     hcat,
     hsep,
     sep,
@@ -43,6 +44,7 @@ where
 -- import qualified Agda.Syntax.Concrete.Glyph as Agda
 import qualified Agda.Syntax.Position as Agda
 import qualified Agda.Utils.FileName as Agda
+import Agda.Utils.List (caseList, last1)
 import Agda.Utils.Null
 import qualified Agda.Utils.Null as Agda
 import Agda.Utils.Suffix (toSubscriptDigit)
@@ -199,7 +201,11 @@ instance Show Inline where
 instance {-# OVERLAPS #-} ToJSON Agda.Range
 
 instance ToJSON (Agda.Interval' ()) where
+#if MIN_VERSION_Agda(2,8,0)
+  toJSON (Agda.Interval () start end) = toJSON (start, end)
+#else
   toJSON (Agda.Interval start end) = toJSON (start, end)
+#endif
 
 instance ToJSON (Agda.Position' ()) where
   toJSON (Agda.Pn () pos line col) = toJSON [line, col, pos]
@@ -288,18 +294,20 @@ leftIdiomBrkt = _leftIdiomBrkt specialCharacters
 rightIdiomBrkt = _rightIdiomBrkt specialCharacters
 emptyIdiomBrkt = _emptyIdiomBrkt specialCharacters
 
--- | Apply 'parens' to 'Doc' if boolean is true.
+-- | Apply 'parens' to 'Inlines' if boolean is true.
 mparens :: Bool -> Inlines -> Inlines
 mparens True = parens
 mparens False = id
 
--- | From braces'
+-- | Return 'empty' for empty strings.
+textNonEmpty :: String -> Inlines
+textNonEmpty = \case
+  "" -> empty
+  s  -> text s
+
+-- | From braces'. v2.7.0.1
 braces' :: Inlines -> Inlines
-braces' d =
-  let s = show d
-   in if Agda.null s
-        then braces d
-        else braces (spaceIfDash (head s) <> d <> spaceIfDash (last s))
+braces' d = caseList (show d) (braces d {-else-}) $ \c cs -> braces (spaceIfDash c <> d <> spaceIfDash (last1 c cs))
   where
     -- Add space to avoid starting a comment (Ulf, 2010-09-13, #269)
     -- Andreas, 2018-07-21, #3161: Also avoid ending a comment

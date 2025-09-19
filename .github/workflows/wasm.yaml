@@ -84,7 +84,7 @@ jobs:
       working-directory: './als'
       run: |
         mv cabal.project.wasm32 cabal.project
-        wasm32-wasi-cabal configure --flag=Agda-2-7-0-1
+        wasm32-wasi-cabal configure --flag=Agda-2-8-0
 
     - name: 'Build dep: lsp-types'
       uses: nick-fields/retry@v3

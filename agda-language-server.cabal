@@ -24,18 +24,24 @@ extra-source-files:
     stack.yaml
     stack-9.10.2-Agda-2.6.4.3.yaml
     stack-9.10.2-Agda-2.7.0.1.yaml
+    stack-9.10.2-Agda-2.8.0.yaml
 
 source-repository head
   type: git
   location: https://github.com/banacorn/agda-language-server
 
-flag Agda-2-6-4-3
+flag Agda-2-6-4
   description: Embed Agda-2.6.4.3
   manual: True
   default: False
 
-flag Agda-2-7-0-1
+flag Agda-2-7-0
   description: Embed Agda-2.7.0.1
+  manual: True
+  default: False
+
+flag Agda-2-8-0
+  description: Embed Agda-2.8.0
   manual: True
   default: False
 
@@ -95,12 +101,15 @@ library
     , strict
     , text
   default-language: Haskell2010
-  if flag(Agda-2-6-4-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4.3
-  if flag(Agda-2-7-0-1)
+  if flag(Agda-2-7-0)
     build-depends:
         Agda ==2.7.0.1
+  if flag(Agda-2-8-0)
+    build-depends:
+        Agda ==2.8.0
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
@@ -139,18 +148,21 @@ executable als
     , strict
     , text
   default-language: Haskell2010
-  if flag(Agda-2-6-4-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4.3
-  if flag(Agda-2-7-0-1)
+  if flag(Agda-2-7-0)
     build-depends:
         Agda ==2.7.0.1
-  if !arch(wasm32)
-    ghc-options: -threaded -with-rtsopts=-N
-  else
+  if flag(Agda-2-8-0)
+    build-depends:
+        Agda ==2.8.0
+  if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
     ghc-options: -with-rtsopts=-V1
+  else
+    ghc-options: -threaded -with-rtsopts=-N
 
 test-suite als-test
   type: exitcode-stdio-1.0
@@ -218,15 +230,18 @@ test-suite als-test
     , tasty-quickcheck
     , text
   default-language: Haskell2010
-  if flag(Agda-2-6-4-3)
+  if flag(Agda-2-6-4)
     build-depends:
         Agda ==2.6.4.3
-  if flag(Agda-2-7-0-1)
+  if flag(Agda-2-7-0)
     build-depends:
         Agda ==2.7.0.1
-  if !arch(wasm32)
-    ghc-options: -threaded -with-rtsopts=-N
-  else
+  if flag(Agda-2-8-0)
+    build-depends:
+        Agda ==2.8.0
+  if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
     ghc-options: -with-rtsopts=-V1
+  else
+    ghc-options: -threaded -with-rtsopts=-N
