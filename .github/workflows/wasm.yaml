@@ -121,7 +121,10 @@ jobs:
       run: |
         mkdir ~/out
         wasm32-wasi-cabal build
-        cp $(wasm32-wasi-cabal list-bin als) ~/out
+        ALS_PATH=$(wasm32-wasi-cabal list-bin als)
+        stat --format="%s" "$ALS_PATH"
+        time wasm-opt "$ALS_PATH" -Oz -o ~/out/als.wasm
+        stat --format="%s" ~/out/als.wasm
 
     - name: Clean up native/wasm cabal logs
       run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs
