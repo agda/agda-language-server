@@ -160,7 +160,8 @@ executable als
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
-  if !arch(wasm32)
+    ghc-options: -with-rtsopts=-V1
+  else
     ghc-options: -threaded -with-rtsopts=-N
 
 test-suite als-test
@@ -241,5 +242,6 @@ test-suite als-test
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
-  if !arch(wasm32)
+    ghc-options: -with-rtsopts=-V1
+  else
     ghc-options: -threaded -with-rtsopts=-N

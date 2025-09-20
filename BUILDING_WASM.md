@@ -24,6 +24,7 @@ Node.js v22.14.0
 ```
 
 At this moment, you should terminate the process and run it again.
-This is a known issue ([ghc#26106](https://gitlab.haskell.org/ghc/ghc/-/issues/26106)). If this does *not* occur to you or you can fix it, please report to that issue.
+
+This was a known issue ([ghc#26106](https://gitlab.haskell.org/ghc/ghc/-/issues/26106)) and was fixed in the [GHC upstream](https://gitlab.haskell.org/ghc/ghc/-/commit/3e4a456801ba6aab5d8a6c0ae5a4ba8ab99b9d25).
 
 If everything works properly, it should build a binary `als.wasm`.

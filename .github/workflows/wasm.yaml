@@ -2,15 +2,15 @@ name: Compile WASM
 
 on:
   push:
-    branches: [wasm]
+    branches: [wasm, wasm-*]
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
-    branches: [wasm]
+    branches: [wasm, wasm-*]
 
 env:
   GHC_WASM_META_FLAVOUR: '9.10'
-  GHC_WASM_META_COMMIT_HASH: '7927129e42bcd6a54b9e06e26455803fa4878261'
+  GHC_WASM_META_COMMIT_HASH: '78c87e9236a547fcb439db6927391df625af16fb'
 
 jobs:
   build:
@@ -121,7 +121,10 @@ jobs:
       run: |
         mkdir ~/out
         wasm32-wasi-cabal build
-        cp $(wasm32-wasi-cabal list-bin als) ~/out
+        ALS_PATH=$(wasm32-wasi-cabal list-bin als)
+        stat --format="%s" "$ALS_PATH"
+        time wasm-opt "$ALS_PATH" -Oz -o ~/out/als.wasm
+        stat --format="%s" ~/out/als.wasm
 
     - name: Clean up native/wasm cabal logs
       run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs

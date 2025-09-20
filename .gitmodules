@@ -2,3 +2,6 @@
 	path = wasm-submodules/network
 	url = https://github.com/haskell-wasm/network
 
+[submodule "wasm-submodules/agda"]
+	path = wasm-submodules/agda
+	url = git@github.com:agda-web/agda.git

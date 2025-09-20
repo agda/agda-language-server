@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- entry point of the LSP server
 
@@ -52,7 +53,7 @@ run options = do
     Nothing -> do
 #if defined(wasm32_HOST_ARCH)
       liftIO $ setFdOption stdInput NonBlockingRead True
-        `catchIO` (\ e -> hPutStrLn stderr $ "Failed to enable nonblocking on stdin: " ++ (show e) ++ "\nThe WASM module might not behave correctly.")
+        `catchIO` (\ (e :: IOError) -> hPutStrLn stderr $ "Failed to enable nonblocking on stdin: " ++ (show e) ++ "\nThe WASM module might not behave correctly.")
 #endif
       runServer (serverDefn options)
   where
