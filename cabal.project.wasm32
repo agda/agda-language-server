@@ -14,11 +14,5 @@ source-repository-package
   location: https://github.com/k0001/network-simple.git
   tag: 2c3ab6e7aa2a86be692c55bf6081161d83d50c34
 
-source-repository-package
-  type: git
-  location: https://github.com/agda-web/lsp.git
-  tag: 9baf76e6d9965a3b6e8b3ecfcdf33c62b5628fd8
-  subdir: lsp-types
-
 package Agda
   flags: +optimise-heavily
