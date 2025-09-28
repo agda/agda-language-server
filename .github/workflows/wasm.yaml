@@ -10,7 +10,7 @@ on:
 
 env:
   GHC_WASM_META_FLAVOUR: '9.10'
-  GHC_WASM_META_COMMIT_HASH: '78c87e9236a547fcb439db6927391df625af16fb'
+  GHC_WASM_META_COMMIT_HASH: 'c3f44696d29aaeadd755d69c51735954bfcd59db'
 
 jobs:
   build:
@@ -86,15 +86,7 @@ jobs:
         mv cabal.project.wasm32 cabal.project
         wasm32-wasi-cabal configure --flag=Agda-2-8-0
 
-    - name: 'Build dep: lsp-types'
-      uses: nick-fields/retry@v3
-      id: build-dep-lsp-types
-      with:
-        timeout_minutes: 10
-        max_attempts: 2
-        command: cd als && wasm32-wasi-cabal build lib:lsp-types
-
-    - name: 'Build dep: agda'
+    - name: Build Agda as dependency
       id: build-dep-agda
       working-directory: './als'
       run: wasm32-wasi-cabal build lib:agda
