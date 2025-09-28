@@ -38,7 +38,7 @@ jobs:
         git checkout FETCH_HEAD
 
     - name: Compute cache key
-      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
+      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
 
     - name: Try to restore cached .ghc-wasm
       id: ghc-wasm-cache-restore
@@ -154,6 +154,6 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: als
+        name: als-wasm-${{ matrix.agda.name }}
         path: ~/out
         include-hidden-files: true
