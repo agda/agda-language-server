@@ -2,29 +2,43 @@ name: Compile WASM
 
 on:
   push:
-    branches: [wasm]
+    branches: [wasm, wasm-*]
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
-    branches: [wasm]
+    branches: [wasm, wasm-*]
 
 env:
   GHC_WASM_META_FLAVOUR: '9.10'
-  GHC_WASM_META_COMMIT_HASH: '7927129e42bcd6a54b9e06e26455803fa4878261'
+  GHC_WASM_META_COMMIT_HASH: 'c3f44696d29aaeadd755d69c51735954bfcd59db'
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        agda:
+        # undocumented usage; see https://stackoverflow.com/q/66025220
+        - { name: '2.8.0', flag: '2-8-0', commit: 'e2f8c69414fa115328280ecc4de1d2b7a23be7fa' }
+        - { name: '2.7.0.1', flag: '2-7-0', commit: '702c924fdab93aa8992adca84e72a91c490f7b1b' }
+        - { name: '2.6.4.3', flag: '2-6-4', commit: '8f35851954c39dc3849095bfd018bed9bd1b32ad' }
+      fail-fast: false
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         path: als
-        submodules: true
+        submodules: recursive
+
+    - name: Checkout Agda submodule at v${{ matrix.agda.name }}
+      run: |
+        cd als/wasm-submodules/agda
+        git fetch --depth 1 origin "${{ matrix.agda.commit }}"
+        git checkout FETCH_HEAD
 
     - name: Compute cache key
-      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
+      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
 
     - name: Try to restore cached .ghc-wasm
       id: ghc-wasm-cache-restore
@@ -84,29 +98,21 @@ jobs:
       working-directory: './als'
       run: |
         mv cabal.project.wasm32 cabal.project
-        wasm32-wasi-cabal configure --flag=Agda-2-8-0
+        wasm32-wasi-cabal configure --flag=Agda-${{ matrix.agda.flag }}
 
-    - name: 'Build dep: lsp-types'
-      uses: nick-fields/retry@v3
-      id: build-dep-lsp-types
-      with:
-        timeout_minutes: 10
-        max_attempts: 2
-        command: cd als && wasm32-wasi-cabal build lib:lsp-types
-
-    - name: 'Build dep: agda'
+    - name: Build Agda as dependency
       id: build-dep-agda
       working-directory: './als'
       run: wasm32-wasi-cabal build lib:agda
 
     - name: Cache dist-newstyle
       uses: actions/cache/save@v4
-      if: steps.build-dep-lsp-types.outcome == 'success' && steps.build-dep-agda.outcome == 'success'
+      if: steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
         key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
 
-    - name: Build dependencies
+    - name: Build dependencies other than Agda
       working-directory: './als'
       run: |
         # Setup network submodule autotools
@@ -121,7 +127,10 @@ jobs:
       run: |
         mkdir ~/out
         wasm32-wasi-cabal build
-        cp $(wasm32-wasi-cabal list-bin als) ~/out
+        ALS_PATH=$(wasm32-wasi-cabal list-bin als)
+        stat --format="%s" "$ALS_PATH"
+        time wasm-opt "$ALS_PATH" -Oz -o ~/out/als.wasm
+        stat --format="%s" ~/out/als.wasm
 
     - name: Clean up native/wasm cabal logs
       run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs
@@ -145,6 +154,6 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: als
+        name: als-wasm-${{ matrix.agda.name }}
         path: ~/out
         include-hidden-files: true

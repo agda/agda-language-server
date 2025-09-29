@@ -77,16 +77,20 @@ versionNumber = 6
 
 versionString :: String
 versionString =
-#ifdef wasm32_HOST_ARCH
-  "Agda v2.7.0.1 Language Server v" <> show versionNumber <> " (WebAssembly build)"
-#elif MIN_VERSION_Agda(2,8,0)
-  "Agda v2.8.0 Language Server v" <> show versionNumber
+#if MIN_VERSION_Agda(2,8,0)
+  "Agda v2.8.0 Language Server v" <> show versionNumber <> suffix
 #elif MIN_VERSION_Agda(2,7,0)
-  "Agda v2.7.0.1 Language Server v" <> show versionNumber
+  "Agda v2.7.0.1 Language Server v" <> show versionNumber <> suffix
 #elif MIN_VERSION_Agda(2,6,4)
-  "Agda v2.6.4.3 Language Server v" <> show versionNumber
+  "Agda v2.6.4.3 Language Server v" <> show versionNumber <> suffix
 #else
   error "Unsupported Agda version"
+#endif
+  where
+#ifdef wasm32_HOST_ARCH
+    suffix = " (WebAssembly build)"
+#else
+    suffix = ""
 #endif
 
 usage :: String
