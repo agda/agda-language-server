@@ -21,7 +21,7 @@ jobs:
         agda:
         # undocumented usage; see https://stackoverflow.com/q/66025220
         - { name: '2.8.0', flag: '2-8-0', commit: 'e2f8c69414fa115328280ecc4de1d2b7a23be7fa' }
-        - { name: '2.7.0', flag: '2-7-0', commit: '702c924fdab93aa8992adca84e72a91c490f7b1b' }
+        - { name: '2.7.0.1', flag: '2-7-0', commit: '702c924fdab93aa8992adca84e72a91c490f7b1b' }
         - { name: '2.6.4.3', flag: '2-6-4', commit: '8f35851954c39dc3849095bfd018bed9bd1b32ad' }
       fail-fast: false
 
