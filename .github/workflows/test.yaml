@@ -407,27 +407,19 @@ jobs:
         mv cabal.project.wasm32 cabal.project
         wasm32-wasi-cabal configure --flag=Agda-2-8-0
 
-    - name: 'Build dep: lsp-types'
-      uses: nick-fields/retry@v3
-      id: build-dep-lsp-types
-      with:
-        timeout_minutes: 10
-        max_attempts: 2
-        command: cd als && wasm32-wasi-cabal build lib:lsp-types
-
-    - name: 'Build dep: agda'
+    - name: Build Agda as dependency
       id: build-dep-agda
       working-directory: './als'
       run: wasm32-wasi-cabal build lib:agda
 
     - name: Cache dist-newstyle
       uses: actions/cache/save@v4
-      if: steps.build-dep-lsp-types.outcome == 'success' && steps.build-dep-agda.outcome == 'success'
+      if: steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
         key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
 
-    - name: Build dependencies
+    - name: Build dependencies other than Agda
       working-directory: './als'
       run: |
         # Setup network submodule autotools
