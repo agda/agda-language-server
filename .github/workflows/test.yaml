@@ -310,7 +310,7 @@ jobs:
 
     # dev release (optional)
     - name: 🚢 Create/Update Dev Release
-      if: github.ref == 'refs/heads/dev' && matrix.agda == 'Agda-2.8.0' && matrix.os == 'ubuntu-latest'
+      if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0' && matrix.os == 'ubuntu-latest'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -329,7 +329,7 @@ jobs:
           --prerelease
 
     - name: 📤 Upload artifacts to dev release
-      if: github.ref == 'refs/heads/dev' && matrix.agda == 'Agda-2.8.0'
+      if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -337,7 +337,7 @@ jobs:
 
   build-wasm:
     name: Build WASM
-    if: github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
     runs-on: ubuntu-22.04
     
     env:
