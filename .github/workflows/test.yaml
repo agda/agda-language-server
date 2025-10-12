@@ -68,6 +68,17 @@ jobs:
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
         echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
 
+    - name: 💾 Cache Haskell toolchain
+      if: runner.os == 'macOS'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.ghcup
+          ~/.stack
+        key: ${{ runner.os }}-haskell-${{ env.GHC_VERSION }}-stack-latest
+        restore-keys: |
+          ${{ runner.os }}-haskell-${{ env.GHC_VERSION }}-
+
     - name: 🏗 Setup Haskell
       if : runner.os == 'macOS'
       uses: haskell-actions/setup@v2
