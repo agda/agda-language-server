@@ -15,8 +15,45 @@ on:
     branches: [master]
 
 jobs:
+  create-release:
+    name: Create Release
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🏭 Create Stable Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        gh release create ${{ github.ref_name }} --generate-notes
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🚢 Create/Update Dev Release
+      if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Delete existing dev release if it exists
+        gh release delete dev --cleanup-tag -y || true
+
+        # Wait for GitHub to process the deletion to avoid race condition
+        # that causes releases to be created as drafts
+        # See: https://github.com/cli/cli/issues/8458
+        sleep 5
+
+        # Create new dev pre-release
+        gh release create dev \
+          --title "Development Release (dev)" \
+          --notes "Development pre-release build from latest changes. This is a pre-release for testing purposes." \
+          --prerelease
+
   build-and-test:
-    runs-on: ${{ matrix.os }} 
+    needs: create-release
+    if: always()  # Run even if create-release is skipped (non-tag pushes)
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
@@ -309,25 +346,6 @@ jobs:
       run: gh release upload ${{ github.ref_name }} $ARTEFACT.zip --clobber
 
     # dev release (optional)
-    - name: 🚢 Create/Update Dev Release
-      if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0' && matrix.os == 'ubuntu-latest'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        # Delete existing dev release if it exists
-        gh release delete dev --cleanup-tag -y || true
-
-        # Wait for GitHub to process the deletion to avoid race condition
-        # that causes releases to be created as drafts
-        # See: https://github.com/cli/cli/issues/8458
-        sleep 5
-
-        # Create new dev pre-release
-        gh release create dev \
-          --title "Development Release (dev)" \
-          --notes "Development pre-release build from latest changes. This is a pre-release for testing purposes." \
-          --prerelease
-
     - name: 📤 Upload artifacts to dev release
       if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0'
       env:
@@ -337,7 +355,8 @@ jobs:
 
   build-wasm:
     name: Build WASM
-    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+    needs: create-release
+    if: always() && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci')
     runs-on: ubuntu-22.04
     
     env:
