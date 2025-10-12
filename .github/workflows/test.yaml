@@ -316,7 +316,12 @@ jobs:
       run: |
         # Delete existing dev release if it exists
         gh release delete dev --cleanup-tag -y || true
-        
+
+        # Wait for GitHub to process the deletion to avoid race condition
+        # that causes releases to be created as drafts
+        # See: https://github.com/cli/cli/issues/8458
+        sleep 5
+
         # Create new dev pre-release
         gh release create dev \
           --title "Development Release (dev)" \
