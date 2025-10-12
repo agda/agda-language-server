@@ -76,10 +76,10 @@ jobs:
           ~/.ghcup
           ~/.stack/programs
           ~/.stack/pantry
-        key: ${{ runner.os }}-haskell-${{ env.GHC_VERSION }}-stack-latest
+        key: ${{ runner.os }}-${{ runner.arch }}-haskell-${{ env.GHC_VERSION }}-stack-latest
         restore-keys: |
-          ${{ runner.os }}-haskell-${{ env.GHC_VERSION }}-
-          ${{ runner.os }}-haskell-
+          ${{ runner.os }}-${{ runner.arch }}-haskell-${{ env.GHC_VERSION }}-
+          ${{ runner.os }}-${{ runner.arch }}-haskell-
 
     - name: 🏗 Setup Haskell
       if : runner.os == 'macOS'
