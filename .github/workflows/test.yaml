@@ -74,10 +74,12 @@ jobs:
       with:
         path: |
           ~/.ghcup
-          ~/.stack
+          ~/.stack/programs
+          ~/.stack/pantry
         key: ${{ runner.os }}-haskell-${{ env.GHC_VERSION }}-stack-latest
         restore-keys: |
           ${{ runner.os }}-haskell-${{ env.GHC_VERSION }}-
+          ${{ runner.os }}-haskell-
 
     - name: 🏗 Setup Haskell
       if : runner.os == 'macOS'
@@ -344,6 +346,8 @@ jobs:
       with:
         path: ~/.ghc-wasm
         key: ghc-wasm-${{ env.CI_CACHE_KEY }}
+        restore-keys: |
+          ghc-wasm-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Try to restore cached native cabal
       id: native-cabal-cache-restore
@@ -353,15 +357,17 @@ jobs:
           ~/.config/cabal
           ~/.cache/cabal
         key: native-cabal-${{ env.CI_CACHE_KEY }}
+        restore-keys: |
+          native-cabal-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Try to restore cached dist-newstyle
       id: dist-newstyle-cache-restore
       uses: actions/cache/restore@v4
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}
         restore-keys: |
-          dist-newstyle-${{ env.CI_CACHE_KEY }}-
+          dist-newstyle-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Clone and setup ghc-wasm-meta
       id: ghc-wasm-setup
@@ -407,7 +413,7 @@ jobs:
       if: steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}
 
     - name: Build dependencies other than Agda
       working-directory: './als'
