@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
+-- This file has been generated from package.yaml by hpack version 0.38.3.
 --
 -- see: https://github.com/sol/hpack
 
@@ -160,8 +160,9 @@ executable als
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
+  if arch(wasm32)
     ghc-options: -with-rtsopts=-V1
-  else
+  if !arch(wasm32)
     ghc-options: -threaded -with-rtsopts=-N
 
 test-suite als-test
@@ -242,6 +243,7 @@ test-suite als-test
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
+  if arch(wasm32)
     ghc-options: -with-rtsopts=-V1
-  else
+  if !arch(wasm32)
     ghc-options: -threaded -with-rtsopts=-N
