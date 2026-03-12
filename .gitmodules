@@ -4,4 +4,5 @@
 
 [submodule "wasm-submodules/agda"]
 	path = wasm-submodules/agda
-	url = git@github.com:agda-web/agda.git
+	url = https://github.com/agda-web/agda
+	branch = agda-web/release-v2.8.0

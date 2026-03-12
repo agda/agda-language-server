@@ -16,7 +16,8 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ${{ matrix.os }} 
+    name: Build and Test
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
@@ -66,6 +67,19 @@ jobs:
         GHC_VERSION=$(echo $(yq .compiler $STACK_YAML) | cut -c 5-)
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
         echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
+
+    - name: 💾 Cache Haskell toolchain
+      if: runner.os == 'macOS'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.ghcup
+          ~/.stack/programs
+          ~/.stack/pantry
+        key: ${{ runner.os }}-${{ runner.arch }}-haskell-${{ env.GHC_VERSION }}-stack-latest
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-haskell-${{ env.GHC_VERSION }}-
+          ${{ runner.os }}-${{ runner.arch }}-haskell-
 
     - name: 🏗 Setup Haskell
       if : runner.os == 'macOS'
@@ -299,14 +313,7 @@ jobs:
         mv zip/"$($env:ARTEFACT).zip" .
   
     - name: 🧪 Run tests
-      run: stack test $STACK_YAML_ARG --ta --als-path=zip/als
-  
-    # release (optional)
-    - name: 🚢 Release Artifacts (stable)
-      if: startsWith(github.ref, 'refs/tags/v') # so that only commits with a git tag would upload artifacts
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: gh release upload ${{ github.ref_name }} $ARTEFACT.zip --clobber
+      run: stack test $STACK_YAML_ARG
 
     # dev release (optional)
     - name: 🚢 Create/Update Dev Release
@@ -359,6 +366,8 @@ jobs:
       with:
         path: ~/.ghc-wasm
         key: ghc-wasm-${{ env.CI_CACHE_KEY }}
+        restore-keys: |
+          ghc-wasm-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Try to restore cached native cabal
       id: native-cabal-cache-restore
@@ -368,15 +377,17 @@ jobs:
           ~/.config/cabal
           ~/.cache/cabal
         key: native-cabal-${{ env.CI_CACHE_KEY }}
+        restore-keys: |
+          native-cabal-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Try to restore cached dist-newstyle
       id: dist-newstyle-cache-restore
       uses: actions/cache/restore@v4
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}
         restore-keys: |
-          dist-newstyle-${{ env.CI_CACHE_KEY }}-
+          dist-newstyle-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Clone and setup ghc-wasm-meta
       id: ghc-wasm-setup
@@ -422,7 +433,7 @@ jobs:
       if: steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}
 
     - name: Build dependencies other than Agda
       working-directory: './als'
@@ -463,17 +474,108 @@ jobs:
         path: ~/.ghc-wasm
         key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
 
-    - name: 📤 Upload WASM to dev release
+    - name: 📤 Upload WASM artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: als-dev-wasm
+        path: ~/out/${{ env.WASM_BINARY_NAME }}
+        retention-days: 1
+
+  create-release:
+    name: Create Release
+    needs: [build-and-test, build-wasm]
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci')
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🏭 Create Stable Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        gh release create ${{ github.ref_name }} --generate-notes
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🚢 Create/Update Dev Release
+      if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        cd ~/out
-        ls -la
-        echo "Looking for WASM binary: $WASM_BINARY_NAME"
-        if [ -f "$WASM_BINARY_NAME" ]; then
-          mv "$WASM_BINARY_NAME" als-dev-wasm
-          gh release upload dev als-dev-wasm --clobber --repo ${{ github.repository }}
-        else
-          echo "WASM binary '$WASM_BINARY_NAME' not found in ~/out"
-          exit 1
-        fi
+        # Delete existing dev release if it exists
+        gh release delete dev --cleanup-tag -y || true
+
+        # Wait for GitHub to process the deletion to avoid race condition
+        # that causes releases to be created as drafts
+        # See: https://github.com/cli/cli/issues/8458
+        sleep 5
+
+        # Create new dev pre-release
+        gh release create dev \
+          --title "Development Release (dev)" \
+          --notes "Development pre-release build from latest changes. This is a pre-release for testing purposes." \
+          --prerelease
+
+  upload-stable-release:
+    name: Upload to Stable Release
+    needs: create-release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: 📥 Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: 🚢 Upload artifacts to release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd artifacts
+        for dir in */; do
+          artifact_name="${dir%/}"
+          echo "Uploading ${artifact_name}..."
+          if [ -f "${artifact_name}/${artifact_name}.zip" ]; then
+            gh release upload ${{ github.ref_name }} "${artifact_name}/${artifact_name}.zip" --clobber --repo ${{ github.repository }}
+          else
+            echo "Warning: No .zip file found in ${artifact_name}"
+          fi
+        done
+
+  upload-dev-release:
+    name: Upload to Dev Release
+    needs: create-release
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: 📥 Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: 🚢 Upload artifacts to dev release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd artifacts
+        # Upload only Agda-2.8.0 artifacts and WASM
+        for dir in *Agda-2.8.0* als-dev-wasm; do
+          if [ -d "$dir" ]; then
+            artifact_name="$dir"
+            echo "Uploading ${artifact_name}..."
+            if [ -f "${artifact_name}/${artifact_name}.zip" ]; then
+              gh release upload dev "${artifact_name}/${artifact_name}.zip" --clobber --repo ${{ github.repository }}
+            elif [ "$artifact_name" = "als-dev-wasm" ]; then
+              # Find the WASM binary (filename may vary)
+              wasm_file=$(find "${artifact_name}" -type f -name "als*" | head -1)
+              if [ -n "$wasm_file" ]; then
+                gh release upload dev "$wasm_file" --clobber --repo ${{ github.repository }}
+              else
+                echo "Warning: WASM binary not found in ${artifact_name}"
+              fi
+            fi
+          fi
+        done

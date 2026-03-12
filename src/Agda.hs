@@ -88,9 +88,13 @@ import           GHC.Generics                   ( Generic )
 import           Language.LSP.Server            ( getConfig )
 import           Monad
 import           Options                        ( Config(configRawAgdaOptions)
-                                                , Options(optRawAgdaOptions)
+                                                , Options(optRawAgdaOptions, optRawResponses)
                                                 , versionNumber
                                                 )
+
+import qualified Agda.IR                       as IR
+import           Agda.Interaction.JSON          ( encode, encodeTCM )
+import           Agda.Interaction.JSONTop       ()
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
@@ -104,8 +108,14 @@ start = do
   result <- runAgda $ do
     -- decides how to output Response
     lift $ setInteractionOutputCallback $ \response -> do
-      reaction <- fromResponse response
-      sendResponse env reaction
+      resp <- if optRawResponses (envOptions env)
+        then do
+          value <- (pure . encodeTCM) response
+          resp' <- fmap IR.ResponseJSONRaw value
+          return resp'
+        else fromResponse response
+
+      sendResponse env resp
 
     -- keep reading command
     commands <- liftIO $ initialiseCommandQueue (readCommand env)

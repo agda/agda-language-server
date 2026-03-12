@@ -44,6 +44,8 @@ data Response
   | ResponseMimer Int (Maybe String)
   | -- priority: 3
     ResponseJumpToError FilePath Int
+  | -- raw form
+    ResponseJSONRaw Value
   | ResponseEnd
   deriving (Generic)
 
