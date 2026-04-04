@@ -40,6 +40,8 @@ jobs:
         # Determine artifact naming based on branch/tag
         if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
           PREFIX="als-dev"
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          PREFIX="als-${{ github.ref_name }}"
         else
           PREFIX="als"
         fi
@@ -350,6 +352,8 @@ jobs:
         echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
         if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
           PREFIX="als-dev"
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          PREFIX="als-${{ github.ref_name }}"
         else
           PREFIX="als"
         fi
