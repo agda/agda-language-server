@@ -1,0 +1,42 @@
+[ScopedDecl -> [Import -> Agda.Primitive],
+ Section ->
+   {moduleName -> Module,
+    genTel ->
+      GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+    decls ->
+      [ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [DataSig ->
+                  {name -> Module.Nat,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [DataDef -> {name -> Module.Nat, dataDefParams -> []}]]],
+       ScopedDecl ->
+         [Section ->
+            {moduleName -> Module.M,
+             genTel ->
+               GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+             decls ->
+               [ScopedDecl ->
+                  [Mutual ->
+                     [ScopedDecl ->
+                        [Axiom ->
+                           {kindOfName -> FunName, name -> Module.M.f,
+                            type ->
+                              ScopedExpr ->
+                                ScopedExpr ->
+                                  Fun ->
+                                    {dom -> ScopedExpr -> Def' -> Module.Nat,
+                                     codom -> ScopedExpr -> Def' -> Module.Nat}}],
+                      ScopedDecl ->
+                        [FunDef ->
+                           {name -> Module.M.f, clauses -> [lhs = ScopedExpr -> Var -> n]}]]],
+                ScopedDecl ->
+                  [Mutual ->
+                     [ScopedDecl ->
+                        [DataSig ->
+                           {name -> Module.M.N,
+                            type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+                      ScopedDecl ->
+                        [DataDef -> {name -> Module.M.N, dataDefParams -> []}]]]]}]]}]

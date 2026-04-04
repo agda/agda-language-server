@@ -1,0 +1,3 @@
+name: has-dep
+include: src
+depend: no-deps

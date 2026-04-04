@@ -9,6 +9,12 @@ import qualified Test.WASM as WASM
 #endif
 import Test.Tasty
 import Test.Tasty.Options
+import qualified Test.Model as Model
+import qualified Test.ModelMonad as ModelMonad
+import qualified Test.Uri as URI
+import qualified Test.Indexer as Indexer
+import qualified Test.AgdaLibResolution as AgdaLibResolution
+import qualified Test.Integration.Test as Integration
 
 -- Define the custom option
 newtype AlsPathOption = AlsPathOption FilePath
@@ -24,15 +30,23 @@ main :: IO ()
 main = do
   let opts = [Option (Proxy :: Proxy AlsPathOption)]
       ingredients = includingOptions opts : defaultIngredients
-  defaultMainWithIngredients ingredients tests
+  defaultMainWithIngredients ingredients =<< tests
 
-tests :: TestTree
-tests = askOption $ \(AlsPathOption alsPath) ->
-  testGroup
-    "Tests"
-    [ SrcLoc.tests,
-      LSP.tests alsPath
+tests :: IO TestTree
+tests = do
+  indexerTests <- Indexer.tests
+  return $ askOption $ \(AlsPathOption alsPath) ->
+    testGroup
+      "Tests"
+      [ SrcLoc.tests,
+        LSP.tests alsPath,
+        URI.tests,
+        Model.tests,
+        ModelMonad.tests,
+        AgdaLibResolution.tests,
+        indexerTests,
+        Integration.tests alsPath
 #if defined(wasm32_HOST_ARCH)
-    , WASM.tests alsPath
+      , WASM.tests alsPath
 #endif
-    ]
+      ]

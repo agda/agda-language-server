@@ -13,7 +13,6 @@ import Agda.Interaction.Highlighting.Precise (Aspects (..), DefinitionSite (..),
 import qualified Agda.Interaction.Highlighting.Range as Highlighting
 #if MIN_VERSION_Agda(2,8,0)
 import Agda.Interaction.Command (localStateCommandM)
-import Agda.TypeChecking.Monad.Base (topLevelModuleFilePath)
 #else
 import Agda.Interaction.InteractionTop (localStateCommandM)
 #endif
@@ -26,23 +25,26 @@ import Agda.Syntax.Abstract.Pretty (prettyATop)
 import Agda.Syntax.Common
 import Agda.Syntax.Concrete as C
 import Agda.Syntax.Internal (alwaysUnblock)
-import Agda.Syntax.Position (HasRange (getRange), Range, noRange)
-import Agda.Syntax.Scope.Base
-import Agda.TypeChecking.Errors (explainWhyInScope, getAllWarningsOfTCErr, prettyError)
+import Agda.Syntax.Position (noRange)
+import Agda.TypeChecking.Errors (explainWhyInScope)
 import Agda.TypeChecking.Monad hiding (Function)
-import Agda.TypeChecking.Monad.MetaVars (withInteractionId)
 import Agda.TypeChecking.Pretty (prettyTCM)
 import qualified Agda.TypeChecking.Pretty as TCP
-import Agda.TypeChecking.Pretty.Warning (filterTCWarnings, prettyTCWarnings, prettyTCWarnings')
+#if MIN_VERSION_Agda(2,7,0)
+#else
 import Agda.TypeChecking.Warnings (WarningsAndNonFatalErrors (..))
+#endif
+import Agda.TypeChecking.Pretty.Warning (filterTCWarnings)
 import Agda.Utils.FileName (filePath)
 import Agda.Utils.Function (applyWhen)
 import Agda.Utils.IO.TempFile (writeToTempFile)
+#if MIN_VERSION_Agda(2,8,0)
+#else
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
+#endif
 import Agda.Utils.Maybe (catMaybes)
 import Agda.Utils.Null (empty)
 import Agda.Utils.RangeMap (IsBasicRangeMap (toList))
-import Agda.Utils.String (delimiter)
 import Agda.Utils.Time (CPUTime)
 import Agda.VersionCommit (versionWithCommitInfo)
 import Control.Monad
@@ -50,13 +52,15 @@ import Control.Monad.State hiding (state)
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.List as List
+#if MIN_VERSION_Agda(2,8,0)
+#else
 import qualified Data.Map as Map
+#endif
 import Data.String (IsString)
 import Render (Block (..), Inlines, Render (..), renderATop)
 import qualified Render
 
 import Agda.Syntax.Common.Pretty hiding (render)
-import qualified Prettyprinter
 
 responseAbbr :: (IsString a) => Response -> a
 responseAbbr res = case res of

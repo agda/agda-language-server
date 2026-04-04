@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
+-- This file has been generated from package.yaml by hpack version 0.38.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -49,10 +49,22 @@ library
   exposed-modules:
       Agda
       Agda.Convert
+      Agda.Interaction.Imports.More
+      Agda.Interaction.Imports.Virtual
+      Agda.Interaction.Library.More
+      Agda.Interaction.Library.Parse.More
       Agda.IR
       Agda.Parser
       Agda.Position
+      Agda.Syntax.Abstract.More
       Control.Concurrent.SizedChan
+      Indexer
+      Indexer.Indexer
+      Indexer.Monad
+      Indexer.Postprocess
+      Indexer.Prepare
+      Language.LSP.Protocol.Types.More
+      Language.LSP.Protocol.Types.Uri.More
       Monad
       Options
       Render
@@ -68,9 +80,24 @@ library
       Render.TypeChecking
       Render.Utils
       Server
+      Server.AgdaLibResolver
+      Server.AgdaProjectResolver
       Server.CommandController
+      Server.Filesystem
       Server.Handler
+      Server.Handler.TextDocument.DocumentSymbol
+      Server.Handler.TextDocument.FileManagement
+      Server.Log
+      Server.Model
+      Server.Model.AgdaFile
+      Server.Model.AgdaLib
+      Server.Model.AgdaProject
+      Server.Model.Handler
+      Server.Model.InstalledLibsFile
+      Server.Model.Monad
+      Server.Model.Symbol
       Server.ResponseController
+      Server.VfsIndex
       Switchboard
   other-modules:
       Paths_agda_language_server
@@ -81,17 +108,19 @@ library
       OverloadedStrings
       PatternSynonyms
       TypeOperators
-  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Werror=incomplete-patterns -fno-warn-orphans
+  ghc-options: -Wincomplete-patterns -Werror=incomplete-patterns -Wunused-local-binds -Wunused-pattern-binds -Wunused-do-bind -Wunused-foralls -Wunused-imports -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Wsimplifiable-class-constraints -fno-warn-orphans
   build-depends:
       Agda
     , aeson
     , base >=4.7 && <5
     , bytestring
+    , co-log-core
     , containers
     , directory
     , filepath
     , lsp >=2
     , lsp-types >=2
+    , modern-uri
     , mtl
     , network
     , network-simple ==0.4.2
@@ -100,6 +129,7 @@ library
     , stm
     , strict
     , text
+    , unliftio-core
   default-language: Haskell2010
   if flag(Agda-2-6-4)
     build-depends:
@@ -127,18 +157,20 @@ executable als
       OverloadedStrings
       PatternSynonyms
       TypeOperators
-  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
+  ghc-options: -Wincomplete-patterns -Werror=incomplete-patterns -Wunused-local-binds -Wunused-pattern-binds -Wunused-do-bind -Wunused-foralls -Wunused-imports -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Wsimplifiable-class-constraints -fno-warn-orphans -rtsopts
   build-depends:
       Agda
     , aeson
     , agda-language-server
     , base >=4.7 && <5
     , bytestring
+    , co-log-core
     , containers
     , directory
     , filepath
     , lsp >=2
     , lsp-types >=2
+    , modern-uri
     , mtl
     , network
     , network-simple ==0.4.2
@@ -147,6 +179,7 @@ executable als
     , stm
     , strict
     , text
+    , unliftio-core
   default-language: Haskell2010
   if flag(Agda-2-6-4)
     build-depends:
@@ -167,15 +200,41 @@ test-suite als-test
   type: exitcode-stdio-1.0
   main-is: Test.hs
   other-modules:
+      Test.AgdaLibResolution
+      Test.Indexer
+      Test.Indexer.Invariants
+      Test.Indexer.Invariants.NoDuplicateDecl
+      Test.Indexer.Invariants.NoMissing
+      Test.Indexer.Invariants.NoOverlap
+      Test.Indexer.NoAnonFunSymbol
+      Test.Indexer.Reload
+      Test.Integration.LibraryDependencies.Test
+      Test.Integration.Test
       Test.LSP
+      Test.Model
+      Test.ModelMonad
       Test.SrcLoc
+      Test.Uri
       Test.WASM
+      TestData
       Agda
       Agda.Convert
+      Agda.Interaction.Imports.More
+      Agda.Interaction.Imports.Virtual
+      Agda.Interaction.Library.More
+      Agda.Interaction.Library.Parse.More
       Agda.IR
       Agda.Parser
       Agda.Position
+      Agda.Syntax.Abstract.More
       Control.Concurrent.SizedChan
+      Indexer
+      Indexer.Indexer
+      Indexer.Monad
+      Indexer.Postprocess
+      Indexer.Prepare
+      Language.LSP.Protocol.Types.More
+      Language.LSP.Protocol.Types.Uri.More
       Monad
       Options
       Render
@@ -191,9 +250,24 @@ test-suite als-test
       Render.TypeChecking
       Render.Utils
       Server
+      Server.AgdaLibResolver
+      Server.AgdaProjectResolver
       Server.CommandController
+      Server.Filesystem
       Server.Handler
+      Server.Handler.TextDocument.DocumentSymbol
+      Server.Handler.TextDocument.FileManagement
+      Server.Log
+      Server.Model
+      Server.Model.AgdaFile
+      Server.Model.AgdaLib
+      Server.Model.AgdaProject
+      Server.Model.Handler
+      Server.Model.InstalledLibsFile
+      Server.Model.Monad
+      Server.Model.Symbol
       Server.ResponseController
+      Server.VfsIndex
       Switchboard
       Paths_agda_language_server
   hs-source-dirs:
@@ -204,18 +278,20 @@ test-suite als-test
       OverloadedStrings
       PatternSynonyms
       TypeOperators
-  ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
+  ghc-options: -Wincomplete-patterns -Werror=incomplete-patterns -Wunused-local-binds -Wunused-pattern-binds -Wunused-do-bind -Wunused-foralls -Wunused-imports -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -Wsimplifiable-class-constraints -fno-warn-orphans -rtsopts
   build-depends:
       Agda
     , aeson
     , base >=4.7 && <5
     , bytestring
+    , co-log-core
     , containers
     , directory
     , filepath
     , lsp >=2
     , lsp-test
     , lsp-types >=2
+    , modern-uri
     , mtl
     , network
     , network-simple ==0.4.2
@@ -228,6 +304,7 @@ test-suite als-test
     , tasty-hunit
     , tasty-quickcheck
     , text
+    , unliftio-core
   default-language: Haskell2010
   if flag(Agda-2-6-4)
     build-depends:

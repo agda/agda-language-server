@@ -14,9 +14,6 @@ import Data.IORef
 import Data.Proxy (Proxy (Proxy))
 import qualified Data.Text.IO as Text
 import Language.LSP.Protocol.Message
-import Language.LSP.Protocol.Types hiding
-  ( TextDocumentSyncClientCapabilities (..),
-  )
 import Language.LSP.Server
 import Monad
 import Options (Config)

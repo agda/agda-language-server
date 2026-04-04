@@ -51,17 +51,23 @@ when:
 - condition: "arch(wasm32)"
   dependencies:
     - unix >= 2.8.0.0 && < 2.9
+- condition: "!arch(wasm32)"
+  ghc-options:
+  - -threaded
+  - -with-rtsopts=-N
 
 dependencies:
   - base >= 4.7 && < 5
   - Agda
   - aeson
   - bytestring
+  - co-log-core
   - containers
   - directory
   - filepath
   - lsp-types >= 2
   - lsp >= 2
+  - modern-uri
   - mtl
   - network
   - network-simple == 0.4.2
@@ -70,6 +76,7 @@ dependencies:
   - text
   - process
   - prettyprinter
+  - unliftio-core
 
 default-extensions:
 - LambdaCase
@@ -77,48 +84,32 @@ default-extensions:
 - PatternSynonyms
 - TypeOperators
 
+ghc-options:
+- -Wincomplete-patterns
+- -Werror=incomplete-patterns
+- -Wunused-local-binds
+- -Wunused-pattern-binds
+- -Wunused-do-bind
+- -Wunused-foralls
+- -Wunused-imports
+- -Wwarnings-deprecations
+- -Wwrong-do-bind
+- -Wmissing-fields
+- -Wmissing-methods
+- -Wmissing-pattern-synonym-signatures
+- -Wmissing-signatures
+- -Wsimplifiable-class-constraints
+- -fno-warn-orphans
+
 library:
   source-dirs: src
-  ghc-options:
-  - -Wincomplete-patterns
-  - -Wunused-do-bind
-  - -Wunused-foralls
-  - -Wwarnings-deprecations
-  - -Wwrong-do-bind
-  - -Wmissing-fields
-  - -Wmissing-methods
-  - -Wmissing-pattern-synonym-signatures
-  - -Wmissing-signatures
-  - -Werror=incomplete-patterns
-  - -fno-warn-orphans
-  when:
-  - condition: "!arch(wasm32)"
-    ghc-options:
-    - -threaded
-    - -with-rtsopts=-N
 
 executables:
   als:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
-    - -Wincomplete-patterns
-    - -Wunused-do-bind
-    - -Wunused-foralls
-    - -Wwarnings-deprecations
-    - -Wwrong-do-bind
-    - -Wmissing-fields
-    - -Wmissing-methods
-    - -Wmissing-pattern-synonym-signatures
-    - -Wmissing-signatures
     - -rtsopts
-    - -Werror=incomplete-patterns
-    - -fno-warn-orphans
-    when:
-    - condition: "!arch(wasm32)"
-      ghc-options:
-      - -threaded
-      - -with-rtsopts=-N
     dependencies:
     - agda-language-server
 
@@ -128,39 +119,11 @@ tests:
     source-dirs:
       - test
       - src
+    ghc-options:
+      - -rtsopts
     dependencies:
       - lsp-test
       - tasty
       - tasty-hunit
       - tasty-golden
       - tasty-quickcheck
-
-    ghc-options:
-      - -Wincomplete-patterns
-      - -Wunused-do-bind
-      - -Wunused-foralls
-      - -Wwarnings-deprecations
-      - -Wwrong-do-bind
-      - -Wmissing-fields
-      - -Wmissing-methods
-      - -Wmissing-pattern-synonym-signatures
-      - -Wmissing-signatures
-      - -rtsopts
-      - -Werror=incomplete-patterns
-      - -fno-warn-orphans
-    when:
-    - condition: "!arch(wasm32)"
-      ghc-options:
-      - -threaded
-      - -with-rtsopts=-N
-
-# tests:
-#   als-test:
-#     main:                Spec.hs
-#     source-dirs:         test
-#     ghc-options:
-#     - -threaded
-#     - -rtsopts
-#     - -with-rtsopts=-N
-#     dependencies:
-#     - agda-language-server

@@ -1,0 +1,133 @@
+[ScopedDecl -> [Import -> Agda.Primitive],
+ Section ->
+   {moduleName -> Mutual,
+    genTel ->
+      GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+    decls ->
+      [ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [DataSig ->
+                  {name -> Mutual.Nat,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [DataDef -> {name -> Mutual.Nat, dataDefParams -> []}]]],
+       ScopedDecl ->
+         [Section ->
+            {moduleName -> Mutual.Forward,
+             genTel ->
+               GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+             decls ->
+               [ScopedDecl ->
+                  [Mutual ->
+                     [ScopedDecl ->
+                        [RecSig ->
+                           {name -> Mutual.Forward.MutualRecord,
+                            genTel ->
+                              GeneralizeTelescope {generalizeTelVars -> {},
+                                                   generalizeTel ->
+                                                     [([UserWritten A] : ScopedExpr ->
+                                                                           Def' ->
+                                                                             Agda.Primitive.Set),
+                                                      ([UserWritten n] : ScopedExpr ->
+                                                                           Def' -> Mutual.Nat)]},
+                            type -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+                      ScopedDecl ->
+                        [DataSig ->
+                           {name -> Mutual.Forward.MutualData,
+                            type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+                      ScopedDecl ->
+                        [DataSig ->
+                           {name -> Mutual.Forward.MutualData',
+                            type ->
+                              ScopedExpr ->
+                                ScopedExpr ->
+                                  Fun ->
+                                    {dom -> ScopedExpr -> Def' -> Mutual.Nat,
+                                     codom -> ScopedExpr -> Def' -> Agda.Primitive.Set}}],
+                      ScopedDecl ->
+                        [Axiom ->
+                           {kindOfName -> FunName, name -> Mutual.Forward.mutualFun,
+                            type ->
+                              ScopedExpr ->
+                                ScopedExpr ->
+                                  Fun ->
+                                    {dom ->
+                                       ScopedExpr ->
+                                         App ->
+                                           {f ->
+                                              ScopedExpr ->
+                                                App ->
+                                                  {f ->
+                                                     ScopedExpr ->
+                                                       Def' -> Mutual.Forward.MutualRecord,
+                                                   arg ->
+                                                     ScopedExpr ->
+                                                       Def' -> Mutual.Forward.MutualData},
+                                            arg -> ScopedExpr -> Con -> Mutual.Nat.zero},
+                                     codom ->
+                                       ScopedExpr ->
+                                         ScopedExpr ->
+                                           App ->
+                                             {f ->
+                                                ScopedExpr ->
+                                                  App ->
+                                                    {f ->
+                                                       ScopedExpr ->
+                                                         Def' -> Mutual.Forward.MutualRecord,
+                                                     arg ->
+                                                       ScopedExpr ->
+                                                         Def' -> Mutual.Forward.MutualData},
+                                              arg -> ScopedExpr -> Con -> Mutual.Nat.zero}}}],
+                      ScopedDecl ->
+                        [RecDef ->
+                           {name -> Mutual.Forward.MutualRecord,
+                            dataDefParams -> [UserWritten A, UserWritten m],
+                            decls ->
+                              [ScopedDecl ->
+                                 [Field ->
+                                    {name -> Mutual.Forward.MutualRecord.mutFieldX,
+                                     type -> ScopedExpr -> ScopedExpr -> Var -> A}],
+                               ScopedDecl ->
+                                 [Field ->
+                                    {name -> Mutual.Forward.MutualRecord.mutFieldY,
+                                     type -> ScopedExpr -> ScopedExpr -> Def' -> Mutual.Nat}]]}],
+                      ScopedDecl ->
+                        [DataDef ->
+                           {name -> Mutual.Forward.MutualData, dataDefParams -> []}],
+                      ScopedDecl ->
+                        [DataDef ->
+                           {name -> Mutual.Forward.MutualData',
+                            dataDefParams -> [UserWritten A]}],
+                      ScopedDecl ->
+                        [FunDef ->
+                           {name -> Mutual.Forward.mutualFun,
+                            clauses -> [lhs = ScopedExpr -> Var -> x]}]]]]}],
+       ScopedDecl ->
+         [Section ->
+            {moduleName -> Mutual.Backward,
+             genTel ->
+               GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+             decls ->
+               [ScopedDecl ->
+                  [Mutual ->
+                     [ScopedDecl ->
+                        [Axiom ->
+                           {kindOfName -> AxiomName, name -> Mutual.Backward.MutualData,
+                            type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+                      ScopedDecl ->
+                        [Axiom ->
+                           {kindOfName -> AxiomName, name -> Mutual.Backward.MutualData',
+                            type ->
+                              ScopedExpr ->
+                                ScopedExpr ->
+                                  Pi ->
+                                    {dom ->
+                                       [([UserWritten A] : ScopedExpr ->
+                                                             Def' -> Agda.Primitive.Set)],
+                                     codom ->
+                                       ScopedExpr ->
+                                         Fun ->
+                                           {dom -> ScopedExpr -> Def' -> Mutual.Nat,
+                                            codom ->
+                                              ScopedExpr -> Def' -> Agda.Primitive.Set}}}]]]]}]]}]

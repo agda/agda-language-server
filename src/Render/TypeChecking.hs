@@ -4,7 +4,7 @@ import Agda.Syntax.Common
 import Agda.TypeChecking.Monad.Base
 import Agda.TypeChecking.Positivity.Occurrence
 import Render.Class
-import Render.Common
+import Render.Common ()
 import Render.RichText
 
 instance Render NamedMeta where

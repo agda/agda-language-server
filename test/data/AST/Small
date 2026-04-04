@@ -1,0 +1,6 @@
+[ScopedDecl -> [Import -> Agda.Primitive],
+ Section ->
+   {moduleName -> Small,
+    genTel ->
+      GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+    decls -> []}]

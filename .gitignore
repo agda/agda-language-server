@@ -4,6 +4,7 @@
 cabal-dev
 dist
 dist-*
+test/data/AST/
 node_modules/
 *.o
 *.hi

@@ -2,7 +2,6 @@ module Test.SrcLoc where
 
 import Agda.Position
 import qualified Data.IntMap as IntMap
-import Data.List (sort)
 import Data.Text (Text)
 import Test.Tasty
 import Test.Tasty.HUnit

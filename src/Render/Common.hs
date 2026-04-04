@@ -4,7 +4,9 @@ module Render.Common where
 
 import Agda.Syntax.Common
   ( Cohesion (..),
+#if MIN_VERSION_Agda(2,7,0)
     Erased (..),
+#endif
     Hiding (Hidden, Instance, NotHidden),
     Induction (..),
     LensCohesion (getCohesion),
@@ -26,7 +28,9 @@ import Agda.Syntax.Common
     QωOrigin (..),
     Relevance (..),
     RewriteEqn' (..),
+#if MIN_VERSION_Agda(2,7,0)
     asQuantity,
+#endif
 #if MIN_VERSION_Agda(2,8,0)
     OriginRelevant (..), 
     OriginIrrelevant (..), 
@@ -37,11 +41,12 @@ import Agda.Syntax.Common
   )
 import Agda.Utils.Functor ((<&>))
 import Agda.Utils.List1 (toList)
+#if MIN_VERSION_Agda(2,7,0)
 import qualified Agda.Utils.List1 as List1
+#endif
 import qualified Agda.Utils.Null as Agda
 import Render.Class
 import Render.RichText
-import Data.Text (Text)
 
 --------------------------------------------------------------------------------
 

@@ -1,0 +1,237 @@
+[ScopedDecl -> [Import -> Agda.Primitive],
+ Section ->
+   {moduleName -> Basic,
+    genTel ->
+      GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+    decls ->
+      [ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [DataSig ->
+                  {name -> Basic.Nat,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [DataDef -> {name -> Basic.Nat, dataDefParams -> []}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.one,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Basic.Nat}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.one,
+                   clauses ->
+                     [lhs = ScopedExpr ->
+                              ScopedExpr ->
+                                App ->
+                                  {f -> ScopedExpr -> Con -> Basic.Nat.suc,
+                                   arg -> ScopedExpr -> Con -> Basic.Nat.zero}]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.two,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Basic.Nat}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.two,
+                   clauses ->
+                     [lhs = ScopedExpr ->
+                              ScopedExpr ->
+                                App ->
+                                  {f -> ScopedExpr -> Con -> Basic.Nat.suc,
+                                   arg -> ScopedExpr -> Def' -> Basic.one}]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [DataSig ->
+                  {name -> Basic.Test,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [DataDef -> {name -> Basic.Test, dataDefParams -> []}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [DataSig ->
+                  {name -> Basic.Test',
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [DataDef -> {name -> Basic.Test', dataDefParams -> []}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.hello,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Basic.Test}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.hello,
+                   clauses ->
+                     [lhs = ScopedExpr ->
+                              Con -> Basic.Test.test | Basic.Test'.test]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [DataSig ->
+                  {name -> Basic.Empty,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [DataDef -> {name -> Basic.Empty, dataDefParams -> []}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.Not,
+                   type ->
+                     ScopedExpr ->
+                       ScopedExpr ->
+                         Fun ->
+                           {dom -> ScopedExpr -> Def' -> Agda.Primitive.Set,
+                            codom -> ScopedExpr -> Def' -> Agda.Primitive.Set}}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.Not,
+                   clauses ->
+                     [lhs = ScopedExpr ->
+                              Fun ->
+                                {dom -> ScopedExpr -> Var -> A,
+                                 codom -> ScopedExpr -> Def' -> Basic.Empty}]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.Goodbye,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.Goodbye,
+                   clauses ->
+                     [lhs = ScopedExpr ->
+                              ScopedExpr ->
+                                App ->
+                                  {f -> ScopedExpr -> Def' -> Basic.Not,
+                                   arg -> ScopedExpr -> Def' -> Basic.Test}]}]]],
+       ScopedDecl ->
+         [Axiom ->
+            {kindOfName -> AxiomName, name -> Basic.A,
+             type ->
+               ScopedExpr ->
+                 ScopedExpr ->
+                   Fun ->
+                     {dom -> ScopedExpr -> Def' -> Basic.Test,
+                      codom -> ScopedExpr -> Def' -> Agda.Primitive.Set}}],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.testId,
+                   type ->
+                     ScopedExpr ->
+                       ScopedExpr ->
+                         Fun ->
+                           {dom -> ScopedExpr -> Def' -> Basic.Test,
+                            codom -> ScopedExpr -> Def' -> Basic.Test}}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.testId,
+                   clauses ->
+                     [lhs = ScopedExpr ->
+                              Con -> Basic.Test.test | Basic.Test'.test]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.id,
+                   type ->
+                     ScopedExpr ->
+                       ScopedExpr ->
+                         Pi ->
+                           {dom ->
+                              [([UserWritten A] : ScopedExpr -> Def' -> Agda.Primitive.Set)],
+                            codom ->
+                              ScopedExpr ->
+                                Fun ->
+                                  {dom -> ScopedExpr -> Var -> A,
+                                   codom -> ScopedExpr -> Var -> A}}}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.id, clauses -> [lhs = ScopedExpr -> Expr ->]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.id',
+                   type ->
+                     ScopedExpr ->
+                       ScopedExpr ->
+                         Pi ->
+                           {dom ->
+                              [([UserWritten A] : ScopedExpr -> Def' -> Agda.Primitive.Set)],
+                            codom ->
+                              ScopedExpr ->
+                                Fun ->
+                                  {dom -> ScopedExpr -> Var -> A,
+                                   codom -> ScopedExpr -> Var -> A}}}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.id', clauses -> [lhs = ScopedExpr -> Expr ->]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.id'',
+                   type ->
+                     ScopedExpr ->
+                       ScopedExpr ->
+                         Pi ->
+                           {dom ->
+                              [([UserWritten A] : ScopedExpr -> Def' -> Agda.Primitive.Set)],
+                            codom ->
+                              ScopedExpr ->
+                                Fun ->
+                                  {dom -> ScopedExpr -> Var -> A,
+                                   codom -> ScopedExpr -> Var -> A}}}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.id'',
+                   clauses ->
+                     [lhs = ScopedExpr ->
+                              Let ->
+                                {bindings ->
+                                   [letDeclared x, let x = ScopedExpr -> Var -> x, letDeclared A,
+                                    let A = ScopedExpr -> Var -> A],
+                                 body -> ScopedExpr -> Var -> x}]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [RecSig ->
+                  {name -> Basic.World,
+                   genTel ->
+                     GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+                   type -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [RecDef ->
+                  {name -> Basic.World, dataDefParams -> [],
+                   decls ->
+                     [ScopedDecl ->
+                        [Field ->
+                           {name -> Basic.World.north,
+                            type -> ScopedExpr -> ScopedExpr -> Def' -> Basic.Test}],
+                      ScopedDecl ->
+                        [Field ->
+                           {name -> Basic.World.south,
+                            type -> ScopedExpr -> ScopedExpr -> Def' -> Basic.Test'}]]}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> Basic.earth,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Basic.World}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> Basic.earth,
+                   clauses ->
+                     [lhs = ScopedExpr -> Con -> Basic.Test.test | Basic.Test'.test,
+                      lhs = ScopedExpr ->
+                              Con -> Basic.Test.test | Basic.Test'.test]}]]]]}]

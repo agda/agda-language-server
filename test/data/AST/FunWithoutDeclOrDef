@@ -1,0 +1,34 @@
+[ScopedDecl -> [Import -> Agda.Primitive],
+ Section ->
+   {moduleName -> FunWithoutDeclOrDef,
+    genTel ->
+      GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+    decls ->
+      [ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [DataSig ->
+                  {name -> FunWithoutDeclOrDef.Nat,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [DataDef ->
+                  {name -> FunWithoutDeclOrDef.Nat, dataDefParams -> []}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [Axiom ->
+                  {kindOfName -> FunName, name -> FunWithoutDeclOrDef.sucsuc,
+                   type -> ScopedExpr -> Expr ->}],
+             ScopedDecl ->
+               [FunDef ->
+                  {name -> FunWithoutDeclOrDef.sucsuc,
+                   clauses -> [lhs = ScopedExpr -> Expr ->]}]]],
+       ScopedDecl ->
+         [Axiom ->
+            {kindOfName -> AxiomName, name -> FunWithoutDeclOrDef.sucsucsuc,
+             type ->
+               ScopedExpr ->
+                 ScopedExpr ->
+                   Fun ->
+                     {dom -> ScopedExpr -> Def' -> FunWithoutDeclOrDef.Nat,
+                      codom -> ScopedExpr -> Def' -> FunWithoutDeclOrDef.Nat}}]]}]

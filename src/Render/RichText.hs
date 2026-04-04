@@ -46,7 +46,6 @@ import qualified Agda.Syntax.Position as Agda
 import qualified Agda.Utils.FileName as Agda
 import Agda.Utils.List (caseList, last1)
 import Agda.Utils.Null
-import qualified Agda.Utils.Null as Agda
 import Agda.Utils.Suffix (toSubscriptDigit)
 import Data.Aeson (ToJSON (toJSON), Value (Null))
 import Data.Foldable (toList)

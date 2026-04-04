@@ -10,13 +10,19 @@ import Agda.Syntax.Concrete
 import Agda.Syntax.Concrete.Pretty (NamedBinding (..), Tel (..), isLabeled)
 import Agda.Utils.Float (toStringWithoutDotZero)
 import Agda.Utils.Function
-import Agda.Utils.Functor (dget, (<&>), for)
+import Agda.Utils.Functor
 import Agda.Utils.Impossible (__IMPOSSIBLE__)
 import Agda.Utils.List1 as List1 (fromList, toList, List1)
 import qualified Agda.Utils.List1 as List1
 import qualified Agda.Utils.List2 as List2
 import Agda.Utils.Null
-import Data.Maybe (isNothing, maybeToList)
+import Data.Maybe (
+  isNothing,
+#if MIN_VERSION_Agda(2,7,0)
+#else
+  maybeToList,
+#endif
+  )
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Text as T
 import Render.Class

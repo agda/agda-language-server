@@ -5,12 +5,10 @@ import Control.Monad (when)
 import Options
 import Server (run)
 -- import Simple (run)
-import System.Console.GetOpt
 import System.Directory (doesDirectoryExist)
 import System.Environment
 import System.FilePath ((</>))
 import System.IO
-import Text.Read (readMaybe)
 
 #if MIN_VERSION_Agda(2,8,0)
 import Agda.Setup (setup)

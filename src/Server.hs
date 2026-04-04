@@ -6,28 +6,30 @@
 module Server (run) where
 
 import qualified Agda
-import Control.Concurrent (writeChan)
 import Control.Monad (void)
 import Control.Monad.Reader (MonadIO (liftIO))
-import Data.Aeson
-  ( FromJSON,
-    ToJSON,
-  )
 import qualified Data.Aeson as JSON
 import Data.Text (pack)
 import GHC.IO.IOMode (IOMode (ReadWriteMode))
 import Language.LSP.Protocol.Message
 import Language.LSP.Protocol.Types (HoverParams (..), SaveOptions (..), TextDocumentIdentifier (..), TextDocumentSyncKind (..), TextDocumentSyncOptions (..), type (|?) (..))
 import Language.LSP.Server hiding (Options)
-import qualified Language.LSP.Server hiding (Options)
 import qualified Language.LSP.Server as LSP
 import Monad
 import qualified Network.Simple.TCP as TCP
 import Network.Socket (socketToHandle)
 import Options
 import qualified Server.Handler as Handler
-import Switchboard (Switchboard, agdaCustomMethod)
+import Switchboard (agdaCustomMethod)
 import qualified Switchboard
+import Server.Handler.TextDocument.DocumentSymbol (documentSymbolHandler)
+import Server.Handler.TextDocument.FileManagement (didOpenHandler, didCloseHandler, didSaveHandler)
+import System.IO (stdout, stdin)
+import Colog.Core (LogAction, WithSeverity)
+import qualified Colog.Core as L
+import Prettyprinter (viaShow, pretty)
+import Language.LSP.Logging (defaultClientLogger)
+import qualified Data.Text as T
 
 #if defined(wasm32_HOST_ARCH)
 import Agda.Utils.IO (catchIO)
@@ -55,7 +57,7 @@ run options = do
       liftIO $ setFdOption stdInput NonBlockingRead True
         `catchIO` (\ (e :: IOError) -> hPutStrLn stderr $ "Failed to enable nonblocking on stdin: " ++ (show e) ++ "\nThe WASM module might not behave correctly.")
 #endif
-      runServer (serverDefn options)
+      runServerWithHandles defaultIOLogger defaultLspLogger stdin stdout (serverDefn options)
   where
     serverDefn :: Options -> ServerDefinition Config
     serverDefn options =
@@ -74,25 +76,25 @@ run options = do
           staticHandlers = const handlers,
           interpretHandler = \(ctxEnv, env) ->
             Iso
-              { forward = runLspT ctxEnv . runServerM env,
+              { forward = runLspT ctxEnv . runServerT env,
                 backward = liftIO
               },
           options = lspOptions
         }
 
-lspOptions :: LSP.Options
-lspOptions = defaultOptions {optTextDocumentSync = Just syncOptions}
+-- Unexported by lsp library
+defaultIOLogger :: LogAction IO (WithSeverity LspServerLog)
+defaultIOLogger = L.cmap (show . prettyMsg) L.logStringStderr
+ where
+  prettyMsg l = "[" <> viaShow (L.getSeverity l) <> "] " <> pretty (L.getMsg l)
 
--- these `TextDocumentSyncOptions` are essential for receiving notifications from the client
--- syncOptions :: TextDocumentSyncOptions
--- syncOptions =
---   TextDocumentSyncOptions
---     { _openClose = Just True, -- receive open and close notifications from the client
---       _change = Just changeOptions, -- receive change notifications from the client
---       _willSave = Just False, -- receive willSave notifications from the client
---       _willSaveWaitUntil = Just False, -- receive willSave notifications from the client
---       _save = Just $ InR saveOptions
---     }
+-- Modified from lsp library to remove stderr
+defaultLspLogger :: LogAction (LspM config) (WithSeverity LspServerLog)
+defaultLspLogger = L.cmap (fmap (T.pack . show . pretty)) defaultClientLogger
+
+lspOptions :: LSP.Options
+lspOptions = LSP.defaultOptions {optTextDocumentSync = Just syncOptions}
+
 syncOptions :: TextDocumentSyncOptions
 syncOptions =
   TextDocumentSyncOptions
@@ -100,11 +102,11 @@ syncOptions =
       _change = Just TextDocumentSyncKind_Incremental, -- receive change notifications from the client
       _willSave = Just False, -- receive willSave notifications from the client
       _willSaveWaitUntil = Just False, -- receive willSave notifications from the client
-      _save = Just $ InR $ SaveOptions (Just True) -- includes the document content on save, so that we don't have to read it from the disk (not sure if this is still true in lsp 2)
+      _save = Just $ InR $ SaveOptions (Just False)
     }
 
 -- handlers of the LSP server
-handlers :: Handlers (ServerM (LspM Config))
+handlers :: Handlers ServerM
 handlers =
   mconcat
     [ -- custom methods, not part of LSP
@@ -117,6 +119,7 @@ handlers =
         let TRequestMessage _ _ _ (HoverParams (TextDocumentIdentifier uri) pos _workDone) = req
         result <- Handler.onHover uri pos
         responder $ Right result,
+      documentSymbolHandler,
       -- -- syntax highlighting
       -- , requestHandler STextDocumentSemanticTokensFull $ \req responder -> do
       --   result <- Handler.onHighlight (req ^. (params . textDocument . uri))
@@ -127,11 +130,11 @@ handlers =
       -- `workspace/didChangeConfiguration`
       notificationHandler SMethod_WorkspaceDidChangeConfiguration $ \_notification -> return (),
       -- `textDocument/didOpen`
-      notificationHandler SMethod_TextDocumentDidOpen $ \_notification -> return (),
+      didOpenHandler,
       -- `textDocument/didClose`
-      notificationHandler SMethod_TextDocumentDidClose $ \_notification -> return (),
+      didCloseHandler,
       -- `textDocument/didChange`
       notificationHandler SMethod_TextDocumentDidChange $ \_notification -> return (),
       -- `textDocument/didSave`
-      notificationHandler SMethod_TextDocumentDidSave $ \_notification -> return ()
+      didSaveHandler
     ]

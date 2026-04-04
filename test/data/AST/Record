@@ -1,0 +1,68 @@
+[ScopedDecl -> [Import -> Agda.Primitive],
+ Section ->
+   {moduleName -> Record,
+    genTel ->
+      GeneralizeTelescope {generalizeTelVars -> {}, generalizeTel -> []},
+    decls ->
+      [ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [DataSig ->
+                  {name -> Record.Nat,
+                   type -> ScopedExpr -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [DataDef -> {name -> Record.Nat, dataDefParams -> []}]]],
+       ScopedDecl ->
+         [Mutual ->
+            [ScopedDecl ->
+               [RecSig ->
+                  {name -> Record.R,
+                   genTel ->
+                     GeneralizeTelescope {generalizeTelVars -> {},
+                                          generalizeTel ->
+                                            [([UserWritten n] : ScopedExpr -> Def' -> Record.Nat),
+                                             ([UserWritten A] : ScopedExpr ->
+                                                                  Fun ->
+                                                                    {dom ->
+                                                                       ScopedExpr ->
+                                                                         Def' -> Record.Nat,
+                                                                     codom ->
+                                                                       ScopedExpr ->
+                                                                         Def' ->
+                                                                           Agda.Primitive.Set}),
+                                             ([UserWritten x] : ScopedExpr ->
+                                                                  ScopedExpr ->
+                                                                    App ->
+                                                                      {f -> ScopedExpr -> Var -> A,
+                                                                       arg ->
+                                                                         ScopedExpr -> Var -> n})]},
+                   type -> ScopedExpr -> Def' -> Agda.Primitive.Set}],
+             ScopedDecl ->
+               [RecDef ->
+                  {name -> Record.R,
+                   dataDefParams -> [UserWritten n, UserWritten A, UserWritten x],
+                   decls ->
+                     [ScopedDecl ->
+                        [Field ->
+                           {name -> Record.R.fieldX,
+                            type -> ScopedExpr -> ScopedExpr -> Def' -> Record.Nat}],
+                      ScopedDecl ->
+                        [Field ->
+                           {name -> Record.R.fieldY,
+                            type ->
+                              ScopedExpr ->
+                                ScopedExpr ->
+                                  ScopedExpr ->
+                                    App ->
+                                      {f -> ScopedExpr -> Var -> A,
+                                       arg -> ScopedExpr -> Var -> n}}],
+                      ScopedDecl ->
+                        [Field ->
+                           {name -> Record.R.fieldZ,
+                            type ->
+                              ScopedExpr ->
+                                ScopedExpr ->
+                                  ScopedExpr ->
+                                    App ->
+                                      {f -> ScopedExpr -> Var -> A,
+                                       arg -> ScopedExpr -> Proj -> Record.R.fieldX}}]]}]]]]}]

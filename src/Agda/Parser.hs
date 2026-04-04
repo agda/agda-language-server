@@ -14,13 +14,11 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text, unpack)
 import qualified Data.Text as Text
 import qualified Language.LSP.Protocol.Types as LSP
-import Language.LSP.Server (LspM)
 import Monad (ServerM)
-import Options (Config)
 
 --------------------------------------------------------------------------------
 
-tokenAt :: LSP.Uri -> Text -> PositionWithoutFile -> ServerM (LspM Config) (Maybe (Token, Text))
+tokenAt :: LSP.Uri -> Text -> PositionWithoutFile -> ServerM (Maybe (Token, Text))
 tokenAt uri source position = case LSP.uriToFilePath uri of
   Nothing -> return Nothing
   Just filepath -> do

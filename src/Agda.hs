@@ -24,7 +24,7 @@ import           Agda.Interaction.Base          ( Command
                                                 , CommandM
 #endif
                                                 , CommandState(optionsOnReload)
-                                                , IOTCM
+                                                
                                                 , initCommandState
                                                 , parseIOTCM
                                                 )
@@ -61,7 +61,6 @@ import           Agda.TypeChecking.Monad.Base   ( TCM )
 import qualified Agda.TypeChecking.Monad.Benchmark
                                                as Bench
 import           Agda.TypeChecking.Monad.State  ( setInteractionOutputCallback )
-import           Agda.Utils.FileName            ( absolute )
 import           Agda.Utils.Impossible          ( CatchImpossible
                                                   ( catchImpossible
                                                   )
@@ -82,10 +81,8 @@ import           Data.Aeson                     ( FromJSON
                                                 , fromJSON
                                                 )
 import qualified Data.Aeson                    as JSON
-import           Data.Maybe                     ( listToMaybe )
 import           Data.Text                      ( pack )
 import           GHC.Generics                   ( Generic )
-import           Language.LSP.Server            ( getConfig )
 import           Monad
 import           Options                        ( Config(configRawAgdaOptions)
                                                 , Options(optRawAgdaOptions, optRawResponses)
@@ -93,13 +90,13 @@ import           Options                        ( Config(configRawAgdaOptions)
                                                 )
 
 import qualified Agda.IR                       as IR
-import           Agda.Interaction.JSON          ( encode, encodeTCM )
+import           Agda.Interaction.JSON          ( encodeTCM )
 import           Agda.Interaction.JSONTop       ()
 
 getAgdaVersion :: String
 getAgdaVersion = versionWithCommitInfo
 
-start :: ServerM IO ()
+start :: ServerT IO ()
 start = do
   env <- ask
 
@@ -136,7 +133,7 @@ start = do
     Left  _err -> return ()
     Right _val -> return ()
  where
-  loop :: Env -> ServerM CommandM ()
+  loop :: Env -> ServerT CommandM ()
   loop env = do
     Bench.reset
     done <- Bench.billTo [] $ do
@@ -163,7 +160,7 @@ start = do
 
 -- | Convert "CommandReq" to "CommandRes"
 
-sendCommand :: MonadIO m => Value -> ServerM m Value
+sendCommand :: MonadIO m => Value -> ServerT m Value
 sendCommand value = do
     -- JSON Value => Request => Response
   case fromJSON value of
@@ -179,7 +176,7 @@ sendCommand value = do
     JSON.Success request -> toJSON <$> handleCommandReq request
 
 
-handleCommandReq :: MonadIO m => CommandReq -> ServerM m CommandRes
+handleCommandReq :: MonadIO m => CommandReq -> ServerT m CommandRes
 handleCommandReq CmdReqSYN    = return $ CmdResACK Agda.getAgdaVersion versionNumber
 handleCommandReq (CmdReq cmd) = do
   case parseIOTCM cmd of
@@ -194,7 +191,7 @@ handleCommandReq (CmdReq cmd) = do
 --------------------------------------------------------------------------------
 
 getCommandLineOptions
-  :: (HasOptions m, MonadIO m) => ServerM m CommandLineOptions
+  :: (HasOptions m, MonadIO m) => ServerT m CommandLineOptions
 getCommandLineOptions = do
   -- command line options from ARGV
   argv   <- asks (optRawAgdaOptions . envOptions)
@@ -215,10 +212,10 @@ getCommandLineOptions = do
 
 -- | Run a TCM action in IO and throw away all of the errors
 -- TODO: handle the caught errors
-runAgda :: MonadIO m => ServerM TCM a -> ServerM m (Either String a)
+runAgda :: MonadIO m => ServerT TCM a -> ServerT m (Either String a)
 runAgda p = do
   env <- ask
-  let p' = runServerM env p
+  let p' = runServerT env p
   liftIO
     $       runTCMTop'
               (                 (Right <$> p')

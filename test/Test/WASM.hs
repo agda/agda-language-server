@@ -4,7 +4,6 @@
 module Test.WASM (tests) where
 
 import Test.Tasty
-import Test.Tasty.HUnit
 
 #if defined(wasm32_HOST_ARCH)
 

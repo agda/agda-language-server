@@ -6,7 +6,6 @@ module Render.Internal where
 import Agda.Syntax.Common (Hiding (..), LensHiding (getHiding), Named (namedThing))
 import Agda.Syntax.Internal hiding (telToList)
 import Agda.Utils.Function (applyWhen)
-import Control.Monad
 import qualified Data.List as List
 import qualified Data.Set as Set
 import Render.Class
