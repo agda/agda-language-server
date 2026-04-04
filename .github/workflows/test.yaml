@@ -315,6 +315,14 @@ jobs:
     - name: 🧪 Run tests
       run: stack test $STACK_YAML_ARG
 
+    - name: 📤 Upload native artifact
+      if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTEFACT }}
+        path: ${{ env.ARTEFACT }}.zip
+        retention-days: 1
+
     # dev release (optional)
     - name: 🚢 Create/Update Dev Release
       if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0' && matrix.os == 'ubuntu-latest'
