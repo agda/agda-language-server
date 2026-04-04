@@ -380,15 +380,6 @@ jobs:
         restore-keys: |
           native-cabal-${{ runner.os }}-${{ runner.arch }}-
 
-    - name: Try to restore cached dist-newstyle
-      id: dist-newstyle-cache-restore
-      uses: actions/cache/restore@v4
-      with:
-        path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}
-        restore-keys: |
-          dist-newstyle-${{ runner.os }}-${{ runner.arch }}-
-
     - name: Clone and setup ghc-wasm-meta
       id: ghc-wasm-setup
       if: steps.ghc-wasm-cache-restore.outputs.cache-matched-key == ''
@@ -422,6 +413,17 @@ jobs:
         cd als/wasm-submodules/agda
         git fetch --depth 1 origin e2f8c69414fa115328280ecc4de1d2b7a23be7fa
         git checkout FETCH_HEAD
+        echo "AGDA_WASM_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+    - name: Restore dist-newstyle cache for resolved Agda revision
+      id: dist-newstyle-cache-restore-resolved
+      uses: actions/cache/restore@v4
+      with:
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
+        restore-keys: |
+          dist-newstyle-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-
+          dist-newstyle-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Cabal configure
       working-directory: './als'
@@ -439,7 +441,7 @@ jobs:
       if: steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
 
     - name: Build dependencies other than Agda
       working-directory: './als'
