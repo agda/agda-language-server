@@ -1,3 +1,9 @@
+index-state: 2026-02-16T23:59:59Z
+
+constraints:
+  lsp == 2.7.0.1,
+  lsp-types == 2.3.0.1
+
 packages:
   .
   wasm-submodules/agda
