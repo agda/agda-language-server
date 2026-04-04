@@ -417,6 +417,12 @@ jobs:
         echo ">>> Install alex and happy"
         ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
 
+    - name: Checkout Agda submodule at v2.8.0
+      run: |
+        cd als/wasm-submodules/agda
+        git fetch --depth 1 origin e2f8c69414fa115328280ecc4de1d2b7a23be7fa
+        git checkout FETCH_HEAD
+
     - name: Cabal configure
       working-directory: './als'
       run: |
