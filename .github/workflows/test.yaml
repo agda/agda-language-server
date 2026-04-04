@@ -316,7 +316,7 @@ jobs:
       run: stack test $STACK_YAML_ARG
 
     - name: 📤 Upload native artifact
-      if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0'
+      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.ARTEFACT }}
@@ -325,8 +325,15 @@ jobs:
 
   build-wasm:
     name: Build WASM
-    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        agda:
+        - { name: '2.8.0', label: 'Agda-2.8.0', flag: '2-8-0', commit: 'e2f8c69414fa115328280ecc4de1d2b7a23be7fa' }
+        - { name: '2.7.0.1', label: 'Agda-2.7.0.1', flag: '2-7-0', commit: '702c924fdab93aa8992adca84e72a91c490f7b1b' }
+        - { name: '2.6.4.3', label: 'Agda-2.6.4.3', flag: '2-6-4', commit: '8f35851954c39dc3849095bfd018bed9bd1b32ad' }
+      fail-fast: false
     
     env:
       GHC_WASM_META_FLAVOUR: '9.10'
@@ -339,7 +346,14 @@ jobs:
         submodules: true
 
     - name: Compute cache key
-      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
+      run: |
+        echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
+        if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          PREFIX="als-dev"
+        else
+          PREFIX="als"
+        fi
+        echo "WASM_ASSET_BASENAME=${PREFIX}-${{ matrix.agda.label }}-wasm" >> "$GITHUB_ENV"
 
     - name: Try to restore cached .ghc-wasm
       id: ghc-wasm-cache-restore
@@ -389,10 +403,10 @@ jobs:
         echo ">>> Install alex and happy"
         ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
 
-    - name: Checkout Agda submodule at v2.8.0
+    - name: Checkout Agda submodule at v${{ matrix.agda.name }}
       run: |
         cd als/wasm-submodules/agda
-        git fetch --depth 1 origin e2f8c69414fa115328280ecc4de1d2b7a23be7fa
+        git fetch --depth 1 origin "${{ matrix.agda.commit }}"
         git checkout FETCH_HEAD
         echo "AGDA_WASM_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
@@ -410,7 +424,7 @@ jobs:
       working-directory: './als'
       run: |
         mv cabal.project.wasm32 cabal.project
-        wasm32-wasi-cabal configure --flag=Agda-2-8-0
+        wasm32-wasi-cabal configure --flag=Agda-${{ matrix.agda.flag }}
 
     - name: Build Agda as dependency
       id: build-dep-agda
@@ -440,9 +454,8 @@ jobs:
         mkdir ~/out
         wasm32-wasi-cabal build
         WASM_BINARY_PATH=$(wasm32-wasi-cabal list-bin als)
-        WASM_BINARY_NAME=$(basename "$WASM_BINARY_PATH")
-        cp "$WASM_BINARY_PATH" ~/out
-        echo "WASM_BINARY_NAME=$WASM_BINARY_NAME" >> $GITHUB_ENV
+        cp "$WASM_BINARY_PATH" ~/out/${WASM_ASSET_BASENAME}.wasm
+        echo "WASM_BINARY_NAME=${WASM_ASSET_BASENAME}.wasm" >> $GITHUB_ENV
 
     - name: Clean up native/wasm cabal logs
       run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs
@@ -466,7 +479,7 @@ jobs:
     - name: 📤 Upload WASM artifact
       uses: actions/upload-artifact@v4
       with:
-        name: als-dev-wasm
+        name: ${{ env.WASM_ASSET_BASENAME }}
         path: ~/out/${{ env.WASM_BINARY_NAME }}
         retention-days: 1
 
@@ -529,7 +542,12 @@ jobs:
           if [ -f "${artifact_name}/${artifact_name}.zip" ]; then
             gh release upload ${{ github.ref_name }} "${artifact_name}/${artifact_name}.zip" --clobber --repo ${{ github.repository }}
           else
-            echo "Warning: No .zip file found in ${artifact_name}"
+            artifact_file=$(find "${artifact_name}" -maxdepth 1 -type f | head -1)
+            if [ -n "$artifact_file" ]; then
+              gh release upload ${{ github.ref_name }} "$artifact_file" --clobber --repo ${{ github.repository }}
+            else
+              echo "Warning: No uploadable file found in ${artifact_name}"
+            fi
           fi
         done
 
@@ -550,21 +568,17 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd artifacts
-        # Upload only Agda-2.8.0 artifacts and WASM
-        for dir in *Agda-2.8.0* als-dev-wasm; do
-          if [ -d "$dir" ]; then
-            artifact_name="$dir"
-            echo "Uploading ${artifact_name}..."
-            if [ -f "${artifact_name}/${artifact_name}.zip" ]; then
-              gh release upload dev "${artifact_name}/${artifact_name}.zip" --clobber --repo ${{ github.repository }}
-            elif [ "$artifact_name" = "als-dev-wasm" ]; then
-              # Find the WASM binary (filename may vary)
-              wasm_file=$(find "${artifact_name}" -type f -name "als*" | head -1)
-              if [ -n "$wasm_file" ]; then
-                gh release upload dev "$wasm_file" --clobber --repo ${{ github.repository }}
-              else
-                echo "Warning: WASM binary not found in ${artifact_name}"
-              fi
+        for dir in */; do
+          artifact_name="${dir%/}"
+          echo "Uploading ${artifact_name}..."
+          if [ -f "${artifact_name}/${artifact_name}.zip" ]; then
+            gh release upload dev "${artifact_name}/${artifact_name}.zip" --clobber --repo ${{ github.repository }}
+          else
+            artifact_file=$(find "${artifact_name}" -maxdepth 1 -type f | head -1)
+            if [ -n "$artifact_file" ]; then
+              gh release upload dev "$artifact_file" --clobber --repo ${{ github.repository }}
+            else
+              echo "Warning: No uploadable file found in ${artifact_name}"
             fi
           fi
         done
