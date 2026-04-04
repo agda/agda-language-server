@@ -20,7 +20,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest, macos-13]
+        os: [windows-latest, ubuntu-latest, macos-latest, macos-15-intel]
         agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
       fail-fast: false
     steps:
@@ -50,7 +50,7 @@ jobs:
         if [[ ${{ matrix.os }} == "macos-latest" ]]; then
           ARTEFACT="$PREFIX-${{ matrix.agda }}-macos-arm64"
         fi
-        if [[ ${{ matrix.os }} == "macos-13" ]]; then
+        if [[ ${{ matrix.os }} == "macos-15-intel" ]]; then
           ARTEFACT="$PREFIX-${{ matrix.agda }}-macos-x64"
         fi
         if [[ ${{ matrix.os }} == "windows-latest" ]]; then
