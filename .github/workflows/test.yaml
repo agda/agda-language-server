@@ -323,33 +323,6 @@ jobs:
         path: ${{ env.ARTEFACT }}.zip
         retention-days: 1
 
-    # dev release (optional)
-    - name: 🚢 Create/Update Dev Release
-      if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0' && matrix.os == 'ubuntu-latest'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        # Delete existing dev release if it exists
-        gh release delete dev --cleanup-tag -y || true
-
-        # Wait for GitHub to process the deletion to avoid race condition
-        # that causes releases to be created as drafts
-        # See: https://github.com/cli/cli/issues/8458
-        sleep 5
-
-        # Create new dev pre-release
-        gh release create dev \
-          --title "Development Release (dev)" \
-          --notes "Development pre-release build from latest changes. This is a pre-release for testing purposes." \
-          --prerelease
-
-    - name: 📤 Upload artifacts to dev release
-      if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci') && matrix.agda == 'Agda-2.8.0'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh release upload dev $ARTEFACT.zip --clobber
-
   build-wasm:
     name: Build WASM
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
