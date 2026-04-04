@@ -8,7 +8,7 @@ defaults:
 
 on:
   push:
-    branches: [master, ci-*, ci, dev]
+    branches: [master]
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
@@ -38,7 +38,7 @@ jobs:
         STACK_YAML_ARG="--stack-yaml $(echo stack-9.10.2-${{ matrix.agda }}.yaml)"
 
         # Determine artifact naming based on branch/tag
-        if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+        if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
           PREFIX="als-dev"
         elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
           PREFIX="als-${{ github.ref_name }}"
@@ -318,7 +318,7 @@ jobs:
       run: stack test $STACK_YAML_ARG
 
     - name: 📤 Upload native artifact
-      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.ARTEFACT }}
@@ -327,7 +327,7 @@ jobs:
 
   build-wasm:
     name: Build WASM
-    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -350,7 +350,7 @@ jobs:
     - name: Compute cache key
       run: |
         echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
-        if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+        if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
           PREFIX="als-dev"
         elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
           PREFIX="als-${{ github.ref_name }}"
@@ -490,7 +490,7 @@ jobs:
   create-release:
     name: Create Release
     needs: [build-and-test, build-wasm]
-    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci')
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
     steps:
 
@@ -505,7 +505,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: 🚢 Create/Update Dev Release
-      if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+      if: github.ref == 'refs/heads/master'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -558,7 +558,7 @@ jobs:
   upload-dev-release:
     name: Upload to Dev Release
     needs: create-release
-    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/ci'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
 

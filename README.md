@@ -62,10 +62,10 @@ This allows you to reload the language server in the REPL without recompiling an
 
 ### Creating development releases
 
-To create a development pre-release, push to the `dev` branch:
+To create a development pre-release, push to the `master` branch:
 
 ```bash
-git push origin master:dev
+git push origin master
 ```
 
-This creates/updates the `dev` pre-release with artifacts for the latest Agda version on all platforms.
+This creates/updates the `dev` pre-release with artifacts from the latest `master` commit on all supported targets.
