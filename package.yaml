@@ -115,6 +115,8 @@ executables:
     - -Werror=incomplete-patterns
     - -fno-warn-orphans
     when:
+    - condition: "arch(wasm32)"
+      ghc-options: -with-rtsopts=-V1
     - condition: "!arch(wasm32)"
       ghc-options:
       - -threaded
@@ -149,6 +151,8 @@ tests:
       - -Werror=incomplete-patterns
       - -fno-warn-orphans
     when:
+    - condition: "arch(wasm32)"
+      ghc-options: -with-rtsopts=-V1
     - condition: "!arch(wasm32)"
       ghc-options:
       - -threaded
