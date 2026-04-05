@@ -19,8 +19,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-cabal-drift:
+    name: Check Cabal Drift
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🏗 Setup Haskell
+      uses: haskell-actions/setup@v2
+      with:
+        enable-stack: true
+        stack-version: 'latest'
+
+    - name: 🔄 Regenerate cabal file with hpack
+      run: stack exec --package hpack -- hpack
+
+    - name: 🔍 Check for generated-file drift
+      run: git diff --exit-code -- agda-language-server.cabal
+
   build-and-test:
     name: Build and Test
+    needs: check-cabal-drift
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -331,6 +351,7 @@ jobs:
 
   build-wasm:
     name: Build WASM
+    needs: check-cabal-drift
     if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
     runs-on: ubuntu-22.04
     strategy:
