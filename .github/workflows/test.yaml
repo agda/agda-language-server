@@ -26,14 +26,16 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: 🏗 Setup Haskell
-      uses: haskell-actions/setup@v2
-      with:
-        enable-stack: true
-        stack-version: 'latest'
+    - name: 📥 Install hpack
+      run: |
+        mkdir -p "$HOME/.local/bin"
+        curl -fsSL https://github.com/sol/hpack/releases/download/0.38.3/hpack_linux.gz \
+          | gunzip > "$HOME/.local/bin/hpack"
+        chmod +x "$HOME/.local/bin/hpack"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
     - name: 🔄 Regenerate cabal file with hpack
-      run: stack exec --package hpack -- hpack
+      run: hpack
 
     - name: 🔍 Check for generated-file drift
       run: git diff --exit-code -- agda-language-server.cabal
