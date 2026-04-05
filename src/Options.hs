@@ -129,13 +129,20 @@ stripRTS (arg : argv)
     is x arg = [x] == take 1 (words arg)
 
 -- | Extract Agda options (+AGDA ... -AGDA) from a list of options
+--
+-- >>> extractAgdaOpts [ "als1", "+AGDA", "agda1", "-AGDA", "als2", "+AGDA", "agda2" ]
+-- (["als1","als2"],["agda1","agda2"])
 extractAgdaOpts :: [String] -> ([String], [String])
-extractAgdaOpts argv =
-  let (before, argv') = break (== "+AGDA") argv
-      (forAgda, after) = break (== "-AGDA") argv'
-      forALS = before ++ dropWhile (== "-AGDA") after
-      forAgda' = dropWhile (== "+AGDA") forAgda
-   in (forALS, forAgda')
+extractAgdaOpts argv = go False argv
+  where
+    go False ("+AGDA":xs) = go True xs
+    go True ("-AGDA":xs) = go False xs
+    go inagda (arg:xs) =
+      let (forALS, forAgda) = go inagda xs in
+      if inagda
+        then (forALS, arg:forAgda)
+        else (arg:forALS, forAgda)
+    go _ [] = ([], [])
 
 --------------------------------------------------------------------------------
 
