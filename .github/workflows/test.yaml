@@ -114,7 +114,7 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ env.STACK_ROOT }}
-        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}-${{ matrix.agda }}
+        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
         restore-keys: |
              ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
 
@@ -349,7 +349,7 @@ jobs:
 
     - name: Compute cache key
       run: |
-        echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
+        echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
         if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
           PREFIX="als-dev"
         elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
