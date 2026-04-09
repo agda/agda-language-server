@@ -140,9 +140,9 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ env.STACK_ROOT }}
-        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}
+        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}-${{ matrix.agda }}
         restore-keys: |
-             ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global
+             ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ matrix.agda }}
 
     - name: 💾 Restore cached .stack-work
       id:   stack-work
@@ -462,14 +462,8 @@ jobs:
       working-directory: './als'
       run: wasm32-wasi-cabal build lib:agda
 
-    - name: Cache dist-newstyle
-      uses: actions/cache/save@v4
-      if: steps.build-dep-agda.outcome == 'success'
-      with:
-        path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
-
     - name: Build dependencies other than Agda
+      id: build-deps-other-than-agda
       working-directory: './als'
       run: |
         # Setup network submodule autotools
@@ -478,6 +472,13 @@ jobs:
         cd ../..
         # Build all dependencies (cabal git deps + network submodule)
         wasm32-wasi-cabal build --dependencies-only
+
+    - name: Cache dist-newstyle
+      uses: actions/cache/save@v4
+      if: steps.build-deps-other-than-agda.outcome == 'success'
+      with:
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
 
     - name: Build als
       working-directory: './als'
