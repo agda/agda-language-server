@@ -447,9 +447,6 @@ jobs:
       with:
         path: als/dist-newstyle
         key: dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
-        restore-keys: |
-          dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-
-          dist-newstyle-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Cabal configure
       working-directory: './als'
