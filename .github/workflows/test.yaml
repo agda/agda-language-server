@@ -446,9 +446,9 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
+        key: dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
         restore-keys: |
-          dist-newstyle-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-
+          dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-
           dist-newstyle-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Cabal configure
@@ -478,7 +478,7 @@ jobs:
       if: steps.build-deps-other-than-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
+        key: dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
 
     - name: Build als
       working-directory: './als'
