@@ -4,10 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## v6 - 2025-??-??
+## v6 - 2026-04-11
 
 ### Added
-- Support for Agda-2.8.0
+- Support for Agda-2.8.0.
+- WASM build and release artefacts by [@andy0130tw](https://github.com/andy0130tw).
+- Development and stable release artefacts for all supported Agda versions: Agda-2.6.4.3, Agda-2.7.0.1, and Agda-2.8.0.
+- Separate release artefacts for macOS Apple Silicon and Intel Macs.
+- #39: Agda setup support for Agda-2.8.0 by [@andy0130tw](https://github.com/andy0130tw).
+- #40: JSON interaction mode response option by [@andy0130tw](https://github.com/andy0130tw).
+- #45: Support multiple `+AGDA ... -AGDA` blocks in CLI arguments by [@juliapath](https://github.com/juliapath).
+- WASM-specific test target.
+
+### Changed
+- Use single-digit language server release tags such as `v6`.
+- Drop Agda-2.6.3 support from the release matrix.
+- Target Agda-2.6.4.3, Agda-2.7.0.1, and Agda-2.8.0.
+- Build supported Agda targets with the GHC 9.10.2 Stack configuration.
+- Publish the rolling `dev` prerelease from `master`.
+- Replace the retired `macos-13` GitHub Actions runner with `macos-15-intel`.
+
+### Fixed
+- #44: Keep WASM RTS options in `package.yaml` so generated Cabal metadata does not drift by [@juliapath](https://github.com/juliapath).
+- Fix native and WASM compatibility issues by [@andy0130tw](https://github.com/andy0130tw).
+- Fix WASM CI for Agda-2.8.0 by checking out the matching Agda WASM submodule revision.
+- Fix WASM dependency resolution by pinning the WASM Cabal package set.
+- Fix dev release publishing so native and WASM artefacts are uploaded by the final release job.
+- Fix WASM `dist-newstyle` cache restore/save key mismatch.
+- Fix unsafe use of `Data.List.head` in rich-text rendering.
 
 ## v0.2.7.0.1.5 - 2024-12-18
 
