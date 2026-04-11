@@ -97,8 +97,9 @@ jobs:
         echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
 
     - name: 💾 Cache Haskell toolchain
+      id: haskell-toolchain
       if: runner.os == 'macOS'
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.ghcup
@@ -117,6 +118,16 @@ jobs:
         ghc-version: ${{ env.GHC_VERSION }}
         enable-stack: true
         stack-version: 'latest'
+
+    - name: 💾 Cache Haskell toolchain
+      if: runner.os == 'macOS' && github.ref == 'refs/heads/master' && steps.haskell-toolchain.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.ghcup
+          ~/.stack/programs
+          ~/.stack/pantry
+        key: ${{ steps.haskell-toolchain.outputs.cache-primary-key }}
   
     - name: 🎛️ Determine Stack root
       run: |
@@ -179,14 +190,14 @@ jobs:
     # things to be cached
 
     - name: 💾 Cache stack global package db
-      if:   always() && steps.stack-global.outputs.cache-hit != 'true'
+      if:   always() && github.ref == 'refs/heads/master' && steps.stack-global.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
         path: ${{ env.STACK_ROOT }}
         key: ${{ steps.stack-global.outputs.cache-primary-key }}
 
     - name: 💾 Cache .stack-work
-      if:   always() && steps.stack-work.outputs.cache-hit != 'true'
+      if:   always() && github.ref == 'refs/heads/master' && steps.stack-work.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
         path: .stack-work
@@ -477,7 +488,7 @@ jobs:
 
     - name: Cache dist-newstyle
       uses: actions/cache/save@v4
-      if: steps.build-deps-other-than-agda.outcome == 'success'
+      if: github.ref == 'refs/heads/master' && steps.build-deps-other-than-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
         key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
@@ -496,7 +507,7 @@ jobs:
 
     - name: Cache native cabal
       uses: actions/cache/save@v4
-      if: steps.ghc-wasm-setup.outcome == 'success'
+      if: github.ref == 'refs/heads/master' && steps.ghc-wasm-setup.outcome == 'success'
       with:
         path: |
           ~/.config/cabal
@@ -505,7 +516,7 @@ jobs:
 
     - name: Cache ghc-wasm-meta
       uses: actions/cache/save@v4
-      if: steps.ghc-wasm-setup.outcome == 'success'
+      if: github.ref == 'refs/heads/master' && steps.ghc-wasm-setup.outcome == 'success'
       with:
         path: ~/.ghc-wasm
         key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}

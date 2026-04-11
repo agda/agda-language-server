@@ -3,8 +3,6 @@ name: Compile WASM
 on:
   push:
     branches: [wasm, wasm-*]
-    tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
     branches: [wasm, wasm-*]
 
@@ -107,7 +105,7 @@ jobs:
 
     - name: Cache dist-newstyle
       uses: actions/cache/save@v4
-      if: steps.build-dep-agda.outcome == 'success'
+      if: github.ref_type == 'branch' && steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
         key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
@@ -137,7 +135,7 @@ jobs:
 
     - name: Cache native cabal
       uses: actions/cache/save@v4
-      if: steps.ghc-wasm-setup.outcome == 'success'
+      if: github.ref_type == 'branch' && steps.ghc-wasm-setup.outcome == 'success'
       with:
         path: |
           ~/.config/cabal
@@ -146,7 +144,7 @@ jobs:
 
     - name: Cache ghc-wasm-meta
       uses: actions/cache/save@v4
-      if: steps.ghc-wasm-setup.outcome == 'success'
+      if: github.ref_type == 'branch' && steps.ghc-wasm-setup.outcome == 'success'
       with:
         path: ~/.ghc-wasm
         key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
