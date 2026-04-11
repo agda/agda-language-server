@@ -441,12 +441,17 @@ jobs:
         git checkout FETCH_HEAD
         echo "AGDA_WASM_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
+    - name: Compute dist-newstyle cache key
+      id: dist-newstyle-cache-key
+      run: |
+        echo "key=dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}" >> "$GITHUB_OUTPUT"
+
     - name: Restore dist-newstyle cache for resolved Agda revision
       id: dist-newstyle-cache-restore-resolved
       uses: actions/cache/restore@v4
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
+        key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
 
     - name: Cabal configure
       working-directory: './als'
@@ -475,7 +480,7 @@ jobs:
       if: steps.build-deps-other-than-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}
+        key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
 
     - name: Build als
       working-directory: './als'
