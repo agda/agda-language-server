@@ -1,3 +1,14 @@
+verbatim:
+  # This makes hpack translate build-tools as build-tool-depends intstead of build-tools.
+  # The latter causes problems with cabal2Nix, which otherwise misinterprets
+  # the dependency on the als executable added to the test suite via build-tools as an
+  # external dependency which will be missing.
+  #
+  # For hpack to use build-tool-depends cabal-version must be >= 2.
+  # Also hpack needs to be at least 0.38.0
+  cabal-version: 2.0
+spec-version: 0.38.0
+
 name:                agda-language-server
 version:             0.2.7.0.1.5
 github:              "banacorn/agda-language-server"
@@ -130,6 +141,11 @@ tests:
     source-dirs:
       - test
       - src
+    # While stack test automatically adds the als executable to PATH, so that it
+    # can be found by the test suite, cabal only does so if this is requested via
+    # build-tools / build-tool-depends.
+    build-tools:
+      - als
     dependencies:
       - lsp-test
       - tasty
