@@ -3,7 +3,7 @@
 
 -- entry point of the LSP server
 
-module Server (run) where
+module Server (run, serverDefn) where
 
 import qualified Agda
 import Control.Concurrent (writeChan)
@@ -22,8 +22,6 @@ import Language.LSP.Server hiding (Options)
 import qualified Language.LSP.Server hiding (Options)
 import qualified Language.LSP.Server as LSP
 import Monad
-import qualified Network.Simple.TCP as TCP
-import Network.Socket (socketToHandle)
 import Options
 import qualified Server.Handler as Handler
 import Switchboard (Switchboard, agdaCustomMethod)
@@ -33,6 +31,9 @@ import qualified Switchboard
 import Agda.Utils.IO (catchIO)
 import System.IO (hPutStrLn, stderr)
 import System.Posix.IO (stdInput, setFdOption, FdOption (..))
+#else
+import qualified Network.Simple.TCP as TCP
+import Network.Socket (socketToHandle)
 #endif
 
 --------------------------------------------------------------------------------
@@ -41,6 +42,9 @@ run :: Options -> IO Int
 run options = do
   case optViaTCP options of
     Just port -> do
+#if defined(wasm32_HOST_ARCH)
+      error "WASM does not support listening to a port."
+#else
       void $
         TCP.serve (TCP.Host "127.0.0.1") (show port) $
           \(sock, _remoteAddr) -> do
@@ -50,35 +54,36 @@ run options = do
             return ()
       -- Switchboard.destroy switchboard
       return 0
+#endif
     Nothing -> do
 #if defined(wasm32_HOST_ARCH)
       liftIO $ setFdOption stdInput NonBlockingRead True
         `catchIO` (\ (e :: IOError) -> hPutStrLn stderr $ "Failed to enable nonblocking on stdin: " ++ (show e) ++ "\nThe WASM module might not behave correctly.")
 #endif
       runServer (serverDefn options)
-  where
-    serverDefn :: Options -> ServerDefinition Config
-    serverDefn options =
-      ServerDefinition
-        { defaultConfig = initConfig,
-          onConfigChange = const $ pure (),
-          parseConfig = \old newRaw -> case JSON.fromJSON newRaw of
-            JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
-            JSON.Success new -> Right new,
-          doInitialize = \ctxEnv _req -> do
-            env <- runLspT ctxEnv (createInitEnv options)
-            switchboard <- Switchboard.new env
-            Switchboard.setupLanguageContextEnv switchboard ctxEnv
-            pure $ Right (ctxEnv, env),
-          configSection = "dummy",
-          staticHandlers = const handlers,
-          interpretHandler = \(ctxEnv, env) ->
-            Iso
-              { forward = runLspT ctxEnv . runServerM env,
-                backward = liftIO
-              },
-          options = lspOptions
-        }
+
+serverDefn :: Options -> ServerDefinition Config
+serverDefn options =
+  ServerDefinition
+    { defaultConfig = initConfig,
+      onConfigChange = const $ pure (),
+      parseConfig = \old newRaw -> case JSON.fromJSON newRaw of
+        JSON.Error s -> Left $ pack $ "Cannot parse server configuration: " <> s
+        JSON.Success new -> Right new,
+      doInitialize = \ctxEnv _req -> do
+        env <- runLspT ctxEnv (createInitEnv options)
+        switchboard <- Switchboard.new env
+        Switchboard.setupLanguageContextEnv switchboard ctxEnv
+        pure $ Right (ctxEnv, env),
+      configSection = "dummy",
+      staticHandlers = const handlers,
+      interpretHandler = \(ctxEnv, env) ->
+        Iso
+          { forward = runLspT ctxEnv . runServerM env,
+            backward = liftIO
+          },
+      options = lspOptions
+    }
 
 lspOptions :: LSP.Options
 lspOptions = defaultOptions {optTextDocumentSync = Just syncOptions}

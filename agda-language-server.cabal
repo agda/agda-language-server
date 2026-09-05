@@ -45,6 +45,11 @@ flag Agda-2-8-0
   manual: True
   default: False
 
+flag reactor
+  description: Build as a WASI reactor module
+  manual: True
+  default: False
+
 library
   exposed-modules:
       Agda
@@ -93,8 +98,6 @@ library
     , lsp >=2
     , lsp-types >=2
     , mtl
-    , network
-    , network-simple ==0.4.2
     , prettyprinter
     , process
     , stm
@@ -113,6 +116,10 @@ library
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
+  else
+    build-depends:
+        network
+      , network-simple ==0.4.2
   if !arch(wasm32)
     ghc-options: -threaded -with-rtsopts=-N
 
@@ -140,8 +147,6 @@ executable als
     , lsp >=2
     , lsp-types >=2
     , mtl
-    , network
-    , network-simple ==0.4.2
     , prettyprinter
     , process
     , stm
@@ -160,8 +165,19 @@ executable als
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
+  else
+    build-depends:
+        network
+      , network-simple ==0.4.2
   if arch(wasm32)
     ghc-options: -with-rtsopts=-V1
+  if flag(reactor)
+    other-modules:
+        Reactor
+    ghc-options: -no-hs-main -optl-mexec-model=reactor -optl-Wl,--export=hs_init,--export=run_setup,--export=new_language_server,--export=free_language_server,--export=run_language_server,--export=send_message,--export=recv_message
+    build-depends:
+        attoparsec
+      , ghc-experimental
   if !arch(wasm32)
     ghc-options: -threaded -with-rtsopts=-N
 
@@ -219,8 +235,6 @@ test-suite als-test
     , lsp-test
     , lsp-types >=2
     , mtl
-    , network
-    , network-simple ==0.4.2
     , prettyprinter
     , process
     , stm
@@ -243,6 +257,10 @@ test-suite als-test
   if arch(wasm32)
     build-depends:
         unix >=2.8.0.0 && <2.9
+  else
+    build-depends:
+        network
+      , network-simple ==0.4.2
   if arch(wasm32)
     ghc-options: -with-rtsopts=-V1
   if !arch(wasm32)
