@@ -169,9 +169,21 @@ jobs:
     - name: 📥 Install the icu library (on Windows)
       if: runner.os == 'Windows'
       run: |
-        stack exec $STACK_YAML_ARG -- pacman -S --noconfirm mingw-w64-clang-x86_64-icu mingw-w64-clang-x86_64-pkgconf
+        # -Sy refreshes the package database first: the GH Windows runner
+        # image ships a bundled MSYS2 db snapshot that can reference
+        # package versions mirrors have since pruned, causing "failed
+        # retrieving file ... 404" across every configured mirror despite
+        # the requested packages being entirely unversioned here.
+        #
+        # mingw64, not clang64: with system-ghc: true, Cabal's configure
+        # step (via Stack) hardcodes --extra-include-dirs/--extra-lib-dirs
+        # pointing at Stack's bundled msys2/mingw64 tree regardless of
+        # which MSYS2 subsystem we install into, so the packages actually
+        # used by the linker must live under mingw64, not clang64.
+        stack exec $STACK_YAML_ARG -- pacman -Sy --noconfirm
+        stack exec $STACK_YAML_ARG -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
 
-    - name: 🛣️ Add MSYS2 clang64 bin to PATH (on Windows)
+    - name: 🛣️ Add MSYS2 mingw64 bin to PATH (on Windows)
       if: runner.os == 'Windows'
       run: |
         stack path $STACK_YAML_ARG --extra-library-dirs | tr ',' '\n' | grep -i 'bin$' | sed 's/^ *//' >> "${GITHUB_PATH}"
