@@ -2,6 +2,13 @@ resolver: lts-24.1
 compiler: ghc-9.10.2
 # Allow a newer minor version of GHC than the snapshot specifies
 compiler-check: newer-minor
+# CI pins and installs GHC itself (haskell-actions/setup, via ghcup); use
+# that GHC directly instead of Stack downloading its own separate copy
+# into ~/.stack/programs. Without this, every job -- cold or warm alike
+# -- pays a redundant full GHC download+configure, since ~/.stack/programs
+# is untracked by the cache and Stack is otherwise unaware the
+# ghcup-installed GHC exists.
+system-ghc: true
 
 packages:
 - .

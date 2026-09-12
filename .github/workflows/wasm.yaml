@@ -9,6 +9,8 @@ on:
 env:
   GHC_WASM_META_FLAVOUR: '9.10'
   GHC_WASM_META_COMMIT_HASH: 'c3f44696d29aaeadd755d69c51735954bfcd59db'
+  ALEX_VERSION: '3.5.0.0'
+  HAPPY_VERSION: '1.20.1.1'
 
 jobs:
   build:
@@ -35,37 +37,40 @@ jobs:
         git fetch --depth 1 origin "${{ matrix.agda.commit }}"
         git checkout FETCH_HEAD
 
-    - name: Compute cache key
-      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
+    # Redesigned WASM caching (ci.md PR 1 commit 3): two independently
+    # keyed, exact-match-only caches, each saved immediately after its own
+    # producer succeeds so a later failure elsewhere can't suppress an
+    # already-valid save. The Agda 2.8.0 entry is the sole writer for
+    # both, since all three Agda entries in this matrix share them; the
+    # other two entries only ever restore.
+    #  - .ghc-wasm toolchain: keyed by WASM_TOOLCHAIN_PRODUCER_HASH
+    #    (schema + ghc-wasm-meta commit + flavour). A prefix match here
+    #    could silently select a toolchain built from a different
+    #    GHC_WASM_META_COMMIT_HASH, so there are no restore-keys and the
+    #    gate is cache-hit == 'true', not merely a non-empty matched key.
+    #  - native-utilities (alex/happy): keyed by
+    #    NATIVE_UTILITIES_PRODUCER_HASH (schema + host Cabal identity +
+    #    pinned Alex/Happy versions). Installed with a dedicated
+    #    --installdir so the payload is exactly "the pinned executables",
+    #    self-contained copies that don't need Cabal's store to run. The
+    #    mutable Cabal index is never cached and is refreshed on every
+    #    use, since it isn't part of producer identity.
 
-    - name: Try to restore cached .ghc-wasm
+    - name: Compute WASM toolchain cache key
+      run: |
+        HASH=$(printf '%s' "v1-${GHC_WASM_META_COMMIT_HASH}-${GHC_WASM_META_FLAVOUR}" | sha256sum | cut -d' ' -f1)
+        echo "WASM_TOOLCHAIN_KEY=ghc-wasm-v3-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
+
+    - name: Restore ghc-wasm-meta toolchain cache
       id: ghc-wasm-cache-restore
       uses: actions/cache/restore@v4
       with:
         path: ~/.ghc-wasm
-        key: ghc-wasm-${{ env.CI_CACHE_KEY }}
-
-    - name: Try to restore cached native cabal
-      id: native-cabal-cache-restore
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~/.config/cabal
-          ~/.cache/cabal
-        key: native-cabal-${{ env.CI_CACHE_KEY }}
-
-    - name: Try to restore cached dist-newstyle
-      id: dist-newstyle-cache-restore
-      uses: actions/cache/restore@v4
-      with:
-        path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
-        restore-keys: |
-          dist-newstyle-${{ env.CI_CACHE_KEY }}-
+        key: ${{ env.WASM_TOOLCHAIN_KEY }}
 
     - name: Clone and setup ghc-wasm-meta
       id: ghc-wasm-setup
-      if: steps.ghc-wasm-cache-restore.outputs.cache-matched-key == ''
+      if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
       run: |
         mkdir ghc-wasm-meta
         cd ghc-wasm-meta
@@ -80,17 +85,84 @@ jobs:
     - name: Add ghc-wasm-meta to PATH
       run: ~/.ghc-wasm/add_to_github_path.sh
 
+    - name: Validate ghc-wasm-meta toolchain executables
+      if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
+      id: validate-wasm-toolchain
+      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-wasm-toolchain.sh"
+
+    - name: Cache ghc-wasm-meta (Agda 2.8.0 is the sole writer)
+      if: >
+        matrix.agda.name == '2.8.0' && github.ref_type == 'branch' &&
+        steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true' &&
+        steps.validate-wasm-toolchain.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.ghc-wasm
+        key: ${{ env.WASM_TOOLCHAIN_KEY }}
+
     # setup script also updates package store near the end
     - name: Update wasm32 cabal
-      if: steps.ghc-wasm-setup.outcome == 'success' || steps.ghc-wasm-setup.outcome == 'skipped'
       run: wasm32-wasi-cabal update
 
-    - name: Install native utilities
+    - name: Compute native-utilities cache key
+      run: |
+        CABAL_VERSION=$(~/.ghc-wasm/cabal/bin/cabal --numeric-version)
+        HASH=$(printf '%s' "v1-${CABAL_VERSION}-${ALEX_VERSION}-${HAPPY_VERSION}" | sha256sum | cut -d' ' -f1)
+        echo "NATIVE_UTILS_KEY=native-tools-v3-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
+
+    - name: Restore native-utilities cache
+      id: native-utils-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ghc-wasm/native-utils
+        key: ${{ env.NATIVE_UTILS_KEY }}
+
+    - name: Add native-utilities dir to PATH (exact hit)
+      if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
+      run: echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
+
+    - name: Validate restored native utilities (exact hit)
+      if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
+      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-native-utils.sh"
+
+    - name: Install native utilities (exact miss)
+      if: steps.native-utils-cache-restore.outputs.cache-hit != 'true'
+      id: install-native-utils
       run: |
         echo ">>> Update cabal"
         ~/.ghc-wasm/cabal/bin/cabal update
         echo ">>> Install alex and happy"
-        ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
+        mkdir -p ~/.ghc-wasm/native-utils
+        ~/.ghc-wasm/cabal/bin/cabal install \
+          --installdir="$HOME/.ghc-wasm/native-utils" --install-method=copy --overwrite-policy=always \
+          "alex-${ALEX_VERSION}" "happy-${HAPPY_VERSION}"
+        echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
+
+    - name: Validate installed native utilities (after install)
+      if: steps.install-native-utils.outcome == 'success'
+      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-native-utils.sh"
+
+    - name: Cache native utilities (Agda 2.8.0 is the sole writer)
+      if: >
+        matrix.agda.name == '2.8.0' && github.ref_type == 'branch' &&
+        steps.native-utils-cache-restore.outputs.cache-hit != 'true' &&
+        steps.install-native-utils.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.ghc-wasm/native-utils
+        key: ${{ env.NATIVE_UTILS_KEY }}
+
+    - name: Compute cache key
+      run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
+
+    - name: Try to restore cached dist-newstyle
+      id: dist-newstyle-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: als/dist-newstyle
+        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        restore-keys: |
+          dist-newstyle-${{ env.CI_CACHE_KEY }}-
 
     - name: Cabal configure
       working-directory: './als'
@@ -129,25 +201,6 @@ jobs:
         stat --format="%s" "$ALS_PATH"
         time wasm-opt "$ALS_PATH" -Oz -o ~/out/als.wasm
         stat --format="%s" ~/out/als.wasm
-
-    - name: Clean up native/wasm cabal logs
-      run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs
-
-    - name: Cache native cabal
-      uses: actions/cache/save@v4
-      if: github.ref_type == 'branch' && steps.ghc-wasm-setup.outcome == 'success'
-      with:
-        path: |
-          ~/.config/cabal
-          ~/.cache/cabal
-        key: ${{ steps.native-cabal-cache-restore.outputs.cache-primary-key }}
-
-    - name: Cache ghc-wasm-meta
-      uses: actions/cache/save@v4
-      if: github.ref_type == 'branch' && steps.ghc-wasm-setup.outcome == 'success'
-      with:
-        path: ~/.ghc-wasm
-        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4

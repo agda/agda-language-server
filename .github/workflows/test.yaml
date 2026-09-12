@@ -6,6 +6,12 @@ defaults:
   run:
     shell: bash
 
+env:
+  # Pinned exact Stack version (ci.md PR 1 commit 2): installed and
+  # verified on every platform, and baked into the toolchain and
+  # compiled-dependency cache keys below. Never 'latest'.
+  STACK_VERSION: '3.3.1'
+
 on:
   push:
     branches: [master]
@@ -40,6 +46,21 @@ jobs:
     - name: 🔍 Check for generated-file drift
       run: git diff --exit-code -- agda-language-server.cabal
 
+    - name: 🏗 Setup Haskell
+      uses: haskell-actions/setup@v2
+      with:
+        ghc-version: '9.10.2'
+        enable-stack: true
+        stack-version: ${{ env.STACK_VERSION }}
+
+    - name: 🔒 Check stack-*.yaml.lock drift (fails if Stack would rewrite it)
+      run: |
+        for f in stack-9.10.2-Agda-2.8.0.yaml stack-9.10.2-Agda-2.7.0.1.yaml stack-9.10.2-Agda-2.6.4.3.yaml; do
+          echo "::group::${f}.lock"
+          stack build --stack-yaml "$f" --dry-run --lock-file error-on-write
+          echo "::endgroup::"
+        done
+
   build-and-test:
     name: Build and Test
     needs: check-cabal-drift
@@ -57,6 +78,11 @@ jobs:
     - name: 📤 Install yq (Windows)
       if: runner.os == 'Windows'
       uses: frenck/action-setup-yq@v1
+      with:
+        # Unpinned 'latest' (the default) triggers an unauthenticated
+        # curl to api.github.com to resolve the newest release, which
+        # is vulnerable to shared-runner-IP anonymous rate limits.
+        version: v4.53.6
 
     - name: 🎛️ Determine which version of Agda to target
       run: |
@@ -96,75 +122,45 @@ jobs:
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
         echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
 
-    - name: 💾 Cache Haskell toolchain
-      id: haskell-toolchain
-      if: runner.os == 'macOS'
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~/.ghcup
-          ~/.stack/programs
-          ~/.stack/pantry
-        key: ${{ runner.os }}-${{ runner.arch }}-haskell-${{ env.GHC_VERSION }}-stack-latest
-        restore-keys: |
-          ${{ runner.os }}-${{ runner.arch }}-haskell-${{ env.GHC_VERSION }}-
-          ${{ runner.os }}-${{ runner.arch }}-haskell-
+    # Redesigned cache boundaries (ci.md PR 1 commit 2):
+    #  - macOS toolchain cache holds only ~/.ghcup, keyed by the pinned
+    #    STACK_VERSION and GHC_VERSION (no Agda target -- shared across
+    #    the three Agda entries for this architecture). Only the Agda
+    #    2.8.0 entry is allowed to save it, so the three parallel jobs
+    #    for one architecture never race to write the same key.
+    #  - The compiled-dependency cache holds only
+    #    $STACK_ROOT/{snapshots,setup-exe-cache}, is Agda-specific (so
+    #    each Agda entry owns its own key), and is keyed by every
+    #    dimension that changes its compatibility (OS, arch, Stack, GHC,
+    #    ICU ABI, resolver, Agda target) plus CONFIG_HASH, so that a
+    #    prefix hit (only CONFIG_HASH differs) is only ever used when
+    #    every other dimension is identical, and any other dimension
+    #    changing yields a complete miss (the restore-keys prefix itself
+    #    changes, so a differently-configured entry cannot match it).
+    #  - No .stack-work caching: removed outright per commit 2 pending a
+    #    future measurement showing a net wall-clock benefit.
 
-    - name: 🏗 Setup Haskell
-      if : runner.os == 'macOS'
+    - name: 🏗 Setup Haskell (pinned Stack version, all platforms)
       uses: haskell-actions/setup@v2
-      id: setup-haskell
       with:
         ghc-version: ${{ env.GHC_VERSION }}
         enable-stack: true
-        stack-version: 'latest'
+        stack-version: ${{ env.STACK_VERSION }}
 
-    - name: 💾 Cache Haskell toolchain
-      if: runner.os == 'macOS' && github.ref == 'refs/heads/master' && steps.haskell-toolchain.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          ~/.ghcup
-          ~/.stack/programs
-          ~/.stack/pantry
-        key: ${{ steps.haskell-toolchain.outputs.cache-primary-key }}
-  
+    - name: 🔍 Verify pinned Stack version
+      run: |
+        actual="$(stack --numeric-version)"
+        echo "Stack version: ${actual}"
+        if [[ "${actual}" != "${STACK_VERSION}" ]]; then
+          echo "::error::expected pinned Stack ${STACK_VERSION}, got ${actual}"
+          exit 1
+        fi
+
     - name: 🎛️ Determine Stack root
       run: |
         STACK_ROOT="$(stack path $STACK_YAML_ARG --stack-root)"
         echo STACK_ROOT="${STACK_ROOT}"         >> "${GITHUB_ENV}"
 
-    - name: 🔍 Review all variables
-      run: |
-        echo "STACK_YAML      = ${STACK_YAML}"
-        echo "STACK_YAML_ARG  = ${STACK_YAML_ARG}"
-        echo "STACK_RESOLVER  = ${STACK_RESOLVER}"
-        echo "ARTEFACT        = ${ARTEFACT}"
-        echo "GHC_VERSION     = ${GHC_VERSION}"
-        echo "STACK_ROOT      = ${STACK_ROOT}"
-
-    # things to be restored:
-    # Include STACK_RESOLVER in cache key, otherwise caches accumulate build products for different resolvers.
-
-    - name: 💾 Restore cached stack global package db
-      id:   stack-global
-      uses: actions/cache/restore@v4
-      with:
-        path: ${{ env.STACK_ROOT }}
-        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ hashFiles('**.yaml') }}-${{ matrix.agda }}
-        restore-keys: |
-             ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-global-${{ matrix.agda }}
-
-    - name: 💾 Restore cached .stack-work
-      id:   stack-work
-      uses: actions/cache/restore@v4
-      with:
-        path: .stack-work
-        key: ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work-${{ hashFiles('**.yaml') }}-${{ matrix.agda }}
-        restore-keys: |
-             ${{ matrix.os }}-stack-resolver-${{ env.STACK_RESOLVER }}-work
-
-    # actions:
     - name: ⚙️ Set PKG_CONFIG_PATH for the ICU library (on macOS)
       if: runner.os == 'macOS'
       run: |
@@ -173,41 +169,105 @@ jobs:
     - name: 📥 Install the icu library (on Windows)
       if: runner.os == 'Windows'
       run: |
-        stack exec $STACK_YAML_ARG -- pacman -S --noconfirm mingw-w64-clang-x86_64-icu mingw-w64-clang-x86_64-pkgconf
+        # -Sy refreshes the package database first: the GH Windows runner
+        # image ships a bundled MSYS2 db snapshot that can reference
+        # package versions mirrors have since pruned, causing "failed
+        # retrieving file ... 404" across every configured mirror despite
+        # the requested packages being entirely unversioned here.
+        #
+        # mingw64, not clang64: with system-ghc: true, Cabal's configure
+        # step (via Stack) hardcodes --extra-include-dirs/--extra-lib-dirs
+        # pointing at Stack's bundled msys2/mingw64 tree regardless of
+        # which MSYS2 subsystem we install into, so the packages actually
+        # used by the linker must live under mingw64, not clang64.
+        stack exec $STACK_YAML_ARG -- pacman -Sy --noconfirm
+        stack exec $STACK_YAML_ARG -- pacman -S --noconfirm mingw-w64-x86_64-icu mingw-w64-x86_64-pkgconf
 
-    - name: 🛣️ Add MSYS2 clang64 bin to PATH (on Windows)
+    - name: 🛣️ Add MSYS2 mingw64 bin to PATH (on Windows)
       if: runner.os == 'Windows'
       run: |
         stack path $STACK_YAML_ARG --extra-library-dirs | tr ',' '\n' | grep -i 'bin$' | sed 's/^ *//' >> "${GITHUB_PATH}"
+
+    - name: 🎛️ Resolve ICU version
+      env:
+        RUNNER_OS: ${{ runner.os }}
+      run: bash .github/scripts/resolve-icu-version.sh
+
+    - name: 🎛️ Compute compiled-dependency CONFIG_HASH
+      run: |
+        echo CONFIG_HASH="${{ hashFiles(env.STACK_YAML, format('{0}.lock', env.STACK_YAML), 'package.yaml', 'agda-language-server.cabal') }}" >> "${GITHUB_ENV}"
+
+    - name: 🔍 Review all variables
+      run: |
+        echo "STACK_YAML      = ${STACK_YAML}"
+        echo "STACK_YAML_ARG  = ${STACK_YAML_ARG}"
+        echo "STACK_RESOLVER  = ${STACK_RESOLVER}"
+        echo "ARTEFACT        = ${ARTEFACT}"
+        echo "GHC_VERSION     = ${GHC_VERSION}"
+        echo "STACK_VERSION   = ${STACK_VERSION}"
+        echo "ICU_VERSION     = ${ICU_VERSION}"
+        echo "STACK_ROOT      = ${STACK_ROOT}"
+        echo "CONFIG_HASH     = ${CONFIG_HASH}"
+
+    - name: 💾 Restore Haskell toolchain cache (macOS, shared across Agda targets)
+      id: haskell-toolchain
+      if: runner.os == 'macOS'
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ghcup
+        key: ghcup-v1-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}
+
+    - name: 💾 Restore compiled-dependency cache
+      id: stack-snapshot
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ${{ env.STACK_ROOT }}/snapshots
+          ${{ env.STACK_ROOT }}/setup-exe-cache
+        key: stack-snapshot-v3-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}-${{ env.ICU_VERSION }}-${{ env.STACK_RESOLVER }}-${{ matrix.agda }}-${{ env.CONFIG_HASH }}
+        restore-keys: |
+          stack-snapshot-v3-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}-${{ env.ICU_VERSION }}-${{ env.STACK_RESOLVER }}-${{ matrix.agda }}-
 
     - name: 📸 Build Snapshot
       run: stack build $STACK_YAML_ARG --no-terminal --only-snapshot -j1
 
     - name: 🏗️ Build Dependencies
+      id: build-deps
       run: stack build $STACK_YAML_ARG --no-terminal --only-dependencies
+
+    - name: 🏗️ Build Testings
+      id: build-test-deps
+      run: stack build $STACK_YAML_ARG --test --no-terminal --only-dependencies
+
+    # Cache save point: both dependency-producing steps above must have
+    # succeeded, and only the designated writer(s) may save a key shared
+    # by more than one matrix entry. A later ALS build or test failure
+    # must not invalidate an already-saved compiled-dependency cache.
+
+    - name: 💾 Save Haskell toolchain cache (Agda 2.8.0 is the sole writer)
+      if: >
+        runner.os == 'macOS' && matrix.agda == 'Agda-2.8.0' &&
+        github.ref == 'refs/heads/master' &&
+        steps.haskell-toolchain.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.ghcup
+        key: ${{ steps.haskell-toolchain.outputs.cache-primary-key }}
+
+    - name: 💾 Save compiled-dependency cache
+      if: >
+        github.ref == 'refs/heads/master' &&
+        steps.build-deps.outcome == 'success' && steps.build-test-deps.outcome == 'success' &&
+        steps.stack-snapshot.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ${{ env.STACK_ROOT }}/snapshots
+          ${{ env.STACK_ROOT }}/setup-exe-cache
+        key: stack-snapshot-v3-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}-${{ env.ICU_VERSION }}-${{ env.STACK_RESOLVER }}-${{ matrix.agda }}-${{ env.CONFIG_HASH }}
 
     - name: 🏗️ Build ALS
       run: stack build $STACK_YAML_ARG
-  
-    - name: 🏗️ Build Testings
-      run: stack build $STACK_YAML_ARG --test --no-terminal --only-dependencies
-  
-    # things to be cached
-
-    - name: 💾 Cache stack global package db
-      if:   always() && github.ref == 'refs/heads/master' && steps.stack-global.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: ${{ env.STACK_ROOT }}
-        key: ${{ steps.stack-global.outputs.cache-primary-key }}
-
-    - name: 💾 Cache .stack-work
-      if:   always() && github.ref == 'refs/heads/master' && steps.stack-work.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: .stack-work
-        key: ${{ steps.stack-work.outputs.cache-primary-key }}
-
 
     - name: 📦 Bundle executable, DLLs and data files (on macOS)
       if: runner.os == 'macOS'
@@ -383,6 +443,8 @@ jobs:
     env:
       GHC_WASM_META_FLAVOUR: '9.10'
       GHC_WASM_META_COMMIT_HASH: 'c3f44696d29aaeadd755d69c51735954bfcd59db'
+      ALEX_VERSION: '3.5.0.0'
+      HAPPY_VERSION: '1.20.1.1'
 
     steps:
     - uses: actions/checkout@v4
@@ -402,29 +464,26 @@ jobs:
         fi
         echo "WASM_ASSET_BASENAME=${PREFIX}-${{ matrix.agda.label }}-wasm" >> "$GITHUB_ENV"
 
-    - name: Try to restore cached .ghc-wasm
+    # Redesigned WASM caching (ci.md PR 1 commit 3): see wasm.yaml, which
+    # this mirrors, for the full rationale. Both are Agda-2.8.0-writes,
+    # exact-match-only caches saved immediately after their own producer
+    # succeeds.
+
+    - name: Compute WASM toolchain cache key
+      run: |
+        HASH=$(printf '%s' "v1-${GHC_WASM_META_COMMIT_HASH}-${GHC_WASM_META_FLAVOUR}" | sha256sum | cut -d' ' -f1)
+        echo "WASM_TOOLCHAIN_KEY=ghc-wasm-v3-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
+
+    - name: Restore ghc-wasm-meta toolchain cache
       id: ghc-wasm-cache-restore
       uses: actions/cache/restore@v4
       with:
         path: ~/.ghc-wasm
-        key: ghc-wasm-${{ env.CI_CACHE_KEY }}
-        restore-keys: |
-          ghc-wasm-${{ runner.os }}-${{ runner.arch }}-
-
-    - name: Try to restore cached native cabal
-      id: native-cabal-cache-restore
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~/.config/cabal
-          ~/.cache/cabal
-        key: native-cabal-${{ env.CI_CACHE_KEY }}
-        restore-keys: |
-          native-cabal-${{ runner.os }}-${{ runner.arch }}-
+        key: ${{ env.WASM_TOOLCHAIN_KEY }}
 
     - name: Clone and setup ghc-wasm-meta
       id: ghc-wasm-setup
-      if: steps.ghc-wasm-cache-restore.outputs.cache-matched-key == ''
+      if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
       run: |
         mkdir ghc-wasm-meta
         cd ghc-wasm-meta
@@ -439,16 +498,71 @@ jobs:
     - name: Add ghc-wasm-meta to PATH
       run: ~/.ghc-wasm/add_to_github_path.sh
 
+    - name: Validate ghc-wasm-meta toolchain executables
+      if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
+      id: validate-wasm-toolchain
+      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-wasm-toolchain.sh"
+
+    - name: Cache ghc-wasm-meta (Agda 2.8.0 is the sole writer)
+      if: >
+        matrix.agda.name == '2.8.0' && github.ref == 'refs/heads/master' &&
+        steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true' &&
+        steps.validate-wasm-toolchain.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.ghc-wasm
+        key: ${{ env.WASM_TOOLCHAIN_KEY }}
+
     - name: Update wasm32 cabal
-      if: steps.ghc-wasm-setup.outcome == 'success' || steps.ghc-wasm-setup.outcome == 'skipped'
       run: wasm32-wasi-cabal update
 
-    - name: Install native utilities
+    - name: Compute native-utilities cache key
+      run: |
+        CABAL_VERSION=$(~/.ghc-wasm/cabal/bin/cabal --numeric-version)
+        HASH=$(printf '%s' "v1-${CABAL_VERSION}-${ALEX_VERSION}-${HAPPY_VERSION}" | sha256sum | cut -d' ' -f1)
+        echo "NATIVE_UTILS_KEY=native-tools-v3-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
+
+    - name: Restore native-utilities cache
+      id: native-utils-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ghc-wasm/native-utils
+        key: ${{ env.NATIVE_UTILS_KEY }}
+
+    - name: Add native-utilities dir to PATH (exact hit)
+      if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
+      run: echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
+
+    - name: Validate restored native utilities (exact hit)
+      if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
+      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-native-utils.sh"
+
+    - name: Install native utilities (exact miss)
+      if: steps.native-utils-cache-restore.outputs.cache-hit != 'true'
+      id: install-native-utils
       run: |
         echo ">>> Update cabal"
         ~/.ghc-wasm/cabal/bin/cabal update
         echo ">>> Install alex and happy"
-        ~/.ghc-wasm/cabal/bin/cabal install alex-3.5.0.0 happy-1.20.1.1
+        mkdir -p ~/.ghc-wasm/native-utils
+        ~/.ghc-wasm/cabal/bin/cabal install \
+          --installdir="$HOME/.ghc-wasm/native-utils" --install-method=copy --overwrite-policy=always \
+          "alex-${ALEX_VERSION}" "happy-${HAPPY_VERSION}"
+        echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
+
+    - name: Validate installed native utilities (after install)
+      if: steps.install-native-utils.outcome == 'success'
+      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-native-utils.sh"
+
+    - name: Cache native utilities (Agda 2.8.0 is the sole writer)
+      if: >
+        matrix.agda.name == '2.8.0' && github.ref == 'refs/heads/master' &&
+        steps.native-utils-cache-restore.outputs.cache-hit != 'true' &&
+        steps.install-native-utils.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.ghc-wasm/native-utils
+        key: ${{ env.NATIVE_UTILS_KEY }}
 
     - name: Checkout Agda submodule at v${{ matrix.agda.name }}
       run: |
@@ -506,25 +620,6 @@ jobs:
         WASM_BINARY_PATH=$(wasm32-wasi-cabal list-bin als)
         cp "$WASM_BINARY_PATH" ~/out/${WASM_ASSET_BASENAME}.wasm
         echo "WASM_BINARY_NAME=${WASM_ASSET_BASENAME}.wasm" >> $GITHUB_ENV
-
-    - name: Clean up native/wasm cabal logs
-      run: rm -rf ~/.cache/cabal/logs ~/.ghc-wasm/.cabal/logs
-
-    - name: Cache native cabal
-      uses: actions/cache/save@v4
-      if: github.ref == 'refs/heads/master' && steps.ghc-wasm-setup.outcome == 'success'
-      with:
-        path: |
-          ~/.config/cabal
-          ~/.cache/cabal
-        key: ${{ steps.native-cabal-cache-restore.outputs.cache-primary-key }}
-
-    - name: Cache ghc-wasm-meta
-      uses: actions/cache/save@v4
-      if: github.ref == 'refs/heads/master' && steps.ghc-wasm-setup.outcome == 'success'
-      with:
-        path: ~/.ghc-wasm
-        key: ${{ steps.ghc-wasm-cache-restore.outputs.cache-primary-key }}
 
     - name: 📤 Upload WASM artifact
       uses: actions/upload-artifact@v4
