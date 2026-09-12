@@ -78,6 +78,11 @@ jobs:
     - name: 📤 Install yq (Windows)
       if: runner.os == 'Windows'
       uses: frenck/action-setup-yq@v1
+      with:
+        # Unpinned 'latest' (the default) triggers an unauthenticated
+        # curl to api.github.com to resolve the newest release, which
+        # is vulnerable to shared-runner-IP anonymous rate limits.
+        version: v4.53.6
 
     - name: 🎛️ Determine which version of Agda to target
       run: |
