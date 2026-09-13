@@ -37,7 +37,10 @@ flags:
     description: Embed Agda-2.8.0
     manual: true
     default: false
-
+  reactor:
+    description: Build as a WASI reactor module
+    manual: true
+    default: false
 when:
 - condition: "flag(Agda-2-6-4)"
   dependencies:
@@ -49,8 +52,13 @@ when:
   dependencies:
     - Agda == 2.8.0
 - condition: "arch(wasm32)"
-  dependencies:
-    - unix >= 2.8.0.0 && < 2.9
+  then:
+    dependencies:
+      - unix >= 2.8.0.0 && < 2.9
+  else:
+    dependencies:
+      - network
+      - network-simple == 0.4.2
 
 dependencies:
   - base >= 4.7 && < 5
@@ -63,8 +71,6 @@ dependencies:
   - lsp-types >= 2
   - lsp >= 2
   - mtl
-  - network
-  - network-simple == 0.4.2
   - strict
   - stm
   - text
@@ -117,6 +123,16 @@ executables:
     when:
     - condition: "arch(wasm32)"
       ghc-options: -with-rtsopts=-V1
+    - condition: "flag(reactor)"
+      other-modules:
+      - Reactor
+      dependencies:
+      - ghc-experimental
+      - attoparsec
+      ghc-options:
+      - -no-hs-main
+      - -optl-mexec-model=reactor
+      - -optl-Wl,--export=hs_init,--export=run_setup,--export=new_language_server,--export=free_language_server,--export=run_language_server,--export=send_message,--export=recv_message
     - condition: "!arch(wasm32)"
       ghc-options:
       - -threaded

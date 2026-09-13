@@ -6,3 +6,6 @@
 	path = wasm-submodules/agda
 	url = https://github.com/agda-web/agda
 	branch = agda-web/release-v2.8.0
+[submodule "wasm-submodules/lsp"]
+	path = wasm-submodules/lsp
+	url = https://github.com/haskell/lsp
