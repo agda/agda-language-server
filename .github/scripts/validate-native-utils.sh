@@ -6,6 +6,12 @@
 # $HOME/.ghc-wasm/native-utils), and asserts both report the pinned
 # ALEX_VERSION/HAPPY_VERSION. Fails the job on any mismatch rather than
 # silently accepting a runner-provided binary that happens to be on PATH.
+#
+# Also actually runs each tool against a trivial input, not just
+# --version: alex/happy need their datadir (AlexTemplate.hs /
+# HappyTemplate.hs etc., resolved via alex_datadir/happy_datadir env vars
+# or a build-time-baked Cabal store path) to generate anything, and a
+# version check alone does not exercise that path.
 set -euo pipefail
 
 payload_dir="${NATIVE_UTILS_DIR:-$HOME/.ghc-wasm/native-utils}"
@@ -38,3 +44,47 @@ check_tool() {
 
 check_tool alex "$ALEX_VERSION" --version
 check_tool happy "$HAPPY_VERSION" --version
+
+workdir="$(mktemp -d)"
+trap 'rm -rf "$workdir"' EXIT
+
+cat > "$workdir/Test.x" <<'EOF'
+{
+module Main (main) where
+}
+%wrapper "basic"
+tokens :-
+  $white+ ;
+  a       { \_ -> "A" }
+{
+main :: IO ()
+main = print (alexScanTokens "a")
+}
+EOF
+alex "$workdir/Test.x" -o "$workdir/Test.hs" || {
+  echo "::error::alex failed to generate a lexer from a trivial input (likely missing its datadir)" >&2
+  exit 1
+}
+echo "alex: generated a lexer from a trivial input OK"
+
+cat > "$workdir/Test.y" <<'EOF'
+{
+module Main (main) where
+}
+%name parseA
+%tokentype { Char }
+%error { \_ -> error "parse error" }
+%token
+  a { 'a' }
+%%
+A : a { $1 }
+{
+main :: IO ()
+main = print (parseA "a")
+}
+EOF
+happy "$workdir/Test.y" -o "$workdir/TestParser.hs" || {
+  echo "::error::happy failed to generate a parser from a trivial input (likely missing its datadir)" >&2
+  exit 1
+}
+echo "happy: generated a parser from a trivial input OK"
