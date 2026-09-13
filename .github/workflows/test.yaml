@@ -501,7 +501,7 @@ jobs:
     - name: Validate ghc-wasm-meta toolchain executables
       if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
       id: validate-wasm-toolchain
-      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-wasm-toolchain.sh"
+      run: bash "$GITHUB_WORKSPACE/als/.github/scripts/validate-wasm-toolchain.sh"
 
     - name: Cache ghc-wasm-meta (Agda 2.8.0 is the sole writer)
       if: >
@@ -535,7 +535,7 @@ jobs:
 
     - name: Validate restored native utilities (exact hit)
       if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
-      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-native-utils.sh"
+      run: bash "$GITHUB_WORKSPACE/als/.github/scripts/validate-native-utils.sh"
 
     - name: Install native utilities (exact miss)
       if: steps.native-utils-cache-restore.outputs.cache-hit != 'true'
@@ -552,7 +552,7 @@ jobs:
 
     - name: Validate installed native utilities (after install)
       if: steps.install-native-utils.outcome == 'success'
-      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-native-utils.sh"
+      run: bash "$GITHUB_WORKSPACE/als/.github/scripts/validate-native-utils.sh"
 
     - name: Cache native utilities (Agda 2.8.0 is the sole writer)
       if: >
