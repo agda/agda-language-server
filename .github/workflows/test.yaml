@@ -47,7 +47,7 @@ jobs:
       run: git diff --exit-code -- agda-language-server.cabal
 
     - name: 🏗 Setup Haskell
-      uses: haskell-actions/setup@v2
+      uses: haskell-actions/setup@6037f33647c3f17758a2356c80fc4a53d7e0685d # v2
       with:
         ghc-version: '9.10.2'
         enable-stack: true
@@ -134,7 +134,9 @@ jobs:
     #    but a later dependency-build failure cannot suppress it. Only
     #    the Agda 2.8.0 entry is allowed to save it, so the three
     #    parallel jobs for one architecture never race to write the same
-    #    key.
+    #    key. haskell-actions/setup is pinned to a full commit SHA (not
+    #    the mutable v2 tag) so its installer behavior can't silently
+    #    change what a hit key was actually verified against.
     #  - The compiled-dependency cache holds only
     #    $STACK_ROOT/{snapshots,setup-exe-cache}, is Agda-specific (so
     #    each Agda entry owns its own key), and is keyed by every
@@ -156,7 +158,7 @@ jobs:
         key: ghcup-v1-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}
 
     - name: 🏗 Setup Haskell (pinned Stack version, all platforms)
-      uses: haskell-actions/setup@v2
+      uses: haskell-actions/setup@6037f33647c3f17758a2356c80fc4a53d7e0685d # v2
       with:
         ghc-version: ${{ env.GHC_VERSION }}
         enable-stack: true
