@@ -3,7 +3,8 @@
 #
 # Resolves alex/happy to canonical paths, asserts both are inside the
 # restored native-utilities payload (NATIVE_UTILS_DIR, default
-# $HOME/.ghc-wasm/native-utils), and asserts both report the pinned
+# $HOME/.native-utils, kept outside the .ghc-wasm toolchain payload so the
+# two caches never overlap), and asserts both report the pinned
 # ALEX_VERSION/HAPPY_VERSION. Fails the job on any mismatch rather than
 # silently accepting a runner-provided binary that happens to be on PATH.
 #
@@ -14,7 +15,7 @@
 # version check alone does not exercise that path.
 set -euo pipefail
 
-payload_dir="${NATIVE_UTILS_DIR:-$HOME/.ghc-wasm/native-utils}"
+payload_dir="${NATIVE_UTILS_DIR:-$HOME/.native-utils}"
 
 check_tool() {
   local name="$1" expected_version="$2" version_flag="$3"

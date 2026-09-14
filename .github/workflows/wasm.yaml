@@ -54,7 +54,9 @@ jobs:
     #    --installdir so the payload is exactly "the pinned executables",
     #    self-contained copies that don't need Cabal's store to run. The
     #    mutable Cabal index is never cached and is refreshed on every
-    #    use, since it isn't part of producer identity.
+    #    use, since it isn't part of producer identity. Lives at
+    #    ~/.native-utils, outside the ~/.ghc-wasm toolchain payload, so
+    #    the two caches' contents never overlap regardless of step order.
 
     - name: Compute WASM toolchain cache key
       run: |
@@ -110,13 +112,13 @@ jobs:
       run: |
         CABAL_VERSION=$(~/.ghc-wasm/cabal/bin/cabal --numeric-version)
         HASH=$(printf '%s' "v1-${CABAL_VERSION}-${ALEX_VERSION}-${HAPPY_VERSION}" | sha256sum | cut -d' ' -f1)
-        echo "NATIVE_UTILS_KEY=native-tools-v4-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
+        echo "NATIVE_UTILS_KEY=native-tools-v5-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
 
     - name: Restore native-utilities cache
       id: native-utils-cache-restore
       uses: actions/cache/restore@v4
       with:
-        path: ~/.ghc-wasm/native-utils
+        path: ~/.native-utils
         key: ${{ env.NATIVE_UTILS_KEY }}
 
     # alex/happy embed an absolute --datadir path at build time (read via
@@ -131,12 +133,12 @@ jobs:
     # cache-miss paths.
     - name: Set native-utilities datadir env vars
       run: |
-        echo "alex_datadir=$HOME/.ghc-wasm/native-utils/share/alex-${ALEX_VERSION}" >> "$GITHUB_ENV"
-        echo "happy_datadir=$HOME/.ghc-wasm/native-utils/share/happy-${HAPPY_VERSION}" >> "$GITHUB_ENV"
+        echo "alex_datadir=$HOME/.native-utils/share/alex-${ALEX_VERSION}" >> "$GITHUB_ENV"
+        echo "happy_datadir=$HOME/.native-utils/share/happy-${HAPPY_VERSION}" >> "$GITHUB_ENV"
 
     - name: Add native-utilities dir to PATH (exact hit)
       if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
-      run: echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
+      run: echo "$HOME/.native-utils" >> "$GITHUB_PATH"
 
     - name: Validate restored native utilities (exact hit)
       if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
@@ -149,11 +151,11 @@ jobs:
         echo ">>> Update cabal"
         ~/.ghc-wasm/cabal/bin/cabal update
         echo ">>> Install alex and happy"
-        mkdir -p ~/.ghc-wasm/native-utils
+        mkdir -p ~/.native-utils
         ~/.ghc-wasm/cabal/bin/cabal install \
-          --installdir="$HOME/.ghc-wasm/native-utils" --install-method=copy --overwrite-policy=always \
+          --installdir="$HOME/.native-utils" --install-method=copy --overwrite-policy=always \
           "alex-${ALEX_VERSION}" "happy-${HAPPY_VERSION}"
-        echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
+        echo "$HOME/.native-utils" >> "$GITHUB_PATH"
 
         echo ">>> Copy alex/happy datadirs into the cached payload"
         mkdir -p "${alex_datadir}" "${happy_datadir}"
@@ -177,7 +179,7 @@ jobs:
         steps.install-native-utils.outcome == 'success'
       uses: actions/cache/save@v4
       with:
-        path: ~/.ghc-wasm/native-utils
+        path: ~/.native-utils
         key: ${{ env.NATIVE_UTILS_KEY }}
 
     - name: Compute cache key
