@@ -92,7 +92,9 @@ jobs:
 
     - name: Cache ghc-wasm-meta (Agda 2.8.0 is the sole writer)
       if: >
-        matrix.agda.name == '2.8.0' && github.ref_type == 'branch' &&
+        matrix.agda.name == '2.8.0' &&
+        github.event_name == 'push' &&
+        (github.ref == 'refs/heads/wasm' || startsWith(github.ref, 'refs/heads/wasm-')) &&
         steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true' &&
         steps.validate-wasm-toolchain.outcome == 'success'
       uses: actions/cache/save@v4
@@ -168,7 +170,9 @@ jobs:
 
     - name: Cache native utilities (Agda 2.8.0 is the sole writer)
       if: >
-        matrix.agda.name == '2.8.0' && github.ref_type == 'branch' &&
+        matrix.agda.name == '2.8.0' &&
+        github.event_name == 'push' &&
+        (github.ref == 'refs/heads/wasm' || startsWith(github.ref, 'refs/heads/wasm-')) &&
         steps.native-utils-cache-restore.outputs.cache-hit != 'true' &&
         steps.install-native-utils.outcome == 'success'
       uses: actions/cache/save@v4
@@ -201,7 +205,10 @@ jobs:
 
     - name: Cache dist-newstyle
       uses: actions/cache/save@v4
-      if: github.ref_type == 'branch' && steps.build-dep-agda.outcome == 'success'
+      if: >
+        github.event_name == 'push' &&
+        (github.ref == 'refs/heads/wasm' || startsWith(github.ref, 'refs/heads/wasm-')) &&
+        steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
         key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
