@@ -629,10 +629,20 @@ jobs:
         git checkout FETCH_HEAD
         echo "AGDA_WASM_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
+    - name: Resolve network submodule revision
+      run: echo "NETWORK_SUBMODULE_COMMIT=$(git -C als/wasm-submodules/network rev-parse HEAD)" >> "$GITHUB_ENV"
+
+    # Downstream propagation: a gitlink-only bump of the network submodule
+    # doesn't change the text of any file hashFiles() can see, so it's
+    # resolved and hashed explicitly. The WASM toolchain and native-utils
+    # producer hashes are folded in too (summarized via sha256 to stay
+    # under the cache-key length limit), so a compiler or tool-installation
+    # change also invalidates this downstream build.
     - name: Compute dist-newstyle cache key
       id: dist-newstyle-cache-key
       run: |
-        echo "key=dist-newstyle-v2-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}" >> "$GITHUB_OUTPUT"
+        PRODUCER_HASH=$(printf '%s' "${{ env.WASM_TOOLCHAIN_KEY }}-${{ env.NATIVE_UTILS_KEY }}" | sha256sum | cut -d' ' -f1)
+        echo "key=dist-newstyle-v3-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-net-${{ env.NETWORK_SUBMODULE_COMMIT }}-producers-${PRODUCER_HASH}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}" >> "$GITHUB_OUTPUT"
 
     - name: Restore dist-newstyle cache for resolved Agda revision
       id: dist-newstyle-cache-restore-resolved

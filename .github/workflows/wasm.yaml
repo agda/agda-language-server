@@ -36,6 +36,7 @@ jobs:
         cd als/wasm-submodules/agda
         git fetch --depth 1 origin "${{ matrix.agda.commit }}"
         git checkout FETCH_HEAD
+        echo "AGDA_WASM_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
     # Redesigned WASM caching: two independently keyed, exact-match-only
     # caches, each saved immediately after its own producer succeeds so a
@@ -200,14 +201,31 @@ jobs:
     - name: Compute cache key
       run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
 
+    - name: Resolve network submodule revision
+      run: echo "NETWORK_SUBMODULE_COMMIT=$(git -C als/wasm-submodules/network rev-parse HEAD)" >> "$GITHUB_ENV"
+
+    # Downstream propagation: a gitlink-only bump of the network submodule,
+    # or the Agda submodule's resolved commit, doesn't change the text of
+    # any file hashFiles() can see, so both are resolved and hashed
+    # explicitly rather than relied on via file content. The WASM toolchain
+    # and native-utils producer hashes are folded in too (summarized via
+    # sha256 to stay under the cache-key length limit), so a compiler or
+    # tool-installation change also invalidates this downstream build,
+    # even when no package version changed. No restore-keys fallback: an
+    # exact miss on any of these dimensions must be a complete miss, not a
+    # silently-relaxed prefix match.
+    - name: Compute dist-newstyle cache key
+      id: dist-newstyle-cache-key
+      run: |
+        PRODUCER_HASH=$(printf '%s' "${{ env.WASM_TOOLCHAIN_KEY }}-${{ env.NATIVE_UTILS_KEY }}" | sha256sum | cut -d' ' -f1)
+        echo "key=dist-newstyle-v3-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-net-${{ env.NETWORK_SUBMODULE_COMMIT }}-producers-${PRODUCER_HASH}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}" >> "$GITHUB_OUTPUT"
+
     - name: Try to restore cached dist-newstyle
       id: dist-newstyle-cache-restore
       uses: actions/cache/restore@v4
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
-        restore-keys: |
-          dist-newstyle-${{ env.CI_CACHE_KEY }}-
+        key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
 
     - name: Cabal configure
       working-directory: './als'
@@ -228,7 +246,7 @@ jobs:
         steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
 
     - name: Build dependencies other than Agda
       working-directory: './als'
