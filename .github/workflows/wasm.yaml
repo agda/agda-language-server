@@ -37,12 +37,12 @@ jobs:
         git fetch --depth 1 origin "${{ matrix.agda.commit }}"
         git checkout FETCH_HEAD
 
-    # Redesigned WASM caching (ci.md PR 1 commit 3): two independently
-    # keyed, exact-match-only caches, each saved immediately after its own
-    # producer succeeds so a later failure elsewhere can't suppress an
-    # already-valid save. The Agda 2.8.0 entry is the sole writer for
-    # both, since all three Agda entries in this matrix share them; the
-    # other two entries only ever restore.
+    # Redesigned WASM caching: two independently keyed, exact-match-only
+    # caches, each saved immediately after its own producer succeeds so a
+    # later failure elsewhere can't suppress an already-valid save. The
+    # Agda 2.8.0 entry is the sole writer for both, since all three Agda
+    # entries in this matrix share them; the other two entries only ever
+    # restore.
     #  - .ghc-wasm toolchain: keyed by WASM_TOOLCHAIN_PRODUCER_HASH
     #    (schema + ghc-wasm-meta commit + flavour). A prefix match here
     #    could silently select a toolchain built from a different

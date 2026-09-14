@@ -7,9 +7,9 @@ defaults:
     shell: bash
 
 env:
-  # Pinned exact Stack version (ci.md PR 1 commit 2): installed and
-  # verified on every platform, and baked into the toolchain and
-  # compiled-dependency cache keys below. Never 'latest'.
+  # Pinned exact Stack version: installed and verified on every platform,
+  # and baked into the toolchain and compiled-dependency cache keys below.
+  # Never 'latest'.
   STACK_VERSION: '3.3.1'
 
 on:
@@ -122,12 +122,19 @@ jobs:
         echo STACK_RESOLVER="${STACK_RESOLVER}" >> "${GITHUB_ENV}"
         echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
 
-    # Redesigned cache boundaries (ci.md PR 1 commit 2):
+    # Redesigned cache boundaries:
     #  - macOS toolchain cache holds only ~/.ghcup, keyed by the pinned
     #    STACK_VERSION and GHC_VERSION (no Agda target -- shared across
-    #    the three Agda entries for this architecture). Only the Agda
-    #    2.8.0 entry is allowed to save it, so the three parallel jobs
-    #    for one architecture never race to write the same key.
+    #    the three Agda entries for this architecture). It is restored
+    #    before Haskell setup so a hit lets setup skip downloading GHC
+    #    and Stack, verified against the pinned versions afterward, and
+    #    saved by the Agda 2.8.0 entry immediately after that
+    #    verification -- independently of the snapshot/dependency builds
+    #    below, so a setup or version-mismatch failure blocks the save
+    #    but a later dependency-build failure cannot suppress it. Only
+    #    the Agda 2.8.0 entry is allowed to save it, so the three
+    #    parallel jobs for one architecture never race to write the same
+    #    key.
     #  - The compiled-dependency cache holds only
     #    $STACK_ROOT/{snapshots,setup-exe-cache}, is Agda-specific (so
     #    each Agda entry owns its own key), and is keyed by every
@@ -137,8 +144,16 @@ jobs:
     #    every other dimension is identical, and any other dimension
     #    changing yields a complete miss (the restore-keys prefix itself
     #    changes, so a differently-configured entry cannot match it).
-    #  - No .stack-work caching: removed outright per commit 2 pending a
-    #    future measurement showing a net wall-clock benefit.
+    #  - No .stack-work caching: removed outright pending a future
+    #    measurement showing a net wall-clock benefit.
+
+    - name: 💾 Restore Haskell toolchain cache (macOS, shared across Agda targets, before setup)
+      id: haskell-toolchain
+      if: runner.os == 'macOS'
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ghcup
+        key: ghcup-v1-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}
 
     - name: 🏗 Setup Haskell (pinned Stack version, all platforms)
       uses: haskell-actions/setup@v2
@@ -155,6 +170,25 @@ jobs:
           echo "::error::expected pinned Stack ${STACK_VERSION}, got ${actual}"
           exit 1
         fi
+
+    - name: 🔍 Verify pinned GHC version
+      run: |
+        actual="$(ghc --numeric-version)"
+        echo "GHC version: ${actual}"
+        if [[ "${actual}" != "${GHC_VERSION}" ]]; then
+          echo "::error::expected pinned GHC ${GHC_VERSION}, got ${actual}"
+          exit 1
+        fi
+
+    - name: 💾 Save Haskell toolchain cache (Agda 2.8.0 is the sole writer, right after setup+verification)
+      if: >
+        runner.os == 'macOS' && matrix.agda == 'Agda-2.8.0' &&
+        github.ref == 'refs/heads/master' &&
+        steps.haskell-toolchain.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.ghcup
+        key: ${{ steps.haskell-toolchain.outputs.cache-primary-key }}
 
     - name: 🎛️ Determine Stack root
       run: |
@@ -209,14 +243,6 @@ jobs:
         echo "STACK_ROOT      = ${STACK_ROOT}"
         echo "CONFIG_HASH     = ${CONFIG_HASH}"
 
-    - name: 💾 Restore Haskell toolchain cache (macOS, shared across Agda targets)
-      id: haskell-toolchain
-      if: runner.os == 'macOS'
-      uses: actions/cache/restore@v4
-      with:
-        path: ~/.ghcup
-        key: ghcup-v1-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}
-
     - name: 💾 Restore compiled-dependency cache
       id: stack-snapshot
       uses: actions/cache/restore@v4
@@ -243,16 +269,8 @@ jobs:
     # succeeded, and only the designated writer(s) may save a key shared
     # by more than one matrix entry. A later ALS build or test failure
     # must not invalidate an already-saved compiled-dependency cache.
-
-    - name: 💾 Save Haskell toolchain cache (Agda 2.8.0 is the sole writer)
-      if: >
-        runner.os == 'macOS' && matrix.agda == 'Agda-2.8.0' &&
-        github.ref == 'refs/heads/master' &&
-        steps.haskell-toolchain.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: ~/.ghcup
-        key: ${{ steps.haskell-toolchain.outputs.cache-primary-key }}
+    # (The macOS toolchain cache is saved earlier, right after Haskell
+    # setup and version verification -- see above.)
 
     - name: 💾 Save compiled-dependency cache
       if: >
@@ -464,10 +482,9 @@ jobs:
         fi
         echo "WASM_ASSET_BASENAME=${PREFIX}-${{ matrix.agda.label }}-wasm" >> "$GITHUB_ENV"
 
-    # Redesigned WASM caching (ci.md PR 1 commit 3): see wasm.yaml, which
-    # this mirrors, for the full rationale. Both are Agda-2.8.0-writes,
-    # exact-match-only caches saved immediately after their own producer
-    # succeeds.
+    # Redesigned WASM caching: see wasm.yaml, which this mirrors, for the
+    # full rationale. Both are Agda-2.8.0-writes, exact-match-only caches
+    # saved immediately after their own producer succeeds.
 
     - name: Compute WASM toolchain cache key
       run: |
