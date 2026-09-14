@@ -89,6 +89,7 @@ jobs:
       run: ~/.ghc-wasm/add_to_github_path.sh
 
     - name: Validate ghc-wasm-meta toolchain executables
+      if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
       id: validate-wasm-toolchain
       run: bash "$GITHUB_WORKSPACE/als/.github/scripts/validate-wasm-toolchain.sh"
 
@@ -108,25 +109,19 @@ jobs:
     - name: Update wasm32 cabal
       run: wasm32-wasi-cabal update
 
-    # Producer identity: the compiler/Cabal that actually build alex/happy,
-    # resolved to their real binaries (not a thin launcher/symlink) and
-    # digested, not just a version string -- a version string alone can't
-    # distinguish two same-numbered builds with different patches. The
-    # resolved GHC path is exported so the install step below can pass it
-    # explicitly via --with-compiler, guaranteeing the compiler hashed
+    # Producer identity: the key previously hashed only Cabal's version,
+    # never GHC's, despite GHC being what actually compiles alex/happy.
+    # GHC's resolved path is exported so the install step below can select
+    # it explicitly via --with-compiler, guaranteeing the version hashed
     # here is the compiler actually used.
     - name: Compute native-utilities cache key
       run: |
-        CABAL_BIN="$HOME/.ghc-wasm/cabal/bin/cabal"
-        GHC_BIN="$(readlink -f "$(command -v ghc)")"
-        CABAL_REAL="$(readlink -f "$CABAL_BIN")"
+        GHC_BIN="$(command -v ghc)"
         GHC_VERSION="$(ghc --numeric-version)"
-        CABAL_VERSION="$("$CABAL_BIN" --numeric-version)"
-        GHC_DIGEST="$(sha256sum "$GHC_BIN" | cut -d' ' -f1)"
-        CABAL_DIGEST="$(sha256sum "$CABAL_REAL" | cut -d' ' -f1)"
+        CABAL_VERSION="$(~/.ghc-wasm/cabal/bin/cabal --numeric-version)"
         echo "HOST_GHC_BIN=${GHC_BIN}" >> "$GITHUB_ENV"
-        HASH=$(printf '%s' "v2-${GHC_VERSION}-${GHC_DIGEST}-${CABAL_VERSION}-${CABAL_DIGEST}-${ALEX_VERSION}-${HAPPY_VERSION}-${{ hashFiles('als/.github/scripts/validate-native-utils.sh') }}" | sha256sum | cut -d' ' -f1)
-        echo "NATIVE_UTILS_KEY=native-tools-v6-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
+        HASH=$(printf '%s' "v2-${GHC_VERSION}-${CABAL_VERSION}-${ALEX_VERSION}-${HAPPY_VERSION}" | sha256sum | cut -d' ' -f1)
+        echo "NATIVE_UTILS_KEY=native-tools-v7-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
 
     - name: Restore native-utilities cache
       id: native-utils-cache-restore
