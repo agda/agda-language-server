@@ -88,7 +88,7 @@ jobs:
     - name: Validate ghc-wasm-meta toolchain executables
       if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
       id: validate-wasm-toolchain
-      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-wasm-toolchain.sh"
+      run: bash "$GITHUB_WORKSPACE/als/.github/scripts/validate-wasm-toolchain.sh"
 
     - name: Cache ghc-wasm-meta (Agda 2.8.0 is the sole writer)
       if: >
@@ -108,7 +108,7 @@ jobs:
       run: |
         CABAL_VERSION=$(~/.ghc-wasm/cabal/bin/cabal --numeric-version)
         HASH=$(printf '%s' "v1-${CABAL_VERSION}-${ALEX_VERSION}-${HAPPY_VERSION}" | sha256sum | cut -d' ' -f1)
-        echo "NATIVE_UTILS_KEY=native-tools-v3-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
+        echo "NATIVE_UTILS_KEY=native-tools-v4-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
 
     - name: Restore native-utilities cache
       id: native-utils-cache-restore
@@ -117,13 +117,28 @@ jobs:
         path: ~/.ghc-wasm/native-utils
         key: ${{ env.NATIVE_UTILS_KEY }}
 
+    # alex/happy embed an absolute --datadir path at build time (read via
+    # Paths_alex/Paths_happy, which check the alex_datadir/happy_datadir
+    # env vars before falling back to that baked-in path). `cabal install
+    # --install-method=copy` only relocates the executable, not the data
+    # directory it depends on at runtime, so a binary restored from cache
+    # on a fresh runner points at a Cabal store entry that was never
+    # installed there. Pointing these env vars at a copy of the data
+    # directory that lives inside the cached payload itself makes the
+    # payload actually self-contained, on both the cache-hit and
+    # cache-miss paths.
+    - name: Set native-utilities datadir env vars
+      run: |
+        echo "alex_datadir=$HOME/.ghc-wasm/native-utils/share/alex-${ALEX_VERSION}" >> "$GITHUB_ENV"
+        echo "happy_datadir=$HOME/.ghc-wasm/native-utils/share/happy-${HAPPY_VERSION}" >> "$GITHUB_ENV"
+
     - name: Add native-utilities dir to PATH (exact hit)
       if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
       run: echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
 
     - name: Validate restored native utilities (exact hit)
       if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
-      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-native-utils.sh"
+      run: bash "$GITHUB_WORKSPACE/als/.github/scripts/validate-native-utils.sh"
 
     - name: Install native utilities (exact miss)
       if: steps.native-utils-cache-restore.outputs.cache-hit != 'true'
@@ -138,9 +153,18 @@ jobs:
           "alex-${ALEX_VERSION}" "happy-${HAPPY_VERSION}"
         echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
 
+        echo ">>> Copy alex/happy datadirs into the cached payload"
+        mkdir -p "${alex_datadir}" "${happy_datadir}"
+        alex_store_share="$(find "$HOME/.local/state/cabal/store" -type d -path "*/alex-${ALEX_VERSION}-*/share" | head -1)"
+        happy_store_share="$(find "$HOME/.local/state/cabal/store" -type d -path "*/happy-${HAPPY_VERSION}-*/share" | head -1)"
+        [ -n "${alex_store_share}" ] || { echo "::error::could not locate alex's installed share directory" >&2; exit 1; }
+        [ -n "${happy_store_share}" ] || { echo "::error::could not locate happy's installed share directory" >&2; exit 1; }
+        cp -R "${alex_store_share}/." "${alex_datadir}/"
+        cp -R "${happy_store_share}/." "${happy_datadir}/"
+
     - name: Validate installed native utilities (after install)
       if: steps.install-native-utils.outcome == 'success'
-      run: bash "$GITHUB_WORKSPACE/.github/scripts/validate-native-utils.sh"
+      run: bash "$GITHUB_WORKSPACE/als/.github/scripts/validate-native-utils.sh"
 
     - name: Cache native utilities (Agda 2.8.0 is the sole writer)
       if: >
