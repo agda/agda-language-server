@@ -516,7 +516,6 @@ jobs:
       run: ~/.ghc-wasm/add_to_github_path.sh
 
     - name: Validate ghc-wasm-meta toolchain executables
-      if: steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true'
       id: validate-wasm-toolchain
       run: bash "$GITHUB_WORKSPACE/als/.github/scripts/validate-wasm-toolchain.sh"
 
@@ -650,6 +649,17 @@ jobs:
       with:
         path: als/dist-newstyle
         key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
+
+    - name: 📋 Cache summary
+      run: |
+        {
+          echo "### Cache summary (${{ matrix.agda.name }}, ${{ runner.os }}/${{ runner.arch }})"
+          echo "| cache | hit | key |"
+          echo "|---|---|---|"
+          echo "| toolchain | ${{ steps.ghc-wasm-cache-restore.outputs.cache-hit || 'false' }} | \`${{ env.WASM_TOOLCHAIN_KEY }}\` |"
+          echo "| native-utils | ${{ steps.native-utils-cache-restore.outputs.cache-hit || 'false' }} | \`${{ env.NATIVE_UTILS_KEY }}\` |"
+          echo "| dist-newstyle | ${{ steps.dist-newstyle-cache-restore-resolved.outputs.cache-hit || 'false' }} | \`${{ steps.dist-newstyle-cache-key.outputs.key }}\` |"
+        } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Cabal configure
       working-directory: './als'
