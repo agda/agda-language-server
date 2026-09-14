@@ -229,9 +229,14 @@ jobs:
         RUNNER_OS: ${{ runner.os }}
       run: bash .github/scripts/resolve-icu-version.sh
 
+    # Includes the workflow file itself so a change to the dependency-build
+    # commands/flags (not just the project files below) also busts the
+    # cache, instead of silently reusing a build produced by different
+    # commands. Coarser than hashing just the relevant steps, but needs no
+    # separate script to keep in sync.
     - name: 🎛️ Compute compiled-dependency CONFIG_HASH
       run: |
-        echo CONFIG_HASH="${{ hashFiles(env.STACK_YAML, format('{0}.lock', env.STACK_YAML), 'package.yaml', 'agda-language-server.cabal') }}" >> "${GITHUB_ENV}"
+        echo CONFIG_HASH="${{ hashFiles(env.STACK_YAML, format('{0}.lock', env.STACK_YAML), 'package.yaml', 'agda-language-server.cabal', '.github/workflows/test.yaml') }}" >> "${GITHUB_ENV}"
 
     - name: 🔍 Review all variables
       run: |
