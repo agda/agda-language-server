@@ -36,13 +36,14 @@ jobs:
         cd als/wasm-submodules/agda
         git fetch --depth 1 origin "${{ matrix.agda.commit }}"
         git checkout FETCH_HEAD
+        echo "AGDA_WASM_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
-    # Redesigned WASM caching (ci.md PR 1 commit 3): two independently
-    # keyed, exact-match-only caches, each saved immediately after its own
-    # producer succeeds so a later failure elsewhere can't suppress an
-    # already-valid save. The Agda 2.8.0 entry is the sole writer for
-    # both, since all three Agda entries in this matrix share them; the
-    # other two entries only ever restore.
+    # Redesigned WASM caching: two independently keyed, exact-match-only
+    # caches, each saved immediately after its own producer succeeds so a
+    # later failure elsewhere can't suppress an already-valid save. The
+    # Agda 2.8.0 entry is the sole writer for both, since all three Agda
+    # entries in this matrix share them; the other two entries only ever
+    # restore.
     #  - .ghc-wasm toolchain: keyed by WASM_TOOLCHAIN_PRODUCER_HASH
     #    (schema + ghc-wasm-meta commit + flavour). A prefix match here
     #    could silently select a toolchain built from a different
@@ -54,7 +55,9 @@ jobs:
     #    --installdir so the payload is exactly "the pinned executables",
     #    self-contained copies that don't need Cabal's store to run. The
     #    mutable Cabal index is never cached and is refreshed on every
-    #    use, since it isn't part of producer identity.
+    #    use, since it isn't part of producer identity. Lives at
+    #    ~/.native-utils, outside the ~/.ghc-wasm toolchain payload, so
+    #    the two caches' contents never overlap regardless of step order.
 
     - name: Compute WASM toolchain cache key
       run: |
@@ -92,7 +95,9 @@ jobs:
 
     - name: Cache ghc-wasm-meta (Agda 2.8.0 is the sole writer)
       if: >
-        matrix.agda.name == '2.8.0' && github.ref_type == 'branch' &&
+        matrix.agda.name == '2.8.0' &&
+        github.event_name == 'push' &&
+        (github.ref == 'refs/heads/wasm' || startsWith(github.ref, 'refs/heads/wasm-')) &&
         steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true' &&
         steps.validate-wasm-toolchain.outcome == 'success'
       uses: actions/cache/save@v4
@@ -104,17 +109,25 @@ jobs:
     - name: Update wasm32 cabal
       run: wasm32-wasi-cabal update
 
+    # Producer identity: the key previously hashed only Cabal's version,
+    # never GHC's, despite GHC being what actually compiles alex/happy.
+    # GHC's resolved path is exported so the install step below can select
+    # it explicitly via --with-compiler, guaranteeing the version hashed
+    # here is the compiler actually used.
     - name: Compute native-utilities cache key
       run: |
-        CABAL_VERSION=$(~/.ghc-wasm/cabal/bin/cabal --numeric-version)
-        HASH=$(printf '%s' "v1-${CABAL_VERSION}-${ALEX_VERSION}-${HAPPY_VERSION}" | sha256sum | cut -d' ' -f1)
-        echo "NATIVE_UTILS_KEY=native-tools-v4-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
+        GHC_BIN="$(command -v ghc)"
+        GHC_VERSION="$(ghc --numeric-version)"
+        CABAL_VERSION="$(~/.ghc-wasm/cabal/bin/cabal --numeric-version)"
+        echo "HOST_GHC_BIN=${GHC_BIN}" >> "$GITHUB_ENV"
+        HASH=$(printf '%s' "v2-${GHC_VERSION}-${CABAL_VERSION}-${ALEX_VERSION}-${HAPPY_VERSION}" | sha256sum | cut -d' ' -f1)
+        echo "NATIVE_UTILS_KEY=native-tools-v7-${{ runner.os }}-${{ runner.arch }}-${HASH}" >> "$GITHUB_ENV"
 
     - name: Restore native-utilities cache
       id: native-utils-cache-restore
       uses: actions/cache/restore@v4
       with:
-        path: ~/.ghc-wasm/native-utils
+        path: ~/.native-utils
         key: ${{ env.NATIVE_UTILS_KEY }}
 
     # alex/happy embed an absolute --datadir path at build time (read via
@@ -129,12 +142,12 @@ jobs:
     # cache-miss paths.
     - name: Set native-utilities datadir env vars
       run: |
-        echo "alex_datadir=$HOME/.ghc-wasm/native-utils/share/alex-${ALEX_VERSION}" >> "$GITHUB_ENV"
-        echo "happy_datadir=$HOME/.ghc-wasm/native-utils/share/happy-${HAPPY_VERSION}" >> "$GITHUB_ENV"
+        echo "alex_datadir=$HOME/.native-utils/share/alex-${ALEX_VERSION}" >> "$GITHUB_ENV"
+        echo "happy_datadir=$HOME/.native-utils/share/happy-${HAPPY_VERSION}" >> "$GITHUB_ENV"
 
     - name: Add native-utilities dir to PATH (exact hit)
       if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
-      run: echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
+      run: echo "$HOME/.native-utils" >> "$GITHUB_PATH"
 
     - name: Validate restored native utilities (exact hit)
       if: steps.native-utils-cache-restore.outputs.cache-hit == 'true'
@@ -147,11 +160,12 @@ jobs:
         echo ">>> Update cabal"
         ~/.ghc-wasm/cabal/bin/cabal update
         echo ">>> Install alex and happy"
-        mkdir -p ~/.ghc-wasm/native-utils
+        mkdir -p ~/.native-utils
         ~/.ghc-wasm/cabal/bin/cabal install \
-          --installdir="$HOME/.ghc-wasm/native-utils" --install-method=copy --overwrite-policy=always \
+          --with-compiler="$HOST_GHC_BIN" \
+          --installdir="$HOME/.native-utils" --install-method=copy --overwrite-policy=always \
           "alex-${ALEX_VERSION}" "happy-${HAPPY_VERSION}"
-        echo "$HOME/.ghc-wasm/native-utils" >> "$GITHUB_PATH"
+        echo "$HOME/.native-utils" >> "$GITHUB_PATH"
 
         echo ">>> Copy alex/happy datadirs into the cached payload"
         mkdir -p "${alex_datadir}" "${happy_datadir}"
@@ -168,25 +182,55 @@ jobs:
 
     - name: Cache native utilities (Agda 2.8.0 is the sole writer)
       if: >
-        matrix.agda.name == '2.8.0' && github.ref_type == 'branch' &&
+        matrix.agda.name == '2.8.0' &&
+        github.event_name == 'push' &&
+        (github.ref == 'refs/heads/wasm' || startsWith(github.ref, 'refs/heads/wasm-')) &&
         steps.native-utils-cache-restore.outputs.cache-hit != 'true' &&
         steps.install-native-utils.outcome == 'success'
       uses: actions/cache/save@v4
       with:
-        path: ~/.ghc-wasm/native-utils
+        path: ~/.native-utils
         key: ${{ env.NATIVE_UTILS_KEY }}
 
     - name: Compute cache key
       run: echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}-${{ matrix.agda.name }}" >> "$GITHUB_ENV"
+
+    - name: Resolve network submodule revision
+      run: echo "NETWORK_SUBMODULE_COMMIT=$(git -C als/wasm-submodules/network rev-parse HEAD)" >> "$GITHUB_ENV"
+
+    # Downstream propagation: a gitlink-only bump of the network submodule,
+    # or the Agda submodule's resolved commit, doesn't change the text of
+    # any file hashFiles() can see, so both are resolved and hashed
+    # explicitly rather than relied on via file content. The WASM toolchain
+    # and native-utils producer hashes are folded in too (summarized via
+    # sha256 to stay under the cache-key length limit), so a compiler or
+    # tool-installation change also invalidates this downstream build,
+    # even when no package version changed. No restore-keys fallback: an
+    # exact miss on any of these dimensions must be a complete miss, not a
+    # silently-relaxed prefix match.
+    - name: Compute dist-newstyle cache key
+      id: dist-newstyle-cache-key
+      run: |
+        PRODUCER_HASH=$(printf '%s' "${{ env.WASM_TOOLCHAIN_KEY }}-${{ env.NATIVE_UTILS_KEY }}" | sha256sum | cut -d' ' -f1)
+        echo "key=dist-newstyle-v3-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-net-${{ env.NETWORK_SUBMODULE_COMMIT }}-producers-${PRODUCER_HASH}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}" >> "$GITHUB_OUTPUT"
 
     - name: Try to restore cached dist-newstyle
       id: dist-newstyle-cache-restore
       uses: actions/cache/restore@v4
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
-        restore-keys: |
-          dist-newstyle-${{ env.CI_CACHE_KEY }}-
+        key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
+
+    - name: 📋 Cache summary
+      run: |
+        {
+          echo "### Cache summary (${{ matrix.agda.name }}, ${{ runner.os }}/${{ runner.arch }})"
+          echo "| cache | hit | key |"
+          echo "|---|---|---|"
+          echo "| toolchain | ${{ steps.ghc-wasm-cache-restore.outputs.cache-hit || 'false' }} | \`${{ env.WASM_TOOLCHAIN_KEY }}\` |"
+          echo "| native-utils | ${{ steps.native-utils-cache-restore.outputs.cache-hit || 'false' }} | \`${{ env.NATIVE_UTILS_KEY }}\` |"
+          echo "| dist-newstyle | ${{ steps.dist-newstyle-cache-restore.outputs.cache-hit || 'false' }} | \`${{ steps.dist-newstyle-cache-key.outputs.key }}\` |"
+        } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Cabal configure
       working-directory: './als'
@@ -201,10 +245,13 @@ jobs:
 
     - name: Cache dist-newstyle
       uses: actions/cache/save@v4
-      if: github.ref_type == 'branch' && steps.build-dep-agda.outcome == 'success'
+      if: >
+        github.event_name == 'push' &&
+        (github.ref == 'refs/heads/wasm' || startsWith(github.ref, 'refs/heads/wasm-')) &&
+        steps.build-dep-agda.outcome == 'success'
       with:
         path: als/dist-newstyle
-        key: dist-newstyle-${{ env.CI_CACHE_KEY }}-${{ hashFiles('als/dist-newstyle/**') }}
+        key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
 
     - name: Build dependencies other than Agda
       working-directory: './als'
