@@ -121,7 +121,7 @@ library
         network
       , network-simple ==0.4.2
   if !arch(wasm32)
-    ghc-options: -threaded -with-rtsopts=-N
+    ghc-options: -threaded
 
 executable als
   main-is: Main.hs
