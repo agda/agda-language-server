@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v7 - 2026-09-16
+
+### Added
+- #48: Support for building a WASI reactor module via a flag by [@andy0130tw](https://github.com/andy0130tw).
+- CI workflow to publish releases to Hackage.
+
+### Changed
+- Redesign native Stack caching: single-writer, exact-match cache keys for the toolchain and compiled-dependency caches.
+- Require exact cache hits for the WASM toolchain and native-utilities (alex/happy) caches.
+- Hash the workflow file itself into the compiled-dependency cache key, so changes to the build commands invalidate stale caches.
+- Pin `haskell-actions/setup` to a full commit SHA instead of a mutable tag.
+
+### Fixed
+- #47: Fix a broken link to the release page by [@xnuk](https://github.com/xnuk).
+- Install clang64 ICU and pkgconf on Windows CI builds.
+- Fix the WASM `dist-newstyle` cache key to catch gitlink-only submodule bumps.
+- Fix alex/happy datadir loss across native-utilities cache restores.
+- Restore the ghcup cache before Haskell setup on macOS.
+- Pin the `yq` version on Windows to avoid GitHub API rate-limit failures.
+- Reuse the ghcup-installed GHC instead of Stack's own copy.
+- Stop treating a version print as WASM toolchain validation.
+- Drop the invalid `-with-rtsopts` `ghc-options` entry from the library stanza, which caused Hackage to reject package uploads.
+
 ## v6 - 2026-04-11
 
 ### Added
