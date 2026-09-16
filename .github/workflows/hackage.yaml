@@ -24,10 +24,10 @@ jobs:
     - name: 📦 Build source distribution
       run: cabal sdist
 
-    - name: 🚀 Upload candidate to Hackage
+    - name: 🚀 Publish to Hackage
       env:
         HACKAGE_API_KEY: ${{ secrets.HACKAGE_API_KEY }}
       run: |
         TARBALL=$(find dist-newstyle/sdist -name '*.tar.gz')
-        echo "Uploading ${TARBALL} as a Hackage candidate"
-        cabal upload --token="${HACKAGE_API_KEY}" "${TARBALL}"
+        echo "Publishing ${TARBALL} to Hackage"
+        cabal upload --publish --token="${HACKAGE_API_KEY}" "${TARBALL}"
