@@ -101,7 +101,6 @@ library:
   - condition: "!arch(wasm32)"
     ghc-options:
     - -threaded
-    - -with-rtsopts=-N
 
 executables:
   als:
