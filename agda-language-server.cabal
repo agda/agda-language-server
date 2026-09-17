@@ -186,6 +186,7 @@ test-suite als-test
   main-is: Test.hs
   other-modules:
       Test.LSP
+      Test.Smoke
       Test.SrcLoc
       Test.WASM
       Agda

@@ -3,6 +3,7 @@
 import Data.Proxy (Proxy (..))
 import Data.Typeable (Typeable)
 import qualified Test.LSP as LSP
+import qualified Test.Smoke as Smoke
 import qualified Test.SrcLoc as SrcLoc
 #if defined(wasm32_HOST_ARCH)
 import qualified Test.WASM as WASM
@@ -31,7 +32,8 @@ tests = askOption $ \(AlsPathOption alsPath) ->
   testGroup
     "Tests"
     [ SrcLoc.tests,
-      LSP.tests alsPath
+      LSP.tests alsPath,
+      Smoke.tests alsPath
 #if defined(wasm32_HOST_ARCH)
     , WASM.tests alsPath
 #endif
