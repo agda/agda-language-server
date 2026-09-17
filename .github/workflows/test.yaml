@@ -384,6 +384,35 @@ jobs:
         echo "    old path  : $icudata_path"
         echo "    new path  : $icudata_path_new"
 
+    - name: 📦 Bundle ICU libraries (on Linux)
+      if: runner.os == 'Linux'
+      run: |
+        command -v patchelf >/dev/null 2>&1 || sudo apt-get install -y patchelf
+
+        executable=$(find "$(stack path $STACK_YAML_ARG --local-install-root)/bin" -name "als")
+        echo "executable: $executable"
+
+        rm -rf lib
+        mkdir lib
+
+        for name in libicuuc libicui18n libicudata; do
+          entry=$(ldd "$executable" | grep "${name}\.so" || true)
+          if [[ -z "$entry" ]]; then
+            echo "::error::could not find $name in ldd output for $executable"
+            exit 1
+          fi
+          soname=$(echo "$entry" | awk '{print $1}')
+          real_path=$(readlink -f "$(echo "$entry" | awk '{print $3}')")
+          cp "$real_path" "lib/$soname"
+          echo "bundled $soname (from $real_path)"
+        done
+
+        # $ORIGIN is a dynamic-linker token (the directory containing
+        # the executable at run time), not a shell variable -- must
+        # stay unexpanded here.
+        patchelf --set-rpath '$ORIGIN/lib' "$executable"
+        echo "rpath set on $executable: $(patchelf --print-rpath "$executable")"
+
     - name: 📦 Bundle executable, DLLs and data files (on Linux and macOS)
       if: runner.os != 'Windows'
       id: zip
@@ -401,6 +430,9 @@ jobs:
         cp -r "$datadir" zip/data
         if [[ ${{ runner.os }} == "macOS" ]]; then
             cp -r dylib zip/dylib
+        fi
+        if [[ ${{ runner.os }} == "Linux" ]]; then
+            cp -r lib zip/lib
         fi
         cp "$executable" zip/
 
@@ -453,13 +485,14 @@ jobs:
         als="$PWD/release/als"
         [[ "${{ runner.os }}" == "Windows" ]] && als="$PWD/release/als.exe"
 
+        test_bin="$(stack path $STACK_YAML_ARG --dist-dir)/build/als-test/als-test"
+        [[ "${{ runner.os }}" == "Windows" ]] && test_bin="${test_bin}.exe"
+        "$test_bin" --als-path="$als" --pattern Smoke
+
         if [[ "${{ runner.os }}" == "Linux" ]]; then
-          # Linux ships no bundled ICU libs: check that #6 reproduces.
-          bash .github/scripts/check-artifact-runs.sh "$als" --expect-failure --hide-icu
-        else
-          test_bin="$(stack path $STACK_YAML_ARG --dist-dir)/build/als-test/als-test"
-          [[ "${{ runner.os }}" == "Windows" ]] && test_bin="${test_bin}.exe"
-          "$test_bin" --als-path="$als" --pattern Smoke
+          # Verify the fix for #6: the bundled ICU libs let 'als' run
+          # even when the system's ICU is hidden.
+          bash .github/scripts/check-artifact-runs.sh "$als" --hide-icu
         fi
 
     - name: 📤 Upload native artifact
