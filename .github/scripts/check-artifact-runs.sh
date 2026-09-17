@@ -3,8 +3,10 @@
 #
 # Usage: check-artifact-runs.sh <path-to-als> [--expect-failure] [--hide-icu]
 #
-# --hide-icu hides the system ICU library (via an overlay mount in a
-# throwaway mount namespace, root required) to reproduce #6.
+# --hide-icu hides the system's ICU library (found via ldconfig, not
+# via 'als' itself, so this works whether or not 'als' bundles its own
+# copy) via an overlay mount in a throwaway mount namespace (root
+# required), to simulate a machine without a matching system ICU (#6).
 set -u
 
 als="${1:?usage: check-artifact-runs.sh <path-to-als> [--expect-failure] [--hide-icu]}"
@@ -20,12 +22,12 @@ for arg in "$@"; do
 done
 
 if $hide_icu; then
-  icu_symlink=$(ldd "$als" | grep libicuuc | awk '{print $3}')
-  if [[ -z "$icu_symlink" ]]; then
-    echo "could not determine which libicuuc.so '$als' is linked against" >&2
+  icu_path=$(ldconfig -p | grep 'libicuuc\.so' | awk '{print $NF}' | head -1)
+  if [[ -z "$icu_path" ]]; then
+    echo "could not find the system's libicuuc.so via ldconfig" >&2
     exit 2
   fi
-  icu_real_dir=$(dirname "$(readlink -f "$icu_symlink")")
+  icu_real_dir=$(dirname "$(readlink -f "$icu_path")")
 
   self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
   extra_arg=""
