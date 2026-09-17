@@ -442,7 +442,25 @@ jobs:
         mv zip/"$($env:ARTEFACT).zip" .
   
     - name: 🧪 Run tests
-      run: stack test $STACK_YAML_ARG
+      run: |
+        stack test $STACK_YAML_ARG
+
+        # Re-run the Smoke tests against the zipped release artifact,
+        # not the in-place build, to catch packaging bugs like #6.
+        rm -rf release
+        mkdir release
+        unzip -o -q "$ARTEFACT.zip" -d release
+        als="$PWD/release/als"
+        [[ "${{ runner.os }}" == "Windows" ]] && als="$PWD/release/als.exe"
+
+        if [[ "${{ runner.os }}" == "Linux" ]]; then
+          # Linux ships no bundled ICU libs: check that #6 reproduces.
+          bash .github/scripts/check-artifact-runs.sh "$als" --expect-failure --hide-icu
+        else
+          test_bin="$(stack path $STACK_YAML_ARG --dist-dir)/build/als-test/als-test"
+          [[ "${{ runner.os }}" == "Windows" ]] && test_bin="${test_bin}.exe"
+          "$test_bin" --als-path="$als" --pattern Smoke
+        fi
 
     - name: 📤 Upload native artifact
       if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
