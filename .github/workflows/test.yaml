@@ -237,9 +237,20 @@ jobs:
     # cache, instead of silently reusing a build produced by different
     # commands. Coarser than hashing just the relevant steps, but needs no
     # separate script to keep in sync.
+    #
+    # DEPS_FINGERPRINT: only package.yaml's dependency-affecting content --
+    # every 'dependencies:' list, wherever nested under flag/arch 'when:'
+    # conditions -- extracted structurally via yq rather than hashing the
+    # whole file, so the package's own version or an unrelated ghc-options
+    # change (e.g. dropping -with-rtsopts) doesn't bust this cache. Mirrors
+    # the identical fix applied to the WASM dist-newstyle cache key.
+    # agda-language-server.cabal is intentionally not hashed: check-cabal-
+    # drift guarantees it's always an exact mechanical regeneration of
+    # package.yaml, so hashing both would be redundant.
     - name: 🎛️ Compute compiled-dependency CONFIG_HASH
       run: |
-        echo CONFIG_HASH="${{ hashFiles(env.STACK_YAML, format('{0}.lock', env.STACK_YAML), 'package.yaml', 'agda-language-server.cabal', '.github/workflows/test.yaml') }}" >> "${GITHUB_ENV}"
+        DEPS_FINGERPRINT=$(yq -o=json '[.. | select(has("dependencies")) | .dependencies]' package.yaml | sha256sum | cut -d' ' -f1)
+        echo CONFIG_HASH="${{ hashFiles(env.STACK_YAML, format('{0}.lock', env.STACK_YAML), '.github/workflows/test.yaml') }}-${DEPS_FINGERPRINT}" >> "${GITHUB_ENV}"
 
     - name: 🔍 Review all variables
       run: |
