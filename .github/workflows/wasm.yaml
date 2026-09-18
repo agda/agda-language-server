@@ -208,11 +208,25 @@ jobs:
     # even when no package version changed. No restore-keys fallback: an
     # exact miss on any of these dimensions must be a complete miss, not a
     # silently-relaxed prefix match.
+    #
+    # DEPS_FINGERPRINT: only package.yaml's dependency-affecting content --
+    # every 'dependencies:' list, wherever nested under flag/arch 'when:'
+    # conditions -- extracted structurally via yq rather than hashing the
+    # whole file. This job only ever runs 'cabal build lib:agda' and
+    # 'cabal build --dependencies-only', neither of which is affected by
+    # the package's own version, metadata, or ghc-options (e.g. dropping
+    # -with-rtsopts), so those must not invalidate this cache. Hashing
+    # package.yaml rather than the generated agda-language-server.cabal
+    # relies on check-cabal-drift (test.yaml) guaranteeing they're always
+    # identical. cabal.project.wasm32 is still hashed in full: every line
+    # in it (index-state, constraints, packages,
+    # source-repository-package pins) is dependency-relevant.
     - name: Compute dist-newstyle cache key
       id: dist-newstyle-cache-key
       run: |
         PRODUCER_HASH=$(printf '%s' "${{ env.WASM_TOOLCHAIN_KEY }}-${{ env.NATIVE_UTILS_KEY }}" | sha256sum | cut -d' ' -f1)
-        echo "key=dist-newstyle-v3-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-net-${{ env.NETWORK_SUBMODULE_COMMIT }}-producers-${PRODUCER_HASH}-${{ hashFiles('als/cabal.project.wasm32', 'als/agda-language-server.cabal', 'als/package.yaml') }}" >> "$GITHUB_OUTPUT"
+        DEPS_FINGERPRINT=$(yq -o=json '[.. | select(has("dependencies")) | .dependencies]' als/package.yaml | sha256sum | cut -d' ' -f1)
+        echo "key=dist-newstyle-v3-${{ env.CI_CACHE_KEY }}-agda-${{ env.AGDA_WASM_COMMIT }}-net-${{ env.NETWORK_SUBMODULE_COMMIT }}-producers-${PRODUCER_HASH}-${{ hashFiles('als/cabal.project.wasm32') }}-${DEPS_FINGERPRINT}" >> "$GITHUB_OUTPUT"
 
     - name: Try to restore cached dist-newstyle
       id: dist-newstyle-cache-restore
