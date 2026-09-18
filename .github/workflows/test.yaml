@@ -743,6 +743,34 @@ jobs:
         path: als/dist-newstyle
         key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
 
+    # Cabal global package store (step 7 finding): 'wasm32-wasi-cabal path'
+    # reports store-dir as ~/.ghc-wasm/.cabal/store -- inside the toolchain
+    # payload, but populated only by the dependency builds below, which run
+    # after the toolchain cache (see 'Cache ghc-wasm-meta' above) has
+    # already been saved. So the toolchain cache never captures it, and
+    # every third-party Hackage dependency was being rebuilt from scratch
+    # on every run regardless of the dist-newstyle cache's hit/miss state.
+    # Unlike dist-newstyle, the store is content-addressed (entries keyed
+    # by package/version/flags/ABI), so it's safe to share across all 3
+    # Agda matrix entries and to fall back to a stale prefix match -- a
+    # miss on newer inputs just adds entries rather than ever serving a
+    # wrong one. Keyed by WASM_TOOLCHAIN_KEY (not CI_CACHE_KEY, which
+    # embeds the Agda version) so the same cache serves every matrix entry.
+    - name: Compute cabal store cache key
+      working-directory: './als'
+      run: |
+        DEPS_FINGERPRINT=$(yq -o=json '[.. | select(has("dependencies")) | .dependencies]' package.yaml | sha256sum | cut -d' ' -f1)
+        echo "CABAL_STORE_KEY=cabal-store-v1-${{ env.WASM_TOOLCHAIN_KEY }}-${{ hashFiles('als/cabal.project.wasm32') }}-${DEPS_FINGERPRINT}" >> "$GITHUB_ENV"
+
+    - name: Restore cabal global store cache
+      id: cabal-store-cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ghc-wasm/.cabal/store
+        key: ${{ env.CABAL_STORE_KEY }}
+        restore-keys: |
+          cabal-store-v1-${{ env.WASM_TOOLCHAIN_KEY }}-
+
     - name: 📋 Cache summary
       run: |
         {
@@ -751,6 +779,7 @@ jobs:
           echo "|---|---|---|"
           echo "| toolchain | ${{ steps.ghc-wasm-cache-restore.outputs.cache-hit || 'false' }} | \`${{ env.WASM_TOOLCHAIN_KEY }}\` |"
           echo "| native-utils | ${{ steps.native-utils-cache-restore.outputs.cache-hit || 'false' }} | \`${{ env.NATIVE_UTILS_KEY }}\` |"
+          echo "| cabal-store | ${{ steps.cabal-store-cache-restore.outputs.cache-hit || 'false' }} | \`${{ env.CABAL_STORE_KEY }}\` |"
           echo "| dist-newstyle | ${{ steps.dist-newstyle-cache-restore-resolved.outputs.cache-hit || 'false' }} | \`${{ steps.dist-newstyle-cache-key.outputs.key }}\` |"
         } >> "$GITHUB_STEP_SUMMARY"
 
@@ -784,6 +813,17 @@ jobs:
       with:
         path: als/dist-newstyle
         key: ${{ steps.dist-newstyle-cache-key.outputs.key }}
+
+    - name: Save cabal global store cache (Agda 2.8.0 is the sole writer)
+      if: >
+        matrix.agda.name == '2.8.0' &&
+        github.event_name == 'push' && github.ref == 'refs/heads/master' &&
+        steps.cabal-store-cache-restore.outputs.cache-hit != 'true' &&
+        steps.build-deps-other-than-agda.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.ghc-wasm/.cabal/store
+        key: ${{ env.CABAL_STORE_KEY }}
 
     - name: Build als
       working-directory: './als'
