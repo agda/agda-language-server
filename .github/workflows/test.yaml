@@ -68,6 +68,18 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest, macos-15-intel]
         agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
+        # macos-15-intel (Intel Mac) runners are scarce and can sit queued
+        # for 13+ minutes before starting, dominating PR feedback latency
+        # for a job that then only takes ~3 minutes to actually run. Cut
+        # PR runs down to one Agda version on that runner; push/tag events
+        # (master, releases) still get the full 3-way matrix. The 'os'
+        # value collapses to '' when not a pull_request, which matches no
+        # real matrix entry, so nothing is excluded outside pull_request.
+        exclude:
+          - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
+            agda: 'Agda-2.7.0.1'
+          - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
+            agda: 'Agda-2.6.4.3'
       fail-fast: false
     steps:
 
