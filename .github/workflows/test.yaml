@@ -123,20 +123,21 @@ jobs:
         echo GHC_VERSION="${GHC_VERSION}"       >> "${GITHUB_ENV}"
 
     # Redesigned cache boundaries:
-    #  - macOS toolchain cache holds only ~/.ghcup, keyed by the pinned
-    #    STACK_VERSION and GHC_VERSION (no Agda target -- shared across
-    #    the three Agda entries for this architecture). It is restored
-    #    before Haskell setup so a hit lets setup skip downloading GHC
-    #    and Stack, verified against the pinned versions afterward, and
-    #    saved by the Agda 2.8.0 entry immediately after that
-    #    verification -- independently of the snapshot/dependency builds
-    #    below, so a setup or version-mismatch failure blocks the save
-    #    but a later dependency-build failure cannot suppress it. Only
-    #    the Agda 2.8.0 entry is allowed to save it, so the three
-    #    parallel jobs for one architecture never race to write the same
-    #    key. haskell-actions/setup is pinned to a full commit SHA (not
-    #    the mutable v2 tag) so its installer behavior can't silently
-    #    change what a hit key was actually verified against.
+    #  - The toolchain cache holds only the ghcup install directory
+    #    (~/.ghcup on Linux/macOS, C:\ghcup on Windows), keyed by the
+    #    pinned STACK_VERSION and GHC_VERSION (no Agda target -- shared
+    #    across the three Agda entries for this OS/architecture). It is
+    #    restored before Haskell setup so a hit lets setup skip
+    #    downloading GHC and Stack, verified against the pinned versions
+    #    afterward, and saved by the Agda 2.8.0 entry immediately after
+    #    that verification -- independently of the snapshot/dependency
+    #    builds below, so a setup or version-mismatch failure blocks the
+    #    save but a later dependency-build failure cannot suppress it.
+    #    Only the Agda 2.8.0 entry is allowed to save it, so the three
+    #    parallel jobs for one OS/architecture never race to write the
+    #    same key. haskell-actions/setup is pinned to a full commit SHA
+    #    (not the mutable v2 tag) so its installer behavior can't
+    #    silently change what a hit key was actually verified against.
     #  - The compiled-dependency cache holds only
     #    $STACK_ROOT/{snapshots,setup-exe-cache}, is Agda-specific (so
     #    each Agda entry owns its own key), and is keyed by every
@@ -149,12 +150,15 @@ jobs:
     #  - No .stack-work caching: removed outright pending a future
     #    measurement showing a net wall-clock benefit.
 
-    - name: 💾 Restore Haskell toolchain cache (macOS, shared across Agda targets, before setup)
+    # ~/.ghcup is a symlink to /usr/local/.ghcup on GitHub-hosted Ubuntu
+    # runners (pre-provisioned by the runner image); actions/cache archives
+    # the symlink itself, not its target, so Linux must cache the real path
+    # directly. macOS and Windows have no such indirection.
+    - name: 💾 Restore Haskell toolchain cache (all platforms, shared across Agda targets, before setup)
       id: haskell-toolchain
-      if: runner.os == 'macOS'
       uses: actions/cache/restore@v4
       with:
-        path: ~/.ghcup
+        path: ${{ runner.os == 'Windows' && 'C:\ghcup' || runner.os == 'Linux' && '/usr/local/.ghcup' || '~/.ghcup' }}
         key: ghcup-v1-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}
 
     - name: 🏗 Setup Haskell (pinned Stack version, all platforms)
@@ -184,12 +188,12 @@ jobs:
 
     - name: 💾 Save Haskell toolchain cache (Agda 2.8.0 is the sole writer, right after setup+verification)
       if: >
-        runner.os == 'macOS' && matrix.agda == 'Agda-2.8.0' &&
+        matrix.agda == 'Agda-2.8.0' &&
         github.event_name == 'push' && github.ref == 'refs/heads/master' &&
         steps.haskell-toolchain.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
-        path: ~/.ghcup
+        path: ${{ runner.os == 'Windows' && 'C:\ghcup' || runner.os == 'Linux' && '/usr/local/.ghcup' || '~/.ghcup' }}
         key: ${{ steps.haskell-toolchain.outputs.cache-primary-key }}
 
     - name: 🎛️ Determine Stack root
