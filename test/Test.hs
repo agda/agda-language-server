@@ -5,6 +5,7 @@ import Data.Typeable (Typeable)
 import qualified Test.LSP as LSP
 import qualified Test.Smoke as Smoke
 import qualified Test.SrcLoc as SrcLoc
+import qualified Test.Version as Version
 #if defined(wasm32_HOST_ARCH)
 import qualified Test.WASM as WASM
 #endif
@@ -32,6 +33,7 @@ tests = askOption $ \(AlsPathOption alsPath) ->
   testGroup
     "Tests"
     [ SrcLoc.tests,
+      Version.tests,
       LSP.tests alsPath,
       Smoke.tests alsPath
 #if defined(wasm32_HOST_ARCH)
