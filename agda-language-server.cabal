@@ -188,6 +188,7 @@ test-suite als-test
       Test.LSP
       Test.Smoke
       Test.SrcLoc
+      Test.Version
       Test.WASM
       Agda
       Agda.Convert
