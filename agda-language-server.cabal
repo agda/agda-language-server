@@ -1,4 +1,4 @@
-cabal-version: 1.12
+cabal-version: 2.0
 
 -- This file has been generated from package.yaml by hpack version 0.38.3.
 --
@@ -77,8 +77,6 @@ library
       Server.Handler
       Server.ResponseController
       Switchboard
-  other-modules:
-      Paths_agda_language_server
   hs-source-dirs:
       src
   default-extensions:
@@ -125,8 +123,6 @@ library
 
 executable als
   main-is: Main.hs
-  other-modules:
-      Paths_agda_language_server
   hs-source-dirs:
       app
   default-extensions:
@@ -215,7 +211,6 @@ test-suite als-test
       Server.Handler
       Server.ResponseController
       Switchboard
-      Paths_agda_language_server
   hs-source-dirs:
       test
       src
@@ -225,6 +220,8 @@ test-suite als-test
       PatternSynonyms
       TypeOperators
   ghc-options: -Wincomplete-patterns -Wunused-do-bind -Wunused-foralls -Wwarnings-deprecations -Wwrong-do-bind -Wmissing-fields -Wmissing-methods -Wmissing-pattern-synonym-signatures -Wmissing-signatures -rtsopts -Werror=incomplete-patterns -fno-warn-orphans
+  build-tool-depends:
+      agda-language-server:als
   build-depends:
       Agda
     , aeson
