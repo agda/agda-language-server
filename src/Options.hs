@@ -16,7 +16,10 @@ import Data.Aeson.Types hiding
   ( Options,
     defaultOptions,
   )
+import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Version (versionBranch)
 import GHC.Generics (Generic)
+import qualified Paths_agda_language_server as Paths
 import System.Console.GetOpt
 import System.Environment (getArgs)
 import Text.Read (readMaybe)
@@ -86,8 +89,9 @@ options =
       "print version information and exit"
   ]
 
+-- | Defaults to 0 if the version number cannot be parsed from the package version.
 versionNumber :: Int
-versionNumber = 7
+versionNumber = fromMaybe 0 (listToMaybe (versionBranch Paths.version))
 
 versionString :: String
 versionString =
