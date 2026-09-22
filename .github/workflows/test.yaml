@@ -50,6 +50,7 @@ jobs:
       uses: haskell-actions/setup@6037f33647c3f17758a2356c80fc4a53d7e0685d # v2
       with:
         ghc-version: '9.10.2'
+        cabal-version: '3.12.1.0'
         enable-stack: true
         stack-version: ${{ env.STACK_VERSION }}
 
@@ -60,6 +61,19 @@ jobs:
           stack build --stack-yaml "$f" --dry-run --lock-file error-on-write
           echo "::endgroup::"
         done
+
+    - name: 📦 Build source distribution
+      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+      run: cabal sdist
+
+    - name: 📤 Upload Hackage sdist
+      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hackage-sdist
+        path: dist-newstyle/sdist/*.tar.gz
+        if-no-files-found: error
+        retention-days: 7
 
   build-and-test:
     name: Build and Test
