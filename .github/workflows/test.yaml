@@ -527,7 +527,8 @@ jobs:
       with:
         name: ${{ env.ARTEFACT }}
         path: ${{ env.ARTEFACT }}.zip
-        retention-days: 1
+        if-no-files-found: error
+        retention-days: 7
 
   build-wasm:
     name: Build WASM
@@ -839,7 +840,8 @@ jobs:
       with:
         name: ${{ env.WASM_ASSET_BASENAME }}
         path: ~/out/${{ env.WASM_BINARY_NAME }}
-        retention-days: 1
+        if-no-files-found: error
+        retention-days: 7
 
   create-release:
     name: Create Release
