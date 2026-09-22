@@ -38,6 +38,22 @@ jobs:
         git checkout FETCH_HEAD
         echo "AGDA_WASM_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
+    # package.yaml is the source of truth; agda-language-server.cabal is
+    # generated and never committed (see .gitignore). Plain cabal, unlike
+    # Stack, has no built-in hpack integration, so this job regenerates it
+    # itself before any 'cabal build' below can read it.
+    - name: 📥 Install hpack
+      run: |
+        mkdir -p "$HOME/.local/bin"
+        curl -fsSL https://github.com/sol/hpack/releases/download/0.38.3/hpack_linux.gz \
+          | gunzip > "$HOME/.local/bin/hpack"
+        chmod +x "$HOME/.local/bin/hpack"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: 🔄 Generate cabal file with hpack
+      working-directory: als
+      run: hpack
+
     # Redesigned WASM caching: two independently keyed, exact-match-only
     # caches, each saved immediately after its own producer succeeds so a
     # later failure elsewhere can't suppress an already-valid save. The
@@ -217,8 +233,9 @@ jobs:
     # the package's own version, metadata, or ghc-options (e.g. dropping
     # -with-rtsopts), so those must not invalidate this cache. Hashing
     # package.yaml rather than the generated agda-language-server.cabal
-    # relies on check-cabal-drift (test.yaml) guaranteeing they're always
-    # identical. cabal.project.wasm32 is still hashed in full: every line
+    # is correct because this job regenerates that file itself from
+    # package.yaml (see the hpack step above), never from a committed
+    # copy. cabal.project.wasm32 is still hashed in full: every line
     # in it (index-state, constraints, packages,
     # source-repository-package pins) is dependency-relevant.
     - name: Compute dist-newstyle cache key

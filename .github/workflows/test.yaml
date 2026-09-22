@@ -26,8 +26,13 @@ permissions:
   contents: read
 
 jobs:
+  # package.yaml is the source of truth for this Stack project.
+  # agda-language-server.cabal is a generated file, never committed (see
+  # .gitignore) -- every job that builds anything regenerates it itself
+  # with hpack, right after checkout, rather than relying on a checked-in
+  # copy staying in sync by hand.
   check-cabal-drift:
-    name: Check Cabal Drift
+    name: Generate Cabal File & Build Sdist
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout repository
@@ -41,11 +46,8 @@ jobs:
         chmod +x "$HOME/.local/bin/hpack"
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-    - name: 🔄 Regenerate cabal file with hpack
+    - name: 🔄 Generate cabal file with hpack
       run: hpack
-
-    - name: 🔍 Check for generated-file drift
-      run: git diff --exit-code -- agda-language-server.cabal
 
     - name: 🏗 Setup Haskell
       uses: haskell-actions/setup@6037f33647c3f17758a2356c80fc4a53d7e0685d # v2
@@ -271,9 +273,10 @@ jobs:
     # whole file, so the package's own version or an unrelated ghc-options
     # change (e.g. dropping -with-rtsopts) doesn't bust this cache. Mirrors
     # the identical fix applied to the WASM dist-newstyle cache key.
-    # agda-language-server.cabal is intentionally not hashed: check-cabal-
-    # drift guarantees it's always an exact mechanical regeneration of
-    # package.yaml, so hashing both would be redundant.
+    # agda-language-server.cabal is intentionally not hashed: it is never
+    # committed (see .gitignore), and Stack regenerates it itself from
+    # package.yaml via its bundled hpack before every build, so hashing
+    # package.yaml already captures anything that would end up in it.
     - name: 🎛️ Compute compiled-dependency CONFIG_HASH
       run: |
         DEPS_FINGERPRINT=$(yq -o=json '[.. | select(has("dependencies")) | .dependencies]' package.yaml | sha256sum | cut -d' ' -f1)
@@ -569,6 +572,22 @@ jobs:
         path: als
         submodules: true
 
+    # package.yaml is the source of truth; agda-language-server.cabal is
+    # generated and never committed (see .gitignore). Plain cabal, unlike
+    # Stack, has no built-in hpack integration, so this job regenerates it
+    # itself before any 'cabal build' below can read it.
+    - name: 📥 Install hpack
+      run: |
+        mkdir -p "$HOME/.local/bin"
+        curl -fsSL https://github.com/sol/hpack/releases/download/0.38.3/hpack_linux.gz \
+          | gunzip > "$HOME/.local/bin/hpack"
+        chmod +x "$HOME/.local/bin/hpack"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: 🔄 Generate cabal file with hpack
+      working-directory: als
+      run: hpack
+
     - name: Compute cache key
       run: |
         echo "CI_CACHE_KEY=${{ runner.os }}-${{ runner.arch }}-${{ env.GHC_WASM_META_COMMIT_HASH }}-flavor-${{ env.GHC_WASM_META_FLAVOUR }}" >> "$GITHUB_ENV"
@@ -741,8 +760,9 @@ jobs:
     # -with-rtsopts), so those must not invalidate this cache; a version
     # bump previously did (~55-60 min of unnecessary rebuild). Hashing
     # package.yaml rather than the generated agda-language-server.cabal
-    # relies on check-cabal-drift guaranteeing they're always identical.
-    # cabal.project.wasm32 is still hashed in full: every line in it
+    # is correct because this job regenerates that file itself from
+    # package.yaml (see the hpack step above), never from a committed
+    # copy. cabal.project.wasm32 is still hashed in full: every line in it
     # (index-state, constraints, packages, source-repository-package
     # pins) is dependency-relevant.
     - name: Compute dist-newstyle cache key
