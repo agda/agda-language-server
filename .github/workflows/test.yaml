@@ -938,15 +938,7 @@ jobs:
   publish-release:
     name: Publish Release
     needs: [check-cabal-drift, build-and-test, build-wasm]
-    # The 'false &&' disables this job everywhere until it lands together
-    # with the next real version bump (see the rollout note above commit
-    # 5 in plan.md): package.yaml/agda-language-server.cabal are still at
-    # v7, which predates this job and has no matching hackage-sdist/
-    # SHA256SUMS assets, so every push after this merges would otherwise
-    # hard-fail forever. Remove 'false &&' in the same commit that bumps
-    # the version.
     if: >
-      false &&
       always() && !cancelled() && !contains(needs.*.result, 'failure') &&
       github.ref == 'refs/heads/master' && github.event_name == 'push' &&
       github.repository == 'agda/agda-language-server'
