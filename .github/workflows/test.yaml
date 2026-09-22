@@ -22,6 +22,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
 jobs:
   check-cabal-drift:
     name: Check Cabal Drift
@@ -855,30 +858,30 @@ jobs:
         if-no-files-found: error
         retention-days: 7
 
-  create-release:
-    name: Create Release
+  publish-dev:
+    name: Publish Dev Release
     needs: [check-cabal-drift, build-and-test, build-wasm]
-    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master')
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure') && github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-dev
+      cancel-in-progress: true
     steps:
 
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
-    - name: 🏭 Create Stable Release
-      if: startsWith(github.ref, 'refs/tags/v')
-      run: |
-        gh release create ${{ github.ref_name }} --generate-notes
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: 📥 Download dev artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: als-dev-*
+        path: artifacts
 
     - name: 🚢 Create/Update Dev Release
-      if: github.ref == 'refs/heads/master'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # Delete existing dev release if it exists
-        gh release delete dev --cleanup-tag -y || true
+        gh release delete dev --cleanup-tag -y --repo "${{ github.repository }}" || true
 
         # Wait for GitHub to process the deletion to avoid race condition
         # that causes releases to be created as drafts
@@ -889,51 +892,8 @@ jobs:
         gh release create dev \
           --title "Development Release (dev)" \
           --notes "Development pre-release build from latest changes. This is a pre-release for testing purposes." \
-          --prerelease
-
-  upload-stable-release:
-    name: Upload to Stable Release
-    needs: create-release
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-
-    - name: 📥 Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
-
-    - name: 🚢 Upload artifacts to release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        cd artifacts
-        for dir in */; do
-          artifact_name="${dir%/}"
-          echo "Uploading ${artifact_name}..."
-          if [ -f "${artifact_name}/${artifact_name}.zip" ]; then
-            gh release upload ${{ github.ref_name }} "${artifact_name}/${artifact_name}.zip" --clobber --repo ${{ github.repository }}
-          else
-            artifact_file=$(find "${artifact_name}" -maxdepth 1 -type f | head -1)
-            if [ -n "$artifact_file" ]; then
-              gh release upload ${{ github.ref_name }} "$artifact_file" --clobber --repo ${{ github.repository }}
-            else
-              echo "Warning: No uploadable file found in ${artifact_name}"
-            fi
-          fi
-        done
-
-  upload-dev-release:
-    name: Upload to Dev Release
-    needs: create-release
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    steps:
-
-    - name: 📥 Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
+          --prerelease \
+          --repo "${{ github.repository }}"
 
     - name: 🚢 Upload artifacts to dev release
       env:
@@ -944,11 +904,11 @@ jobs:
           artifact_name="${dir%/}"
           echo "Uploading ${artifact_name}..."
           if [ -f "${artifact_name}/${artifact_name}.zip" ]; then
-            gh release upload dev "${artifact_name}/${artifact_name}.zip" --clobber --repo ${{ github.repository }}
+            gh release upload dev "${artifact_name}/${artifact_name}.zip" --clobber --repo "${{ github.repository }}"
           else
             artifact_file=$(find "${artifact_name}" -maxdepth 1 -type f | head -1)
             if [ -n "$artifact_file" ]; then
-              gh release upload dev "$artifact_file" --clobber --repo ${{ github.repository }}
+              gh release upload dev "$artifact_file" --clobber --repo "${{ github.repository }}"
             else
               echo "Warning: No uploadable file found in ${artifact_name}"
             fi
