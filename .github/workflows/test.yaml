@@ -914,3 +914,570 @@ jobs:
             fi
           fi
         done
+
+  publish-release:
+    name: Publish Release
+    needs: [check-cabal-drift, build-and-test, build-wasm]
+    # The 'false &&' disables this job everywhere until it lands together
+    # with the next real version bump (see the rollout note above commit
+    # 5 in plan.md): package.yaml/agda-language-server.cabal are still at
+    # v7, which predates this job and has no matching hackage-sdist/
+    # SHA256SUMS assets, so every push after this merges would otherwise
+    # hard-fail forever. Remove 'false &&' in the same commit that bumps
+    # the version.
+    if: >
+      false &&
+      always() && !cancelled() && !contains(needs.*.result, 'failure') &&
+      github.ref == 'refs/heads/master' && github.event_name == 'push' &&
+      github.repository == 'agda/agda-language-server'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-release
+      cancel-in-progress: false
+      queue: max
+    steps:
+
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🏗 Setup Cabal
+      uses: haskell-actions/setup@6037f33647c3f17758a2356c80fc4a53d7e0685d # v2
+      with:
+        ghc-version: '9.10.2'
+        cabal-version: '3.12.1.0'
+
+    # Inspect: no downloads of this run's own artifacts yet. Establishes
+    # VERSION/TAG and whether this version is already fully published, by
+    # checking the already-published release's own recorded state (never
+    # by rebuilding/comparing this run's freshly built binaries/sdist --
+    # source keeps changing between releases at the same version, so that
+    # comparison would fail on almost every push after a release).
+    - name: 🔍 Inspect — parse version and compute tag
+      run: |
+        VERSION=$(yq -r '.version' package.yaml)
+        if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+          echo "::error::invalid or missing version in package.yaml: '${VERSION}'"
+          exit 1
+        fi
+        TAG="v${VERSION}"
+        echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+        echo "TAG=${TAG}"         >> "$GITHUB_ENV"
+        echo "Version: ${VERSION} (tag ${TAG})"
+
+    # Addressed by release ID from here on, never by the 'releases/tags/'
+    # REST shortcut -- that endpoint only resolves published releases and
+    # 404s on a draft, which is exactly the state staging must inspect.
+    - name: 🔍 Inspect — look up existing GitHub release and tag
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        RELEASE_JSON=$(gh api "repos/${{ github.repository }}/releases" --paginate \
+          --jq "[.[] | select(.tag_name == \"${TAG}\")] | .[0] // empty")
+        echo "${RELEASE_JSON:-null}" > release.json
+        cat release.json
+
+        # Only an explicit 404 means the tag is absent; every other lookup
+        # failure (auth, rate limit, network, 5xx) must stop before
+        # mutation, not be conflated with absence.
+        if TAG_REF_JSON=$(gh api "repos/${{ github.repository }}/git/refs/tags/${TAG}" 2>tag-ref-err.txt); then
+          REMOTE_TAG_SHA=$(echo "$TAG_REF_JSON" | jq -r '.object.sha')
+        elif grep -q "HTTP 404" tag-ref-err.txt; then
+          REMOTE_TAG_SHA=""
+        else
+          echo "::error::failed to look up tag ${TAG}: $(cat tag-ref-err.txt)"
+          exit 1
+        fi
+        echo "REMOTE_TAG_SHA=${REMOTE_TAG_SHA}" >> "$GITHUB_ENV"
+
+        if [[ -s release.json && "$(cat release.json)" != "null" ]]; then
+          RELEASE_ID=$(jq -r '.id' release.json)
+          RELEASE_DRAFT=$(jq -r '.draft' release.json)
+          RELEASE_SHA=$(jq -r '.target_commitish' release.json)
+        else
+          RELEASE_ID=""
+          RELEASE_DRAFT=""
+          RELEASE_SHA=""
+        fi
+        {
+          echo "RELEASE_ID=${RELEASE_ID}"
+          echo "RELEASE_DRAFT=${RELEASE_DRAFT}"
+          echo "RELEASE_SHA=${RELEASE_SHA}"
+        } >> "$GITHUB_ENV"
+
+    # Only 404 (absent) and 200 (present) are known states. Any other
+    # response -- 403, 500, a network failure -- must fail without
+    # mutating anything, not be silently treated as absence.
+    - name: 🔍 Inspect — check Hackage for this version
+      run: |
+        HACKAGE_URL="https://hackage.haskell.org/package/agda-language-server-${VERSION}/agda-language-server-${VERSION}.tar.gz"
+        HTTP_CODE=$(curl -sL -o hackage-tarball.tar.gz -w '%{http_code}' "$HACKAGE_URL" || echo "000")
+        if [[ "$HTTP_CODE" == "200" ]]; then
+          HACKAGE_DIGEST=$(sha256sum hackage-tarball.tar.gz | cut -d' ' -f1)
+        elif [[ "$HTTP_CODE" == "404" ]]; then
+          HACKAGE_DIGEST=""
+          rm -f hackage-tarball.tar.gz
+        else
+          echo "::error::unexpected Hackage response ${HTTP_CODE} while checking ${HACKAGE_URL}"
+          exit 1
+        fi
+        echo "HACKAGE_HTTP_CODE=${HTTP_CODE}"   >> "$GITHUB_ENV"
+        echo "HACKAGE_DIGEST=${HACKAGE_DIGEST}" >> "$GITHUB_ENV"
+        echo "Hackage: HTTP ${HTTP_CODE}, digest ${HACKAGE_DIGEST:-<none>}"
+
+    # Classify into exactly one of the states the plan allows, and fail
+    # without any mutation on every conflicting combination -- this is
+    # the one place that decides whether it's safe to proceed, run
+    # *before* anything below is allowed to touch GitHub or Hackage.
+    #
+    #   ALREADY_PUBLISHED  published release, tag resolves to it, and its
+    #                      assets verify exactly against Hackage -- exit
+    #                      success, no mutation.
+    #   ABSENT             no release, no orphan tag, Hackage 404.
+    #   DRAFT_FOR_SHA      a draft for this exact commit already exists;
+    #                      refined into DRAFT_ABSENT/DRAFT_MATCHING once
+    #                      this run's own sdist digest is known (Download,
+    #                      below) since only then can "matches Hackage"
+    #                      be evaluated.
+    #   (anything else)    CONFLICT -- fail immediately.
+    - name: 🔍 Inspect — classify state, reject conflicts before any mutation
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        conflict() { echo "::error::conflict: $1"; exit 1; }
+
+        if [[ -z "$RELEASE_ID" ]]; then
+          # No release for this tag. An orphan tag, or Hackage already
+          # having this version with nothing to show for it on GitHub,
+          # are both conflicts -- not "absent".
+          [[ -z "$REMOTE_TAG_SHA" ]] || conflict "tag ${TAG} exists with no matching release (points at ${REMOTE_TAG_SHA})"
+          [[ "$HACKAGE_HTTP_CODE" != "200" ]] || conflict "Hackage already has ${VERSION} but no GitHub release exists for ${TAG}"
+          echo "STATE=ABSENT" >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        if [[ "$RELEASE_DRAFT" == "false" ]]; then
+          # Published release for this tag: tag must resolve to its own
+          # recorded SHA, and its assets must verify exactly -- a
+          # published release is never auto-repaired, only accepted or
+          # rejected as a conflict.
+          [[ "$REMOTE_TAG_SHA" == "$RELEASE_SHA" ]] || conflict "tag ${TAG} resolves to ${REMOTE_TAG_SHA}, but release ${TAG} records ${RELEASE_SHA}"
+          [[ "$HACKAGE_HTTP_CODE" == "200" ]] || conflict "release ${TAG} is published but Hackage has no ${VERSION} tarball"
+
+          SUMS_ASSET=$(jq -c '.assets[] | select(.name == "SHA256SUMS")' release.json)
+          [[ -n "$SUMS_ASSET" ]] || conflict "release ${TAG} is published but has no SHA256SUMS asset"
+          SUMS_URL=$(echo "$SUMS_ASSET" | jq -r '.browser_download_url')
+          SUMS_EXPECTED_DIGEST=$(echo "$SUMS_ASSET" | jq -r '.digest // empty' | sed 's/^sha256://')
+          curl -sL -o SHA256SUMS "$SUMS_URL"
+          SUMS_ACTUAL_DIGEST=$(sha256sum SHA256SUMS | cut -d' ' -f1)
+          [[ -n "$SUMS_EXPECTED_DIGEST" && "$SUMS_ACTUAL_DIGEST" == "$SUMS_EXPECTED_DIGEST" ]] \
+            || conflict "downloaded SHA256SUMS digest ${SUMS_ACTUAL_DIGEST} != GitHub-reported ${SUMS_EXPECTED_DIGEST:-<none>}"
+
+          MANIFEST_COUNT=$(grep -c . SHA256SUMS || true)
+          [[ "$MANIFEST_COUNT" -gt 0 ]] || conflict "SHA256SUMS for ${TAG} is empty"
+
+          REMOTE_ASSET_NAMES=$(jq -r '.assets[] | select(.name != "SHA256SUMS") | .name' release.json | sort)
+          MANIFEST_NAMES=$(awk '{print $2}' SHA256SUMS | sort)
+          [[ "$REMOTE_ASSET_NAMES" == "$MANIFEST_NAMES" ]] || conflict "release ${TAG} asset set doesn't match its own SHA256SUMS manifest exactly"
+
+          # Self-consistency (checked above) isn't completeness: a release
+          # whose binaries and their manifest entries were both removed
+          # together would still pass that check. Require the exact same
+          # deterministic 15-binary-plus-sdist matrix enforced on the
+          # fresh-draft path, not just internal agreement.
+          EXPECTED_RELEASE_ASSETS=$(printf '%s\n' \
+            "als-v${VERSION}-Agda-2.8.0-ubuntu.zip"   "als-v${VERSION}-Agda-2.8.0-macos-arm64.zip"   "als-v${VERSION}-Agda-2.8.0-macos-x64.zip"   "als-v${VERSION}-Agda-2.8.0-windows.zip" \
+            "als-v${VERSION}-Agda-2.7.0.1-ubuntu.zip" "als-v${VERSION}-Agda-2.7.0.1-macos-arm64.zip" "als-v${VERSION}-Agda-2.7.0.1-macos-x64.zip" "als-v${VERSION}-Agda-2.7.0.1-windows.zip" \
+            "als-v${VERSION}-Agda-2.6.4.3-ubuntu.zip" "als-v${VERSION}-Agda-2.6.4.3-macos-arm64.zip" "als-v${VERSION}-Agda-2.6.4.3-macos-x64.zip" "als-v${VERSION}-Agda-2.6.4.3-windows.zip" \
+            "als-v${VERSION}-Agda-2.8.0-wasm.wasm" "als-v${VERSION}-Agda-2.7.0.1-wasm.wasm" "als-v${VERSION}-Agda-2.6.4.3-wasm.wasm" \
+            "agda-language-server-${VERSION}.tar.gz" | sort)
+          [[ "$MANIFEST_NAMES" == "$EXPECTED_RELEASE_ASSETS" ]] || conflict "release ${TAG}'s asset set doesn't match the expected 15-binary-plus-sdist matrix"
+
+          EXPECTED_SDIST_NAME="agda-language-server-${VERSION}.tar.gz"
+          SDIST_ENTRIES=$(echo "$MANIFEST_NAMES" | grep -Fxc "$EXPECTED_SDIST_NAME" || true)
+          [[ "$SDIST_ENTRIES" -eq 1 ]] || conflict "SHA256SUMS for ${TAG} doesn't have exactly one entry named ${EXPECTED_SDIST_NAME} (found ${SDIST_ENTRIES})"
+
+          MISMATCH=false
+          while read -r digest name; do
+            [[ -z "$name" ]] && continue
+            ASSET=$(jq -c --arg n "$name" '.assets[] | select(.name == $n)' release.json)
+            ASSET_DIGEST=$(echo "$ASSET" | jq -r '.digest // empty' | sed 's/^sha256://')
+            ASSET_SIZE=$(echo "$ASSET" | jq -r '.size // empty')
+            [[ "$ASSET_DIGEST" == "$digest" ]] || MISMATCH=true
+            if [[ "$name" == "$EXPECTED_SDIST_NAME" ]]; then
+              [[ "$digest" == "$HACKAGE_DIGEST" ]] || MISMATCH=true
+            fi
+            [[ -n "$ASSET_SIZE" ]] || MISMATCH=true
+          done < SHA256SUMS
+          [[ "$MISMATCH" == "false" ]] || conflict "release ${TAG} assets don't all verify against SHA256SUMS/Hackage"
+
+          echo "ALREADY_PUBLISHED=true" >> "$GITHUB_ENV"
+          echo "Already published and verified: ${TAG}"
+          exit 0
+        fi
+
+        # Draft. Never touch a draft that isn't pinned to this exact run,
+        # and the version tag itself must not already exist -- a draft
+        # never creates the actual tag ref until it's published, so a
+        # non-empty tag alongside a draft means something else (a stale
+        # published-then-deleted release, a manually pushed tag) already
+        # claims this version.
+        [[ "$RELEASE_SHA" == "${{ github.sha }}" ]] || conflict "draft ${TAG} exists for a different SHA (${RELEASE_SHA} != ${{ github.sha }}); refusing to touch it"
+        [[ -z "$REMOTE_TAG_SHA" ]] || conflict "tag ${TAG} already exists (points at ${REMOTE_TAG_SHA}) while an unpublished draft for this SHA is also present"
+        echo "STATE=DRAFT_FOR_SHA" >> "$GITHUB_ENV"
+
+    # Download: only reached for ABSENT or DRAFT_FOR_SHA -- staging a new
+    # release or resuming this run's own draft. No mutation yet.
+    - name: 📥 Download this run's release artifacts
+      if: env.ALREADY_PUBLISHED != 'true'
+      uses: actions/download-artifact@v4
+      with:
+        pattern: 'als-dev-*'
+        path: artifacts
+
+    - name: 📥 Download this run's Hackage sdist
+      if: env.ALREADY_PUBLISHED != 'true'
+      uses: actions/download-artifact@v4
+      with:
+        name: hackage-sdist
+        path: artifacts/hackage-sdist
+
+    # The build matrix is fixed (build-and-test.yaml: 4 OS x 3 Agda
+    # versions = 12 native, build-wasm: 3 Agda versions = 3 WASM). A
+    # retry after one Actions artifact has separately expired/been
+    # deleted must fail here, not silently stage a release missing that
+    # matrix output.
+    - name: 🔍 Confirm all expected build artifacts are present
+      if: env.ALREADY_PUBLISHED != 'true'
+      run: |
+        EXPECTED=(
+          als-dev-Agda-2.8.0-ubuntu   als-dev-Agda-2.8.0-macos-arm64   als-dev-Agda-2.8.0-macos-x64   als-dev-Agda-2.8.0-windows
+          als-dev-Agda-2.7.0.1-ubuntu als-dev-Agda-2.7.0.1-macos-arm64 als-dev-Agda-2.7.0.1-macos-x64 als-dev-Agda-2.7.0.1-windows
+          als-dev-Agda-2.6.4.3-ubuntu als-dev-Agda-2.6.4.3-macos-arm64 als-dev-Agda-2.6.4.3-macos-x64 als-dev-Agda-2.6.4.3-windows
+          als-dev-Agda-2.8.0-wasm als-dev-Agda-2.7.0.1-wasm als-dev-Agda-2.6.4.3-wasm
+        )
+        EXPECTED_SORTED=$(printf '%s\n' "${EXPECTED[@]}" | sort)
+        # Restricted to 'als-dev-*': 'artifacts/hackage-sdist' (downloaded
+        # separately, checked in the next step) lives alongside these at
+        # the same depth and must not be counted as a sixteenth artifact.
+        ACTUAL_SORTED=$(find artifacts -mindepth 1 -maxdepth 1 -type d -name 'als-dev-*' -printf '%f\n' | sort)
+        if [[ "$EXPECTED_SORTED" != "$ACTUAL_SORTED" ]]; then
+          echo "::error::downloaded artifact set doesn't match the expected 15-artifact build matrix"
+          diff <(echo "$EXPECTED_SORTED") <(echo "$ACTUAL_SORTED") || true
+          exit 1
+        fi
+        echo "All ${#EXPECTED[@]} expected build artifacts present."
+
+    - name: 🔍 Confirm sdist, compute digests, refine DRAFT_FOR_SHA
+      if: env.ALREADY_PUBLISHED != 'true'
+      run: |
+        mapfile -t SDISTS < <(find artifacts/hackage-sdist -name '*.tar.gz')
+        [[ "${#SDISTS[@]}" -eq 1 ]] || { echo "::error::expected exactly one sdist in hackage-sdist artifact, found ${#SDISTS[@]}"; exit 1; }
+        SDIST="${SDISTS[0]}"
+        BASENAME=$(basename "$SDIST")
+        if [[ "$BASENAME" != "agda-language-server-${VERSION}.tar.gz" ]]; then
+          echo "::error::sdist ${BASENAME} does not embed expected version ${VERSION}"
+          exit 1
+        fi
+        echo "SDIST_PATH=${SDIST}" >> "$GITHUB_ENV"
+        SDIST_DIGEST=$(sha256sum "$SDIST" | cut -d' ' -f1)
+        echo "SDIST_DIGEST=${SDIST_DIGEST}" >> "$GITHUB_ENV"
+
+        # Only now, with this run's own sdist digest known, can
+        # Draft-for-this-SHA be refined against Hackage: comparing this
+        # run's content against Hackage is only meaningful because this
+        # run is the one that would be responsible for that content.
+        if [[ "$STATE" == "DRAFT_FOR_SHA" ]]; then
+          if [[ "$HACKAGE_HTTP_CODE" == "200" ]]; then
+            if [[ "$HACKAGE_DIGEST" == "$SDIST_DIGEST" ]]; then
+              echo "STATE=DRAFT_MATCHING" >> "$GITHUB_ENV"
+            else
+              echo "::error::conflict: Hackage already has ${VERSION} with a tarball that doesn't match this run's sdist"
+              exit 1
+            fi
+          else
+            echo "STATE=DRAFT_ABSENT" >> "$GITHUB_ENV"
+          fi
+        fi
+
+    # Stage (mutation from here on): rename to als-v<VERSION>-* preserving
+    # each asset's own extension (not the artifact directory's name),
+    # generate SHA256SUMS over every payload asset including the sdist.
+    - name: 🏗 Stage — rename assets and generate manifest
+      if: env.ALREADY_PUBLISHED != 'true'
+      run: |
+        mkdir -p release-assets
+        cp "$SDIST_PATH" "release-assets/agda-language-server-${VERSION}.tar.gz"
+        for dir in artifacts/als-dev-*/; do
+          dirname="$(basename "$dir")"
+          mapfile -t FILES < <(find "$dir" -maxdepth 1 -type f)
+          [[ "${#FILES[@]}" -eq 1 ]] || { echo "::error::expected exactly one file in artifact ${dirname}, found ${#FILES[@]}"; exit 1; }
+          src="${FILES[0]}"
+          ext="${src##*.}"
+          renamed="als-v${VERSION}-${dirname#als-dev-}.${ext}"
+          cp "$src" "release-assets/${renamed}"
+        done
+        cd release-assets
+        sha256sum -- * > SHA256SUMS
+        cat SHA256SUMS
+
+    # DRAFT_MATCHING means Hackage already has this run's exact content:
+    # the commit point has already passed on some earlier attempt, so
+    # assets are only ever verified here, never repaired or replaced.
+    - name: 🔍 Verify draft assets match exactly (DRAFT_MATCHING, no mutation)
+      if: env.ALREADY_PUBLISHED != 'true' && env.STATE == 'DRAFT_MATCHING'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        REL=$(gh api "repos/${{ github.repository }}/releases/${RELEASE_ID}")
+        REMOTE_NAMES=$(echo "$REL" | jq -r '.assets[] | select(.name != "SHA256SUMS") | .name' | sort)
+        LOCAL_NAMES=$(cd release-assets && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort)
+        [[ "$REMOTE_NAMES" == "$LOCAL_NAMES" ]] || { echo "::error::conflict: draft ${TAG} for this SHA has already committed to Hackage but its asset set no longer matches expected -- refusing to repair a post-commit draft"; exit 1; }
+        cd release-assets
+        for f in *; do
+          EXPECTED_DIGEST=$(sha256sum "$f" | cut -d' ' -f1)
+          EXPECTED_SIZE=$(stat -c%s "$f")
+          ASSET=$(echo "$REL" | jq -c --arg n "$f" '.assets[] | select(.name == $n)')
+          ACTUAL_DIGEST=$(echo "$ASSET" | jq -r '.digest' | sed 's/^sha256://')
+          ACTUAL_SIZE=$(echo "$ASSET" | jq -r '.size')
+          [[ "$ACTUAL_DIGEST" == "$EXPECTED_DIGEST" && "$ACTUAL_SIZE" == "$EXPECTED_SIZE" ]] || { echo "::error::conflict: draft ${TAG} asset $f no longer matches after Hackage commit -- refusing to repair"; exit 1; }
+        done
+        echo "Draft already matches this run's content post-commit; proceeding straight to Finalize."
+
+    # ABSENT/DRAFT_ABSENT: still pre-Hackage, so it's safe to reconcile.
+    # Either the existing draft's asset set already matches exactly
+    # (accepted as-is), or the whole same-SHA draft is deleted and
+    # recreated fresh -- never an incremental per-asset patch.
+    #
+    # Uses RELEASE_FINALIZE_TOKEN, not the default GITHUB_TOKEN: GitHub
+    # requires 'workflow' scope to create a release whose target commit's
+    # tree differs from the default branch under .github/workflows/* --
+    # confirmed for real (see the Finalize step's comment below for the
+    # test and its result). A SHA-pinned draft can easily hit this once
+    # master has moved on. The default token can never carry that scope.
+    - name: 🏗 Stage — create, or accept/recreate a same-SHA draft
+      if: env.ALREADY_PUBLISHED != 'true' && (env.STATE == 'ABSENT' || env.STATE == 'DRAFT_ABSENT')
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_FINALIZE_TOKEN }}
+      run: |
+        NEEDS_FRESH_DRAFT=true
+        if [[ "$STATE" == "DRAFT_ABSENT" ]]; then
+          REL=$(gh api "repos/${{ github.repository }}/releases/${RELEASE_ID}")
+          REMOTE_NAMES=$(echo "$REL" | jq -r '.assets[] | select(.name != "SHA256SUMS") | .name' | sort)
+          LOCAL_NAMES=$(cd release-assets && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort)
+          if [[ "$REMOTE_NAMES" == "$LOCAL_NAMES" ]]; then
+            MISMATCH=false
+            for f in release-assets/*; do
+              name=$(basename "$f")
+              EXPECTED_DIGEST=$(sha256sum "$f" | cut -d' ' -f1)
+              EXPECTED_SIZE=$(stat -c%s "$f")
+              ASSET=$(echo "$REL" | jq -c --arg n "$name" '.assets[] | select(.name == $n)')
+              ACTUAL_DIGEST=$(echo "$ASSET" | jq -r '.digest' | sed 's/^sha256://')
+              ACTUAL_SIZE=$(echo "$ASSET" | jq -r '.size')
+              [[ "$ACTUAL_DIGEST" == "$EXPECTED_DIGEST" && "$ACTUAL_SIZE" == "$EXPECTED_SIZE" ]] || MISMATCH=true
+            done
+            if [[ "$MISMATCH" == "false" ]]; then
+              echo "Existing draft ${TAG} for this SHA already matches exactly; accepting as-is."
+              NEEDS_FRESH_DRAFT=false
+            fi
+          fi
+          if [[ "$NEEDS_FRESH_DRAFT" == "true" ]]; then
+            echo "Existing draft ${TAG} for this SHA doesn't match exactly; deleting and recreating (safe pre-Hackage)."
+            # Addressed by the already-verified release ID, not the tag,
+            # so this can never race onto a differently created release
+            # that happens to share the tag name.
+            gh api -X DELETE "repos/${{ github.repository }}/releases/${RELEASE_ID}"
+          fi
+        fi
+
+        if [[ "$NEEDS_FRESH_DRAFT" == "true" ]]; then
+          # Created and uploaded to via the raw REST API, capturing and
+          # reusing the returned release ID throughout -- never
+          # tag-addressed. 'gh release create'/'upload <tag>' both
+          # re-resolve the tag internally, leaving a window (between
+          # create and upload, or between upload and the next step's
+          # lookup) where a replacement release sharing this tag could
+          # silently receive the upload instead of the one just created.
+          CREATED=$(gh api "repos/${{ github.repository }}/releases" -X POST \
+            -f tag_name="$TAG" -f target_commitish="${{ github.sha }}" -f name="$TAG" \
+            -F draft=true -F generate_release_notes=true)
+          RELEASE_ID=$(echo "$CREATED" | jq -r '.id')
+          UPLOAD_URL=$(echo "$CREATED" | jq -r '.upload_url' | sed 's/{?name,label}//')
+          echo "RELEASE_ID=${RELEASE_ID}" >> "$GITHUB_ENV"
+
+          cd release-assets
+          for f in *; do
+            curl -sL -f -X POST \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@${f}" \
+              "${UPLOAD_URL}?name=${f}" -o /dev/null
+            echo "uploaded ${f} to release ${RELEASE_ID}"
+          done
+        fi
+
+    # RELEASE_ID is already correct here -- either propagated by the
+    # previous step's fresh 'gh api POST' response, or (when that step
+    # accepted an existing draft as-is) unchanged from Inspect. No tag
+    # lookup needed.
+    - name: 🔍 Verify staged draft — target, exact asset set, digests
+      if: env.ALREADY_PUBLISHED != 'true' && (env.STATE == 'ABSENT' || env.STATE == 'DRAFT_ABSENT')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        REL=$(gh api "repos/${{ github.repository }}/releases/${RELEASE_ID}")
+
+        TARGET=$(echo "$REL" | jq -r '.target_commitish')
+        [[ "$TARGET" == "${{ github.sha }}" ]] || { echo "::error::draft target ${TARGET} != ${{ github.sha }}"; exit 1; }
+
+        REMOTE_NAMES=$(echo "$REL" | jq -r '.assets[] | select(.name != "SHA256SUMS") | .name' | sort)
+        LOCAL_NAMES=$(cd release-assets && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort)
+        [[ "$REMOTE_NAMES" == "$LOCAL_NAMES" ]] || { echo "::error::staged draft asset set doesn't exactly match expected"; exit 1; }
+
+        cd release-assets
+        COUNT=0
+        for f in *; do
+          EXPECTED_DIGEST=$(sha256sum "$f" | cut -d' ' -f1)
+          EXPECTED_SIZE=$(stat -c%s "$f")
+          ASSET=$(echo "$REL" | jq -c --arg n "$f" '.assets[] | select(.name == $n)')
+          ACTUAL_DIGEST=$(echo "$ASSET" | jq -r '.digest' | sed 's/^sha256://')
+          ACTUAL_SIZE=$(echo "$ASSET" | jq -r '.size')
+          [[ "$ACTUAL_DIGEST" == "$EXPECTED_DIGEST" ]] || { echo "::error::asset $f digest mismatch: expected $EXPECTED_DIGEST, got $ACTUAL_DIGEST"; exit 1; }
+          [[ "$ACTUAL_SIZE" == "$EXPECTED_SIZE" ]] || { echo "::error::asset $f size mismatch: expected $EXPECTED_SIZE, got $ACTUAL_SIZE"; exit 1; }
+          COUNT=$((COUNT + 1))
+        done
+        echo "Draft verified: correct target and ${COUNT} assets with matching digests and sizes."
+        echo "STAGE_VERIFIED=true" >> "$GITHUB_ENV"
+
+    # Publish Hackage: the commit point. Not reached for DRAFT_MATCHING
+    # (already committed on an earlier attempt). Check-first so a rerun
+    # repeats the same flow with no separate branches for upload errors
+    # or duplicate-version responses; upload and verification live across
+    # steps joined by 'if: always()' so a failed upload's exit code never
+    # silently skips the poll-and-verify that observes the real outcome.
+    - name: 🚀 Publish to Hackage (check-first, guarded)
+      if: env.ALREADY_PUBLISHED != 'true' && env.STATE != 'DRAFT_MATCHING' && github.repository == 'agda/agda-language-server'
+      env:
+        HACKAGE_API_KEY: ${{ secrets.HACKAGE_API_KEY }}
+      run: |
+        set +e
+        HTTP_CODE=$(curl -sL -o /tmp/current-hackage.tar.gz -w '%{http_code}' \
+          "https://hackage.haskell.org/package/agda-language-server-${VERSION}/agda-language-server-${VERSION}.tar.gz")
+        if [[ "$HTTP_CODE" == "200" ]]; then
+          CURRENT_DIGEST=$(sha256sum /tmp/current-hackage.tar.gz | cut -d' ' -f1)
+          if [[ "$CURRENT_DIGEST" == "$SDIST_DIGEST" ]]; then
+            echo "Hackage already has the matching tarball for ${VERSION}; nothing to upload."
+            exit 0
+          fi
+          echo "::error::Hackage has a ${VERSION} tarball that doesn't match this run's sdist; refusing to upload"
+          exit 1
+        elif [[ "$HTTP_CODE" != "404" ]]; then
+          echo "::error::unexpected Hackage response ${HTTP_CODE}; refusing to upload"
+          exit 1
+        fi
+
+        # Exit status intentionally ignored: the next step (marked
+        # 'always()') is the real success signal, verifying via Hackage's
+        # own digest rather than trusting this call's own exit code.
+        cabal upload --publish --token="${HACKAGE_API_KEY}" "$SDIST_PATH"
+        exit 0
+
+    # No repository guard here (unlike the actual upload step above): this
+    # step only reads the public Hackage endpoint, so it must stay
+    # reachable on a fork with the job-level gate widened for testing --
+    # that's what lets a fork run observe "staged, then correctly failed
+    # here because the guarded upload step never ran", the scenario the
+    # plan's fork-testing section exercises.
+    #
+    # env.STAGE_VERIFIED == 'true' is required, not just the two negative
+    # checks below: those are also (falsely) satisfied when ALREADY_PUBLISHED
+    # and STATE are simply unset, e.g. because Inspect rejected a conflict
+    # before Stage ever ran. Without a positive marker that staging actually
+    # completed, 'always()' makes this step run after *any* earlier failure,
+    # not just an upload failure, and report a misleading "could not verify
+    # after upload" when no upload was ever attempted.
+    - name: 🔍 Verify Hackage publish (runs even if upload failed)
+      if: env.ALREADY_PUBLISHED != 'true' && env.STATE != 'DRAFT_MATCHING' && env.STAGE_VERIFIED == 'true' && always()
+      run: |
+        HACKAGE_PUBLISHED=false
+        for _ in $(seq 1 10); do
+          # A transport failure (DNS, connection, TLS) makes curl itself
+          # exit nonzero, which would otherwise kill this step outright
+          # under Actions' 'bash -e' -- fall back to a sentinel so it's
+          # retried like any other non-200 response instead.
+          HTTP_CODE=$(curl -sL -o /tmp/verify-hackage.tar.gz -w '%{http_code}' \
+            "https://hackage.haskell.org/package/agda-language-server-${VERSION}/agda-language-server-${VERSION}.tar.gz" || echo "000")
+          if [[ "$HTTP_CODE" == "200" ]]; then
+            ACTUAL_DIGEST=$(sha256sum /tmp/verify-hackage.tar.gz | cut -d' ' -f1)
+            if [[ "$ACTUAL_DIGEST" == "$SDIST_DIGEST" ]]; then
+              HACKAGE_PUBLISHED=true
+              break
+            fi
+          fi
+          sleep 30
+        done
+        if [[ "$HACKAGE_PUBLISHED" != "true" ]]; then
+          echo "::error::could not verify the Hackage tarball for ${VERSION} after upload"
+          exit 1
+        fi
+        echo "HACKAGE_VERIFIED=true" >> "$GITHUB_ENV"
+
+    # Finalize: addressed by release ID throughout -- including the
+    # publish mutation itself, via the raw API rather than a tag-addressed
+    # 'gh release edit', so this can never race onto a release that
+    # replaced the one already verified above. Re-verify, then publish.
+    # Only reached once Hackage is confirmed (or was already
+    # DRAFT_MATCHING), so a draft is never repaired/replaced past this
+    # point. No repository guard: by the time this step could run, either
+    # ALREADY_PUBLISHED short-circuited, DRAFT_MATCHING already verified
+    # a prior real commit, or the guarded upload step above already
+    # prevented Hackage verification from succeeding on a fork -- this
+    # step performing a GitHub-only mutation adds no additional risk.
+    #
+    # Uses RELEASE_FINALIZE_TOKEN, not the default GITHUB_TOKEN. GitHub
+    # requires 'workflow' scope to CREATE a release whose target commit
+    # modifies .github/workflows/* relative to the default branch --
+    # confirmed for real (fork test against commit 27ae5031: default
+    # token failed Create with 403, RELEASE_FINALIZE_TOKEN succeeded).
+    # That same test found the restriction does NOT reapply to a
+    # subsequent Finalize PATCH on a release already created at that
+    # commit -- the default token successfully un-drafted it. So this
+    # token is kept here defensively (harmless, keeps both mutating
+    # steps consistent), not because Finalize itself was shown to need
+    # it -- only Create was. Untested: whether that holds after a longer
+    # gap where master has advanced further between Create and Finalize.
+    - name: 🏁 Finalize — publish the draft release
+      if: env.ALREADY_PUBLISHED != 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_FINALIZE_TOKEN }}
+      run: |
+        REL=$(gh api "repos/${{ github.repository }}/releases/${RELEASE_ID}")
+        TARGET=$(echo "$REL" | jq -r '.target_commitish')
+        [[ "$TARGET" == "${{ github.sha }}" ]] || { echo "::error::final target check failed: ${TARGET} != ${{ github.sha }}"; exit 1; }
+
+        REMOTE_NAMES=$(echo "$REL" | jq -r '.assets[] | select(.name != "SHA256SUMS") | .name' | sort)
+        LOCAL_NAMES=$(cd release-assets && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort)
+        [[ "$REMOTE_NAMES" == "$LOCAL_NAMES" ]] || { echo "::error::final asset-set check failed"; exit 1; }
+
+        cd release-assets
+        for f in *; do
+          EXPECTED_DIGEST=$(sha256sum "$f" | cut -d' ' -f1)
+          EXPECTED_SIZE=$(stat -c%s "$f")
+          ASSET=$(echo "$REL" | jq -c --arg n "$f" '.assets[] | select(.name == $n)')
+          ACTUAL_DIGEST=$(echo "$ASSET" | jq -r '.digest' | sed 's/^sha256://')
+          ACTUAL_SIZE=$(echo "$ASSET" | jq -r '.size')
+          [[ "$ACTUAL_DIGEST" == "$EXPECTED_DIGEST" ]] || { echo "::error::final asset check failed for $f (digest)"; exit 1; }
+          [[ "$ACTUAL_SIZE" == "$EXPECTED_SIZE" ]] || { echo "::error::final asset check failed for $f (size)"; exit 1; }
+        done
+        cd ..
+
+        gh api -X PATCH "repos/${{ github.repository }}/releases/${RELEASE_ID}" -F draft=false >/dev/null
+
+        RESOLVED=$(gh api "repos/${{ github.repository }}/git/refs/tags/${TAG}" --jq '.object.sha')
+        [[ "$RESOLVED" == "${{ github.sha }}" ]] || { echo "::error::tag ${TAG} resolves to ${RESOLVED}, not ${{ github.sha }}"; exit 1; }
+
+        PUBLISHED=$(gh api "repos/${{ github.repository }}/releases/${RELEASE_ID}" --jq '.draft == false')
+        [[ "$PUBLISHED" == "true" ]] || { echo "::error::release ${TAG} did not end up published"; exit 1; }
+
+        echo "Release ${TAG} published at ${{ github.sha }}."
