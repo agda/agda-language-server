@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v8 - 2026-09-22
+
+### Added
+- Automated release pipeline: `publish-release` now publishes each version to GitHub and Hackage automatically on every `master` push, replacing the previous manual tag push and manual Hackage `workflow_dispatch`.
+- #6: Bundle ICU libraries into the Linux release artifact, and run Smoke tests (`als --version`, non-ASCII LSP load) against the packaged release artifact on every platform.
+
+### Changed
+- Consolidate `create-release`, `upload-stable-release`, and `upload-dev-release` into a single `publish-dev` job.
+- `agda-language-server.cabal` is no longer committed; it is generated from `package.yaml` by `hpack` on every build.
+- Derive the reported language server version from `package.yaml` instead of a separately hardcoded constant, and add a test guarding against future drift.
+- Increase release-artifact retention from 1 day to 7.
+- Various CI caching correctness fixes across the native and WASM toolchains.
+
+### Fixed
+- #56: Fix `als --version` reporting the wrong language server version by [@chenrui333](https://github.com/chenrui333).
+
 ## v7 - 2026-09-16
 
 ### Added
