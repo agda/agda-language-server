@@ -8,7 +8,7 @@ import Server (run)
 import System.Console.GetOpt
 import System.Directory (doesDirectoryExist)
 import System.Environment
-import System.FilePath ((</>))
+import System.FilePath (takeDirectory, (</>))
 import System.IO
 import Text.Read (readMaybe)
 
@@ -26,14 +26,14 @@ main = do
 
 -- getExecutablePath returns argv[0] in WASM, which is useless
 #ifndef wasm32_HOST_ARCH
-  -- The GitHub CI-built executable lacks the correct data directory path.
-  -- If there's directory named "data" in the executable's directory,
-  -- then we assume that the executable is built by GitHub CI
-  -- and we should set the $Agda_datadir environment variable to the correct directory.
+  -- A release bundle ships a "data" directory next to the executable
+  -- (not inside a directory named after it). If that sibling directory
+  -- exists, point $Agda_datadir at it instead of Agda's compiled-in
+  -- builder path.
   executablePath <- getExecutablePath
-  let dataDir = executablePath </> "data"
-  isBuiltByCI <- doesDirectoryExist dataDir
-  when isBuiltByCI $ do
+  let dataDir = takeDirectory executablePath </> "data"
+  hasBundledDataDir <- doesDirectoryExist dataDir
+  when hasBundledDataDir $ do
     setEnv "Agda_datadir" dataDir
 #endif
 
