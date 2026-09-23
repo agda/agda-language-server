@@ -518,35 +518,125 @@ jobs:
         mv zip/"$($env:ARTEFACT).zip" .
   
     - name: 🧪 Run tests
-      run: |
-        stack test $STACK_YAML_ARG
-
-        # Re-run the Smoke tests against the zipped release artifact,
-        # not the in-place build, to catch packaging bugs like #6.
-        rm -rf release
-        mkdir release
-        unzip -o -q "$ARTEFACT.zip" -d release
-        als="$PWD/release/als"
-        [[ "${{ runner.os }}" == "Windows" ]] && als="$PWD/release/als.exe"
-
-        test_bin="$(stack path $STACK_YAML_ARG --dist-dir)/build/als-test/als-test"
-        [[ "${{ runner.os }}" == "Windows" ]] && test_bin="${test_bin}.exe"
-        "$test_bin" --als-path="$als" --pattern Smoke
-
-        if [[ "${{ runner.os }}" == "Linux" ]]; then
-          # Verify the fix for #6: the bundled ICU libs let 'als' run
-          # even when the system's ICU is hidden.
-          bash .github/scripts/check-artifact-runs.sh "$als" --hide-icu
-        fi
+      run: stack test $STACK_YAML_ARG
 
     - name: 📤 Upload native artifact
-      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.ARTEFACT }}
         path: ${{ env.ARTEFACT }}.zip
         if-no-files-found: error
         retention-days: 7
+
+  # Consumes a native ZIP produced by build-and-test above, on a runner
+  # with no Haskell/Stack setup and no Haskell cache restore, so a pass
+  # here can't be explained by a leftover Stack snapshot or compiled-in
+  # builder path -- only by the packaged executable finding its own
+  # bundled Agda data directory (#30). Source-level unit/integration
+  # tests stay on build-and-test; only packaged-artifact acceptance
+  # checks live here.
+  test-native-artifact:
+    name: Test Native Artifact (fresh runner)
+    needs: build-and-test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest, macos-15-intel]
+        agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
+        # Must mirror build-and-test's matrix and PR exclusions, and the
+        # artifact-name computation below must mirror its "Determine
+        # which version of Agda to target" step, exactly -- otherwise
+        # this job downloads the wrong artifact or misses one entirely.
+        # Keep both in sync by hand; there is no single source of truth
+        # to derive them from.
+        exclude:
+          - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
+            agda: 'Agda-2.7.0.1'
+          - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
+            agda: 'Agda-2.6.4.3'
+      fail-fast: false
+    steps:
+
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: 🎛️ Determine expected artifact name
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+          PREFIX="als-dev"
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          PREFIX="als-${{ github.ref_name }}"
+        else
+          PREFIX="als"
+        fi
+
+        if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
+          ARTEFACT="$PREFIX-${{ matrix.agda }}-ubuntu"
+        fi
+        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
+          ARTEFACT="$PREFIX-${{ matrix.agda }}-macos-arm64"
+        fi
+        if [[ ${{ matrix.os }} == "macos-15-intel" ]]; then
+          ARTEFACT="$PREFIX-${{ matrix.agda }}-macos-x64"
+        fi
+        if [[ ${{ matrix.os }} == "windows-latest" ]]; then
+          ARTEFACT="$PREFIX-${{ matrix.agda }}-windows"
+        fi
+
+        echo ARTEFACT="${ARTEFACT}" >> "${GITHUB_ENV}"
+
+    - name: 📥 Download native artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ env.ARTEFACT }}
+        path: download
+
+    - name: 📦 Extract release archive
+      run: |
+        mkdir -p release
+        python -m zipfile -e "download/${ARTEFACT}.zip" release/
+
+        if [[ "${{ runner.os }}" != "Windows" ]]; then
+          # zipfile doesn't preserve the Unix executable bit.
+          chmod +x release/als
+        fi
+
+    - name: 🔍 Verify archive layout
+      run: |
+        als="release/als"
+        [[ "${{ runner.os }}" == "Windows" ]] && als="release/als.exe"
+
+        [[ -f "$als" ]] || { echo "::error::missing $als in extracted archive"; exit 1; }
+        [[ -d "release/data/lib" ]] || { echo "::error::missing release/data/lib in extracted archive"; exit 1; }
+
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          [[ -d "release/dylib" ]] || { echo "::error::missing release/dylib in extracted archive"; exit 1; }
+        fi
+        if [[ "${{ runner.os }}" == "Linux" ]]; then
+          [[ -d "release/lib" ]] || { echo "::error::missing release/lib in extracted archive"; exit 1; }
+        fi
+
+    - name: 🧪 Check the packaged executable starts (Linux, hidden system ICU)
+      if: runner.os == 'Linux'
+      run: bash .github/scripts/check-artifact-runs.sh release/als --hide-icu
+
+    - name: 🧪 Check the packaged executable starts
+      if: runner.os != 'Linux'
+      run: |
+        als="release/als"
+        [[ "${{ runner.os }}" == "Windows" ]] && als="release/als.exe"
+        bash .github/scripts/check-artifact-runs.sh "$als"
+
+    - name: 🧪 Check a completed Cmd_load on the packaged executable
+      run: |
+        als="release/als"
+        [[ "${{ runner.os }}" == "Windows" ]] && als="release/als.exe"
+        python .github/scripts/check-artifact-lsp.py "$als" test/data/Unicode.agda
 
   build-wasm:
     name: Build WASM
@@ -886,7 +976,7 @@ jobs:
 
   publish-dev:
     name: Publish Dev Release
-    needs: [check-cabal-drift, build-and-test, build-wasm]
+    needs: [check-cabal-drift, build-and-test, test-native-artifact, build-wasm]
     if: always() && !cancelled() && !contains(needs.*.result, 'failure') && github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
@@ -943,7 +1033,7 @@ jobs:
 
   publish-release:
     name: Publish Release
-    needs: [check-cabal-drift, build-and-test, build-wasm]
+    needs: [check-cabal-drift, build-and-test, test-native-artifact, build-wasm]
     if: >
       always() && !cancelled() && !contains(needs.*.result, 'failure') &&
       github.ref == 'refs/heads/master' && github.event_name == 'push' &&
