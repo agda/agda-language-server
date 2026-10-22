@@ -44,9 +44,9 @@ testVersion alsPath = do
           ++ "\nstderr: " ++ err
 
 -- | Opens a fixture with non-ASCII identifiers, hovers over a real
--- symbol (mirrors Test.LSP's "load" test; a position with no symbol
--- under it, e.g. (0,0), never gets a response at all), then asks the
--- server to load it via the custom agda-mode protocol. If the process
+-- symbol (mirrors Test.LSP's "load" test; the LSP suite separately checks that
+-- a whitespace position gets a null hover response), then asks the server to
+-- load it via the custom agda-mode protocol. If the process
 -- can't even start (e.g. the dynamic-linking failure in #6), 'runSession'
 -- itself throws before either request below is reached.
 --

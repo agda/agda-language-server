@@ -36,6 +36,13 @@ demo alsPath = do
         end @?= Position 3 9
       _ -> liftIO $ assertFailure "Unexpected response"
 
+    -- A hover request on whitespace must still receive the protocol's no-result response.
+    TResponseMessage _ _ noSymbolRsp <-
+      request SMethod_TextDocumentHover (HoverParams doc (Position 1 0) Nothing)
+    case noSymbolRsp of
+      Right (InR Null) -> pure ()
+      _ -> liftIO $ assertFailure "Expected a null hover response on whitespace"
+
     -- agda-mode:load
     testCustomMethod "IOTCM \"test/data/A.agdaa\" NonInteractive Direct( Cmd_load \"test/data/A.agda\" [] )"
 
