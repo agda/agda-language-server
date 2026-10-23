@@ -509,6 +509,11 @@ jobs:
         cp (ls $mingw64bin *libicudt*) zip/
         cp (ls $mingw64bin *libicuin*) zip/
         cp (ls $mingw64bin *libicuuc*) zip/
+        # ICU imports these MinGW runtimes. Take them from ICU's own
+        # directory, so the bundled copies match the ICU they serve.
+        foreach ($runtime in @('libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll')) {
+          cp (Join-Path $mingw64bin $runtime) zip/ -ErrorAction Stop
+        }
         ls zip
 
         # compress
