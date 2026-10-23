@@ -638,6 +638,25 @@ jobs:
       if: runner.os == 'Windows'
       run: python .github/scripts/check-artifact-lsp.py release/als.exe test/data/Unicode.agda --startup-only
 
+    - name: 🧪 Check removing each bundled runtime DLL fails startup (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Shows the startup check above would catch any one of these
+        # runtimes going missing from the archive again.
+        $stash = New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/als-runtime-control" -Force
+        foreach ($runtime in @('libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll')) {
+          $source = Join-Path 'release' $runtime
+          $hidden = Join-Path $stash.FullName $runtime
+          Move-Item $source $hidden -ErrorAction Stop
+          try {
+            python .github/scripts/check-artifact-lsp.py release/als.exe test/data/Unicode.agda --startup-only --expect-missing-dll
+            if ($LASTEXITCODE -ne 0) { throw "removing $runtime did not fail startup with STATUS_DLL_NOT_FOUND" }
+          } finally {
+            Move-Item $hidden $source
+          }
+        }
+
     - name: 🧪 Check a completed Cmd_load on the packaged executable
       run: |
         als="release/als"
