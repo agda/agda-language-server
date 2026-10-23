@@ -8,7 +8,7 @@ packaging bugs where 'als' silently falls back to a data directory that
 only exists on the machine that built it (#30).
 
 Usage:
-  check-artifact-lsp.py <path-to-als> <path-to-fixture.agda> [--timeout SECONDS] [--startup-only [--expect-missing-dll]]
+  check-artifact-lsp.py <path-to-als> <path-to-fixture.agda> [--timeout SECONDS] [--startup-only [--expect-missing-library]]
 
 On Windows, the server runs with a PATH of only the Windows system
 directories, so any DLL missing from the archive fails the check.
@@ -38,6 +38,8 @@ STATUS_DLL_NOT_FOUND = 0xC0000135
 # What DYLD_PRINT_LIBRARIES prints for each loaded image:
 #   dyld[1234]: <UUID> /usr/lib/libSystem.B.dylib
 DYLD_LOADED_LINE = re.compile(r"^dyld\[\d+\]: <[0-9A-Fa-f-]+> (.+)$", re.MULTILINE)
+# What dyld prints, before aborting, when a needed image is missing.
+DYLD_NOT_LOADED_LINE = re.compile(r"^dyld\[\d+\]: (Library not loaded: .*)$", re.MULTILINE)
 # All of dyld's logging, which is kept out of the logged stderr.
 DYLD_ANY_LINE = re.compile(r"^dyld\[\d+\]: .*\n?", re.MULTILINE)
 MACOS_SYSTEM_PREFIXES = ("/usr/lib/", "/System/")
@@ -195,7 +197,7 @@ class Probe:
         finally:
             self.stop_event.set()
 
-    def run_startup_only(self, expect_missing_dll=False):
+    def run_startup_only(self, expect_missing_library=False):
         self.check_layout()
         run_dir = tempfile.mkdtemp(prefix="als-artifact-startup-")
         log("starting %s --version in %s" % (self.als_path, run_dir))
@@ -212,15 +214,21 @@ class Probe:
         )
         stderr = result.stderr
         loaded = []
+        not_loaded = []
         if sys.platform == "darwin":
             loaded = [m.group(1) for m in DYLD_LOADED_LINE.finditer(stderr)]
+            not_loaded = DYLD_NOT_LOADED_LINE.findall(stderr)
             stderr = DYLD_ANY_LINE.sub("", stderr)
         log("startup exit: %s (0x%08X)" % (result.returncode, result.returncode & 0xFFFFFFFF))
         log("stdout: %s" % result.stdout)
         log("stderr: %s" % stderr)
-        if expect_missing_dll:
-            if result.returncode & 0xFFFFFFFF != STATUS_DLL_NOT_FOUND:
+        for line in not_loaded:
+            log("dyld: %s" % line)
+        if expect_missing_library:
+            if sys.platform == "win32" and result.returncode & 0xFFFFFFFF != STATUS_DLL_NOT_FOUND:
                 raise ProbeFailure("expected STATUS_DLL_NOT_FOUND (0x%08X)" % STATUS_DLL_NOT_FOUND)
+            if sys.platform == "darwin" and (result.returncode == 0 or not not_loaded):
+                raise ProbeFailure("expected dyld to fail with 'Library not loaded'")
             return
         if result.returncode != 0:
             raise ProbeFailure("packaged executable failed to start")
@@ -487,20 +495,20 @@ def main():
         "--startup-only", action="store_true", help="only check that 'als --version' exits 0, without LSP"
     )
     parser.add_argument(
-        "--expect-missing-dll",
+        "--expect-missing-library",
         action="store_true",
-        help="with --startup-only on Windows: require exit STATUS_DLL_NOT_FOUND instead of 0",
+        help="with --startup-only on Windows or macOS: require the loader to fail on a missing library",
     )
     args = parser.parse_args()
-    if args.expect_missing_dll and (not args.startup_only or sys.platform != "win32"):
-        parser.error("--expect-missing-dll requires --startup-only on Windows")
+    if args.expect_missing_library and (not args.startup_only or sys.platform not in ("win32", "darwin")):
+        parser.error("--expect-missing-library requires --startup-only on Windows or macOS")
 
     probe = Probe(args.als_path, args.fixture_path, args.timeout)
     try:
         if args.startup_only:
-            probe.run_startup_only(args.expect_missing_dll)
-            if args.expect_missing_dll:
-                log("PASS: %s failed to start with STATUS_DLL_NOT_FOUND" % args.als_path)
+            probe.run_startup_only(args.expect_missing_library)
+            if args.expect_missing_library:
+                log("PASS: %s failed to start on a missing library" % args.als_path)
             else:
                 log("PASS: %s started" % args.als_path)
             sys.exit(0)
