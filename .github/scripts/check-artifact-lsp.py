@@ -12,6 +12,9 @@ Usage:
 
 On Windows, the server runs with a PATH of only the Windows system
 directories, so any DLL missing from the archive fails the check.
+On macOS, dyld's fallback search is limited to /usr/lib, and
+--startup-only fails if any image loads from outside the archive,
+/usr/lib or /System.
 
 Uses only the Python standard library. Does not import project code or
 invoke GHC, Cabal, Stack, or the Haskell test executable.
@@ -21,6 +24,7 @@ import argparse
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import tempfile
@@ -30,6 +34,12 @@ from pathlib import Path
 
 DEFAULT_TIMEOUT = 120.0
 STATUS_DLL_NOT_FOUND = 0xC0000135
+# What DYLD_PRINT_LIBRARIES prints for each loaded image:
+#   dyld[1234]: <UUID> /usr/lib/libSystem.B.dylib
+DYLD_LOADED_LINE = re.compile(r"^dyld\[\d+\]: <[0-9A-Fa-f-]+> (.+)$", re.MULTILINE)
+# All of dyld's logging, which is kept out of the logged stderr.
+DYLD_ANY_LINE = re.compile(r"^dyld\[\d+\]: .*\n?", re.MULTILINE)
+MACOS_SYSTEM_PREFIXES = ("/usr/lib/", "/System/")
 
 
 class ProbeFailure(Exception):
@@ -184,23 +194,52 @@ class Probe:
         self.check_layout()
         run_dir = tempfile.mkdtemp(prefix="als-artifact-startup-")
         log("starting %s --version in %s" % (self.als_path, run_dir))
+        env = self.build_env()
+        if sys.platform == "darwin":
+            env["DYLD_PRINT_LIBRARIES"] = "1"
         result = subprocess.run(
             [self.als_path, "--version"],
-            env=self.build_env(),
+            env=env,
             cwd=run_dir,
             capture_output=True,
             text=True,
             timeout=self.remaining(),
         )
+        stderr = result.stderr
+        loaded = []
+        if sys.platform == "darwin":
+            loaded = [m.group(1) for m in DYLD_LOADED_LINE.finditer(stderr)]
+            stderr = DYLD_ANY_LINE.sub("", stderr)
         log("startup exit: %s (0x%08X)" % (result.returncode, result.returncode & 0xFFFFFFFF))
         log("stdout: %s" % result.stdout)
-        log("stderr: %s" % result.stderr)
+        log("stderr: %s" % stderr)
         if expect_missing_dll:
             if result.returncode & 0xFFFFFFFF != STATUS_DLL_NOT_FOUND:
                 raise ProbeFailure("expected STATUS_DLL_NOT_FOUND (0x%08X)" % STATUS_DLL_NOT_FOUND)
             return
         if result.returncode != 0:
             raise ProbeFailure("packaged executable failed to start")
+        if sys.platform == "darwin":
+            self.check_loaded_images(loaded)
+
+    def check_loaded_images(self, loaded):
+        # Every image dyld loaded must come from the archive or the OS.
+        # Anything else (say, Homebrew's ICU) would be missing on a user's
+        # machine.
+        if not loaded:
+            raise ProbeFailure("DYLD_PRINT_LIBRARIES reported no loaded images")
+        release_dir = os.path.realpath(os.path.dirname(self.als_path)) + os.sep
+        outside = [
+            path
+            for path in loaded
+            if not os.path.realpath(path).startswith(release_dir)
+            and not path.startswith(MACOS_SYSTEM_PREFIXES)
+        ]
+        log("dyld loaded %d images" % len(loaded))
+        if outside:
+            for path in outside:
+                log("loaded from outside the archive and the OS: %s" % path)
+            raise ProbeFailure("packaged executable loaded %d image(s) from outside the archive" % len(outside))
 
     def check_layout(self):
         als_abs = os.path.abspath(self.als_path)
@@ -244,6 +283,14 @@ class Probe:
             windows = os.environ["SystemRoot"]
             env["PATH"] = os.pathsep.join([os.path.join(windows, "System32"), windows])
             log("server PATH: %s" % env["PATH"])
+        if sys.platform == "darwin":
+            # Drop inherited dyld settings, and keep dyld's fallback search
+            # off /usr/local/lib (Homebrew's prefix on Intel Macs), so that
+            # Homebrew cannot stand in for a dylib missing from the archive.
+            for k in list(env.keys()):
+                if k.startswith("DYLD_"):
+                    del env[k]
+            env["DYLD_FALLBACK_LIBRARY_PATH"] = "/usr/lib"
         agda_dir = tempfile.mkdtemp(prefix="als-artifact-probe-agda-dir-")
         env["AGDA_DIR"] = agda_dir
         return env
