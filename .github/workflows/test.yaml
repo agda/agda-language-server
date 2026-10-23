@@ -630,6 +630,10 @@ jobs:
       if: runner.os == 'Linux'
       run: bash .github/scripts/check-artifact-runs.sh release/als --hide-icu
 
+    - name: 🧪 Check the packaged executable resolves ICU from the archive (Linux, system ICU visible)
+      if: runner.os == 'Linux'
+      run: python .github/scripts/check-artifact-lsp.py release/als test/data/Unicode.agda --startup-only
+
     - name: 🧪 Check the packaged executable starts (macOS, libraries from the archive or the OS only)
       if: runner.os == 'macOS'
       run: python .github/scripts/check-artifact-lsp.py release/als test/data/Unicode.agda --startup-only

@@ -14,7 +14,8 @@ On Windows, the server runs with a PATH of only the Windows system
 directories, so any DLL missing from the archive fails the check.
 On macOS, dyld's fallback search is limited to /usr/lib, and
 --startup-only fails if any image loads from outside the archive,
-/usr/lib or /System.
+/usr/lib or /System. On Linux, --startup-only fails if any needed
+library is not found, or any ICU library resolves from outside the archive.
 
 Uses only the Python standard library. Does not import project code or
 invoke GHC, Cabal, Stack, or the Haskell test executable.
@@ -40,6 +41,10 @@ DYLD_LOADED_LINE = re.compile(r"^dyld\[\d+\]: <[0-9A-Fa-f-]+> (.+)$", re.MULTILI
 # All of dyld's logging, which is kept out of the logged stderr.
 DYLD_ANY_LINE = re.compile(r"^dyld\[\d+\]: .*\n?", re.MULTILINE)
 MACOS_SYSTEM_PREFIXES = ("/usr/lib/", "/System/")
+# What LD_TRACE_LOADED_OBJECTS prints for each needed library:
+#   	libicuuc.so.70 => /path/to/release/lib/libicuuc.so.70 (0x00007f...)
+#   	libfoo.so.1 => not found
+LD_TRACE_LINE = re.compile(r"^\s*(\S+) => (not found|\S+)", re.MULTILINE)
 
 
 class ProbeFailure(Exception):
@@ -221,6 +226,41 @@ class Probe:
             raise ProbeFailure("packaged executable failed to start")
         if sys.platform == "darwin":
             self.check_loaded_images(loaded)
+        if sys.platform.startswith("linux"):
+            self.check_resolved_icu(env, run_dir)
+
+    def check_resolved_icu(self, env, run_dir):
+        # With LD_TRACE_LOADED_OBJECTS set, the dynamic loader resolves every
+        # needed library (each with its own RUNPATH, as in a real start),
+        # prints where it found it, and exits without running als.
+        result = subprocess.run(
+            [self.als_path],
+            env=dict(env, LD_TRACE_LOADED_OBJECTS="1"),
+            cwd=run_dir,
+            capture_output=True,
+            text=True,
+            timeout=self.remaining(),
+        )
+        resolved = LD_TRACE_LINE.findall(result.stdout)
+        if result.returncode != 0 or not resolved:
+            log("stdout: %s" % result.stdout)
+            log("stderr: %s" % result.stderr)
+            raise ProbeFailure("LD_TRACE_LOADED_OBJECTS run failed (exit %s)" % result.returncode)
+        release_dir = os.path.realpath(os.path.dirname(self.als_path)) + os.sep
+        icu = [(name, path) for name, path in resolved if name.startswith("libicu")]
+        bad = [
+            (name, path)
+            for name, path in resolved
+            if path == "not found" or (name.startswith("libicu") and not os.path.realpath(path).startswith(release_dir))
+        ]
+        for name, path in icu:
+            log("resolved %s => %s" % (name, path))
+        if not icu:
+            raise ProbeFailure("expected the packaged executable to need ICU, but no libicu* was resolved")
+        if bad:
+            for name, path in bad:
+                log("not resolved from the archive: %s => %s" % (name, path))
+            raise ProbeFailure("%d library/libraries not resolved from the archive" % len(bad))
 
     def check_loaded_images(self, loaded):
         # Every image dyld loaded must come from the archive or the OS.
