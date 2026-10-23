@@ -638,6 +638,44 @@ jobs:
       if: runner.os == 'macOS'
       run: python .github/scripts/check-artifact-lsp.py release/als test/data/Unicode.agda --startup-only
 
+    - name: 🧪 Check removing each bundled ICU library fails startup (Linux, hidden system ICU)
+      if: runner.os == 'Linux'
+      run: |
+        # Shows the startup checks above would catch any one of these
+        # libraries going missing from the archive.
+        stash="$RUNNER_TEMP/als-icu-control"
+        mkdir -p "$stash"
+        shopt -s nullglob
+        libs=(release/lib/libicu*)
+        [[ ${#libs[@]} -gt 0 ]] || { echo "::error::no bundled ICU libraries in release/lib"; exit 1; }
+        for lib in "${libs[@]}"; do
+          name=$(basename "$lib")
+          mv "$lib" "$stash/$name"
+          failed_to_start=true
+          bash .github/scripts/check-artifact-runs.sh release/als --hide-icu --expect-failure || failed_to_start=false
+          mv "$stash/$name" "$lib"
+          $failed_to_start || { echo "::error::removing $name did not fail startup"; exit 1; }
+        done
+
+    - name: 🧪 Check removing each bundled ICU library fails startup (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        # Shows the startup check above would catch any one of these
+        # libraries going missing from the archive.
+        stash="$RUNNER_TEMP/als-icu-control"
+        mkdir -p "$stash"
+        shopt -s nullglob
+        libs=(release/dylib/libicu*)
+        [[ ${#libs[@]} -gt 0 ]] || { echo "::error::no bundled ICU libraries in release/dylib"; exit 1; }
+        for lib in "${libs[@]}"; do
+          name=$(basename "$lib")
+          mv "$lib" "$stash/$name"
+          failed_to_start=true
+          python .github/scripts/check-artifact-lsp.py release/als test/data/Unicode.agda --startup-only --expect-missing-library || failed_to_start=false
+          mv "$stash/$name" "$lib"
+          $failed_to_start || { echo "::error::removing $name did not fail startup"; exit 1; }
+        done
+
     - name: 🧪 Check the packaged executable starts (Windows, system-only PATH)
       if: runner.os == 'Windows'
       run: python .github/scripts/check-artifact-lsp.py release/als.exe test/data/Unicode.agda --startup-only
@@ -654,7 +692,7 @@ jobs:
           $hidden = Join-Path $stash.FullName $runtime
           Move-Item $source $hidden -ErrorAction Stop
           try {
-            python .github/scripts/check-artifact-lsp.py release/als.exe test/data/Unicode.agda --startup-only --expect-missing-dll
+            python .github/scripts/check-artifact-lsp.py release/als.exe test/data/Unicode.agda --startup-only --expect-missing-library
             if ($LASTEXITCODE -ne 0) { throw "removing $runtime did not fail startup with STATUS_DLL_NOT_FOUND" }
           } finally {
             Move-Item $hidden $source
