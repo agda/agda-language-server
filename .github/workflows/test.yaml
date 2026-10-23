@@ -625,12 +625,13 @@ jobs:
       if: runner.os == 'Linux'
       run: bash .github/scripts/check-artifact-runs.sh release/als --hide-icu
 
-    - name: 🧪 Check the packaged executable starts
-      if: runner.os != 'Linux'
-      run: |
-        als="release/als"
-        [[ "${{ runner.os }}" == "Windows" ]] && als="release/als.exe"
-        bash .github/scripts/check-artifact-runs.sh "$als"
+    - name: 🧪 Check the packaged executable starts (macOS)
+      if: runner.os == 'macOS'
+      run: bash .github/scripts/check-artifact-runs.sh release/als
+
+    - name: 🧪 Check the packaged executable starts (Windows, system-only PATH)
+      if: runner.os == 'Windows'
+      run: python .github/scripts/check-artifact-lsp.py release/als.exe test/data/Unicode.agda --startup-only
 
     - name: 🧪 Check a completed Cmd_load on the packaged executable
       run: |

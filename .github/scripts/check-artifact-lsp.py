@@ -8,7 +8,10 @@ packaging bugs where 'als' silently falls back to a data directory that
 only exists on the machine that built it (#30).
 
 Usage:
-  check-artifact-lsp.py <path-to-als> <path-to-fixture.agda> [--timeout SECONDS]
+  check-artifact-lsp.py <path-to-als> <path-to-fixture.agda> [--timeout SECONDS] [--startup-only]
+
+On Windows, the server runs with a PATH of only the Windows system
+directories, so any DLL missing from the archive fails the check.
 
 Uses only the Python standard library. Does not import project code or
 invoke GHC, Cabal, Stack, or the Haskell test executable.
@@ -176,6 +179,24 @@ class Probe:
         finally:
             self.stop_event.set()
 
+    def run_startup_only(self):
+        self.check_layout()
+        run_dir = tempfile.mkdtemp(prefix="als-artifact-startup-")
+        log("starting %s --version in %s" % (self.als_path, run_dir))
+        result = subprocess.run(
+            [self.als_path, "--version"],
+            env=self.build_env(),
+            cwd=run_dir,
+            capture_output=True,
+            text=True,
+            timeout=self.remaining(),
+        )
+        log("startup exit: %s (0x%08X)" % (result.returncode, result.returncode & 0xFFFFFFFF))
+        log("stdout: %s" % result.stdout)
+        log("stderr: %s" % result.stderr)
+        if result.returncode != 0:
+            raise ProbeFailure("packaged executable failed to start")
+
     def check_layout(self):
         als_abs = os.path.abspath(self.als_path)
         if not os.path.isfile(als_abs):
@@ -202,6 +223,22 @@ class Probe:
         for k in list(env.keys()):
             if k.lower() == "agda_datadir":
                 del env[k]
+        if sys.platform == "win32":
+            # Restrict only the server's PATH to system directories, so that
+            # DLLs on the runner's PATH cannot stand in for ones missing from
+            # the archive. Python and the rest of CI keep their own PATH.
+            import ctypes
+
+            # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX:
+            # report a missing DLL as an exit code instead of a dialog box.
+            # The child process inherits this mode.
+            ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002 | 0x8000)
+            for k in list(env.keys()):
+                if k.lower() == "path":
+                    del env[k]
+            windows = os.environ["SystemRoot"]
+            env["PATH"] = os.pathsep.join([os.path.join(windows, "System32"), windows])
+            log("server PATH: %s" % env["PATH"])
         agda_dir = tempfile.mkdtemp(prefix="als-artifact-probe-agda-dir-")
         env["AGDA_DIR"] = agda_dir
         return env
@@ -354,10 +391,17 @@ def main():
     parser.add_argument(
         "--timeout", type=float, default=DEFAULT_TIMEOUT, help="timeout in seconds (default: %(default)s)"
     )
+    parser.add_argument(
+        "--startup-only", action="store_true", help="only check that 'als --version' exits 0, without LSP"
+    )
     args = parser.parse_args()
 
     probe = Probe(args.als_path, args.fixture_path, args.timeout)
     try:
+        if args.startup_only:
+            probe.run_startup_only()
+            log("PASS: %s started" % args.als_path)
+            sys.exit(0)
         probe.run()
     except ProbeFailure as e:
         log("FAIL: %s" % e)
