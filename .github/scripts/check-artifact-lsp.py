@@ -8,7 +8,7 @@ packaging bugs where 'als' silently falls back to a data directory that
 only exists on the machine that built it (#30).
 
 Usage:
-  check-artifact-lsp.py <path-to-als> <path-to-fixture.agda> [--timeout SECONDS] [--startup-only]
+  check-artifact-lsp.py <path-to-als> <path-to-fixture.agda> [--timeout SECONDS] [--startup-only [--expect-missing-dll]]
 
 On Windows, the server runs with a PATH of only the Windows system
 directories, so any DLL missing from the archive fails the check.
@@ -29,6 +29,7 @@ import time
 from pathlib import Path
 
 DEFAULT_TIMEOUT = 120.0
+STATUS_DLL_NOT_FOUND = 0xC0000135
 
 
 class ProbeFailure(Exception):
@@ -179,7 +180,7 @@ class Probe:
         finally:
             self.stop_event.set()
 
-    def run_startup_only(self):
+    def run_startup_only(self, expect_missing_dll=False):
         self.check_layout()
         run_dir = tempfile.mkdtemp(prefix="als-artifact-startup-")
         log("starting %s --version in %s" % (self.als_path, run_dir))
@@ -194,6 +195,10 @@ class Probe:
         log("startup exit: %s (0x%08X)" % (result.returncode, result.returncode & 0xFFFFFFFF))
         log("stdout: %s" % result.stdout)
         log("stderr: %s" % result.stderr)
+        if expect_missing_dll:
+            if result.returncode & 0xFFFFFFFF != STATUS_DLL_NOT_FOUND:
+                raise ProbeFailure("expected STATUS_DLL_NOT_FOUND (0x%08X)" % STATUS_DLL_NOT_FOUND)
+            return
         if result.returncode != 0:
             raise ProbeFailure("packaged executable failed to start")
 
@@ -394,13 +399,23 @@ def main():
     parser.add_argument(
         "--startup-only", action="store_true", help="only check that 'als --version' exits 0, without LSP"
     )
+    parser.add_argument(
+        "--expect-missing-dll",
+        action="store_true",
+        help="with --startup-only on Windows: require exit STATUS_DLL_NOT_FOUND instead of 0",
+    )
     args = parser.parse_args()
+    if args.expect_missing_dll and (not args.startup_only or sys.platform != "win32"):
+        parser.error("--expect-missing-dll requires --startup-only on Windows")
 
     probe = Probe(args.als_path, args.fixture_path, args.timeout)
     try:
         if args.startup_only:
-            probe.run_startup_only()
-            log("PASS: %s started" % args.als_path)
+            probe.run_startup_only(args.expect_missing_dll)
+            if args.expect_missing_dll:
+                log("PASS: %s failed to start with STATUS_DLL_NOT_FOUND" % args.als_path)
+            else:
+                log("PASS: %s started" % args.als_path)
             sys.exit(0)
         probe.run()
     except ProbeFailure as e:
