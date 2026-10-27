@@ -12,12 +12,12 @@ Usage:
 
 On Windows, the server runs with a PATH of only the Windows system
 directories, so any DLL missing from the archive fails the check.
-On macOS, dyld's fallback search is limited to /usr/lib, and
---startup-only fails if any image loads from outside the archive,
-/usr/lib or /System. On Linux, --startup-only fails if any needed
-library is not found or resolves from outside the archive, /lib,
-/usr/lib, /lib64 or /usr/lib64, or if any ICU library resolves from
-outside the archive.
+On macOS, dyld's fallback search is limited to /usr/lib, and both
+--startup-only and the completed-load check fail if any image loads
+from outside the archive, /usr/lib or /System. On Linux, --startup-only
+fails if any needed library is not found or resolves from outside the
+archive, /lib, /usr/lib, /lib64 or /usr/lib64, or if any ICU library
+resolves from outside the archive.
 
 Uses only the Python standard library. Does not import project code or
 invoke GHC, Cabal, Stack, or the Haskell test executable.
@@ -114,10 +114,19 @@ def reader_thread(stdout, msg_queue, stop_event):
         msg_queue.put(("error", str(e)))
 
 
-def stderr_thread(stderr, lines, lock):
+def stderr_thread(stderr, lines, lock, loaded_images):
     for raw_line in iter(stderr.readline, b""):
+        line = raw_line.decode("utf-8", "replace").rstrip("\n")
         with lock:
-            lines.append(raw_line.decode("utf-8", "replace").rstrip("\n"))
+            # Keep dyld's per-image logging (hundreds of lines) out of the
+            # bounded stderr buffer, and collect the loaded images instead.
+            loaded = DYLD_LOADED_LINE.match(line)
+            if loaded:
+                loaded_images.append(loaded.group(1))
+                continue
+            if line.startswith("dyld[") and not DYLD_NOT_LOADED_LINE.match(line):
+                continue
+            lines.append(line)
             del lines[:-200]
     try:
         stderr.close()
@@ -134,6 +143,7 @@ class Probe:
         self.msg_queue = queue.Queue()
         self.stderr_lines = []
         self.stderr_lock = threading.Lock()
+        self.loaded_images = []
         self.protocol_log = []
         self.next_id = 1
         self.proc = None
@@ -174,6 +184,8 @@ class Probe:
     def run(self):
         self.check_layout()
         env = self.build_env()
+        if sys.platform == "darwin":
+            env["DYLD_PRINT_LIBRARIES"] = "1"
         run_dir = tempfile.mkdtemp(prefix="als-artifact-probe-")
         log("starting %s in %s" % (self.als_path, run_dir))
         self.proc = subprocess.Popen(
@@ -189,7 +201,9 @@ class Probe:
         )
         reader.start()
         err_thread = threading.Thread(
-            target=stderr_thread, args=(self.proc.stderr, self.stderr_lines, self.stderr_lock), daemon=True
+            target=stderr_thread,
+            args=(self.proc.stderr, self.stderr_lines, self.stderr_lock, self.loaded_images),
+            daemon=True,
         )
         err_thread.start()
 
@@ -197,6 +211,11 @@ class Probe:
             self.initialize()
             self.load_fixture()
             self.wait_for_completion()
+            if sys.platform == "darwin":
+                # Also covers images loaded after startup, during the load.
+                with self.stderr_lock:
+                    loaded = list(self.loaded_images)
+                self.check_loaded_images(loaded)
         finally:
             self.stop_event.set()
 
