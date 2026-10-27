@@ -738,6 +738,25 @@ jobs:
         cat audit.log
         grep -F "not resolved from the archive: $data => /" audit.log
 
+    - name: 🧪 Check the startup audit catches a non-ICU library from outside the OS (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        # als finds a copy of libgmp in a directory that is neither the
+        # archive nor the system's, through an extra RUNPATH entry.
+        gmp=$(LD_TRACE_LOADED_OBJECTS=1 release/als | awk '$1 ~ /^libgmp\.so/ {print $1, $3}')
+        [[ -n "$gmp" ]] || { echo "::error::als does not need libgmp"; exit 1; }
+        read -r gmp_name gmp_path <<< "$gmp"
+        stray="$RUNNER_TEMP/stray-libs"
+        mkdir -p "$stray"
+        cp "$gmp_path" "$stray/$gmp_name"
+        cp -R release leak-stray-dir
+        patchelf --set-rpath "\$ORIGIN/lib:$stray" leak-stray-dir/als
+        if python .github/scripts/check-artifact-lsp.py leak-stray-dir/als test/data/Unicode.agda --startup-only > audit.log 2>&1; then
+          cat audit.log; echo "::error::the audit passed an als that loads $stray/$gmp_name"; exit 1
+        fi
+        cat audit.log
+        grep -F "not resolved from the archive: $gmp_name => $stray/$gmp_name" audit.log
+
     - name: 🧪 Check the packaged executable starts (Windows, system-only PATH)
       if: runner.os == 'Windows'
       run: python .github/scripts/check-artifact-lsp.py release/als.exe test/data/Unicode.agda --startup-only
