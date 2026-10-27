@@ -15,7 +15,9 @@ directories, so any DLL missing from the archive fails the check.
 On macOS, dyld's fallback search is limited to /usr/lib, and
 --startup-only fails if any image loads from outside the archive,
 /usr/lib or /System. On Linux, --startup-only fails if any needed
-library is not found, or any ICU library resolves from outside the archive.
+library is not found or resolves from outside the archive, /lib,
+/usr/lib, /lib64 or /usr/lib64, or if any ICU library resolves from
+outside the archive.
 
 Uses only the Python standard library. Does not import project code or
 invoke GHC, Cabal, Stack, or the Haskell test executable.
@@ -43,6 +45,7 @@ DYLD_NOT_LOADED_LINE = re.compile(r"^dyld\[\d+\]: (Library not loaded: .*)$", re
 # All of dyld's logging, which is kept out of the logged stderr.
 DYLD_ANY_LINE = re.compile(r"^dyld\[\d+\]: .*\n?", re.MULTILINE)
 MACOS_SYSTEM_PREFIXES = ("/usr/lib/", "/System/")
+LINUX_SYSTEM_PREFIXES = ("/lib/", "/usr/lib/", "/lib64/", "/usr/lib64/")
 # What LD_TRACE_LOADED_OBJECTS prints for each needed library:
 #   	libicuuc.so.70 => /path/to/release/lib/libicuuc.so.70 (0x00007f...)
 #   	libfoo.so.1 => not found
@@ -235,9 +238,9 @@ class Probe:
         if sys.platform == "darwin":
             self.check_loaded_images(loaded)
         if sys.platform.startswith("linux"):
-            self.check_resolved_icu(env, run_dir)
+            self.check_resolved_libraries(env, run_dir)
 
-    def check_resolved_icu(self, env, run_dir):
+    def check_resolved_libraries(self, env, run_dir):
         # With LD_TRACE_LOADED_OBJECTS set, the dynamic loader resolves every
         # needed library (each with its own RUNPATH, as in a real start),
         # prints where it found it, and exits without running als.
@@ -255,13 +258,19 @@ class Probe:
             log("stderr: %s" % result.stderr)
             raise ProbeFailure("LD_TRACE_LOADED_OBJECTS run failed (exit %s)" % result.returncode)
         release_dir = os.path.realpath(os.path.dirname(self.als_path)) + os.sep
+
+        def allowed(name, path):
+            if path == "not found":
+                return False
+            if os.path.realpath(path).startswith(release_dir):
+                return True
+            # The system has its own ICU (on the runner, the very version we
+            # bundle), but a user's machine may not: ICU must be the bundled one.
+            return not name.startswith("libicu") and path.startswith(LINUX_SYSTEM_PREFIXES)
+
         icu = [(name, path) for name, path in resolved if name.startswith("libicu")]
-        bad = [
-            (name, path)
-            for name, path in resolved
-            if path == "not found" or (name.startswith("libicu") and not os.path.realpath(path).startswith(release_dir))
-        ]
-        for name, path in icu:
+        bad = [(name, path) for name, path in resolved if not allowed(name, path)]
+        for name, path in resolved:
             log("resolved %s => %s" % (name, path))
         if not icu:
             raise ProbeFailure("expected the packaged executable to need ICU, but no libicu* was resolved")
