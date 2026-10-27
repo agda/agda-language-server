@@ -548,6 +548,11 @@ jobs:
   verify-native-artifact:
     name: Verify Native Artifact
     needs: build-and-test
+    # Run even when some build-and-test entries failed: each entry here
+    # then checks whichever artifact was built, and an entry whose build
+    # failed fails at its own download. publish-* still require that
+    # nothing failed.
+    if: ${{ !cancelled() }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
