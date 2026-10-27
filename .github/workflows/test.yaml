@@ -711,6 +711,16 @@ jobs:
         cat audit.log
         grep -F "loaded from outside the archive and the OS: $leaked" audit.log
 
+    - name: 🧪 Check the completed-load audit catches a dylib loaded from Homebrew (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        # Same Homebrew-leak copy as above, through a full LSP load.
+        if python .github/scripts/check-artifact-lsp.py leak-homebrew/als test/data/Unicode.agda > audit.log 2>&1; then
+          cat audit.log; echo "::error::the completed-load audit passed an als that loads $LEAKED_DYLIB"; exit 1
+        fi
+        cat audit.log
+        grep -F "loaded from outside the archive and the OS: $LEAKED_DYLIB" audit.log
+
     - name: 🧪 Check the startup audit catches ICU resolved from the system (Linux)
       if: runner.os == 'Linux'
       run: |
