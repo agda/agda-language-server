@@ -686,6 +686,58 @@ jobs:
           $failed_to_start || { echo "::error::removing $name did not fail startup"; exit 1; }
         done
 
+    # The audits above pass on a correct archive. These steps break a copy
+    # of the archive on purpose, the way a packaging regression would, and
+    # require the audit to fail and name the library that leaked in.
+
+    - name: 🧪 Check the startup audit catches a dylib loaded from Homebrew (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        cp -R release leak-homebrew
+        ref=$(otool -L leak-homebrew/als | awk '/libicuuc/ {print $1}')
+        name=$(basename "$ref")
+        major=$(echo "$name" | sed -E 's/libicuuc\.([0-9]+)\.dylib/\1/')
+        target="$(brew --prefix "icu4c@$major")/lib/$name"
+        [[ -f "$target" ]] || brew install "icu4c@$major"
+        install_name_tool -change "$ref" "$target" leak-homebrew/als
+        codesign -f -s - leak-homebrew/als
+        # dyld reports the resolved file under Cellar, not the opt/ symlink.
+        leaked=$(python -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$target")
+        echo "LEAKED_DYLIB=$leaked" >> "$GITHUB_ENV"
+
+        if python .github/scripts/check-artifact-lsp.py leak-homebrew/als test/data/Unicode.agda --startup-only > audit.log 2>&1; then
+          cat audit.log; echo "::error::the audit passed an als that loads $leaked"; exit 1
+        fi
+        cat audit.log
+        grep -F "loaded from outside the archive and the OS: $leaked" audit.log
+
+    - name: 🧪 Check the startup audit catches ICU resolved from the system (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install -y -qq patchelf > /dev/null
+
+        # 1. als loses its RUNPATH, so all of ICU resolves from the system.
+        cp -R release leak-no-runpath
+        patchelf --remove-rpath leak-no-runpath/als
+        if python .github/scripts/check-artifact-lsp.py leak-no-runpath/als test/data/Unicode.agda --startup-only > audit.log 2>&1; then
+          cat audit.log; echo "::error::the audit passed an als without RUNPATH"; exit 1
+        fi
+        cat audit.log
+        grep -E "not resolved from the archive: libicuuc[^ ]* => /" audit.log
+
+        # 2. als keeps its RUNPATH but stops needing libicudata directly, so
+        #    libicudata is found through libicuuc, which has no RUNPATH of its
+        #    own: the system copy wins although the bundled one is there.
+        data=$(readelf -d release/als | sed -nE 's/.*Shared library: \[(libicudata[^]]*)\].*/\1/p')
+        [[ -n "$data" ]] || { echo "::error::als does not need libicudata directly"; exit 1; }
+        cp -R release leak-transitive
+        patchelf --remove-needed "$data" leak-transitive/als
+        if python .github/scripts/check-artifact-lsp.py leak-transitive/als test/data/Unicode.agda --startup-only > audit.log 2>&1; then
+          cat audit.log; echo "::error::the audit passed an als that finds $data through libicuuc"; exit 1
+        fi
+        cat audit.log
+        grep -F "not resolved from the archive: $data => /" audit.log
+
     - name: 🧪 Check the packaged executable starts (Windows, system-only PATH)
       if: runner.os == 'Windows'
       run: python .github/scripts/check-artifact-lsp.py release/als.exe test/data/Unicode.agda --startup-only
