@@ -1,5 +1,5 @@
 name:                agda-language-server
-version:             8
+version:             9
 github:              "agda/agda-language-server"
 license:             MIT
 author:              "Ting-Gian LUA"

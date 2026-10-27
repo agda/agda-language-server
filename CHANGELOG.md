@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v9 - 2026-10-27
+
+### Changed
+- Move artifact-level checks off `build-and-test` onto a separate `verify-native-artifact` matrix that consumes the packaged release artifacts, and run it for every artifact that built, even if another build failed.
+- Run `build-wasm` on every trigger `build-and-test` runs on.
+- Check on every platform that the packaged `als` completes a load and loads only libraries from its own archive or the OS.
+- Build the arm64 macOS artifact on `macos-15`.
+
+### Fixed
+- #30: Resolve the bundled data directory relative to the executable's directory, not the executable itself.
+- #64: Bundle ICU's MinGW runtime DLLs into the Windows release artifact.
+- Let every Agda matrix entry write its own WASM cabal store cache.
+
 ## v8 - 2026-09-22
 
 ### Added
