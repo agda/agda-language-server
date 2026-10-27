@@ -83,7 +83,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest, macos-15-intel]
+        # arm64 macOS builds on macos-15, not macos-latest: on macos-latest
+        # (macOS 26) GHC 9.10.2's rts links against the Command Line Tools'
+        # MacOSX.sdk, which there is SDK 27, whose .tbd stubs no installed
+        # ld can read ("unknown architecture arm64e.x1"). macos-15 also keeps
+        # the release's minimum macOS where it was.
+        os: [windows-latest, ubuntu-latest, macos-15, macos-15-intel]
         agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
         # macos-15-intel (Intel Mac) runners are scarce and can sit queued
         # for 13+ minutes before starting, dominating PR feedback latency
@@ -129,7 +134,7 @@ jobs:
         if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
           ARTEFACT="$PREFIX-${{ matrix.agda }}-ubuntu"
         fi
-        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
+        if [[ ${{ matrix.os }} == "macos-15" ]]; then
           ARTEFACT="$PREFIX-${{ matrix.agda }}-macos-arm64"
         fi
         if [[ ${{ matrix.os }} == "macos-15-intel" ]]; then
@@ -546,7 +551,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest, macos-15-intel]
+        os: [windows-latest, ubuntu-latest, macos-15, macos-15-intel]
         agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
         # Must mirror build-and-test's matrix and PR exclusions, and the
         # artifact-name computation below must mirror its "Determine
@@ -583,7 +588,7 @@ jobs:
         if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
           ARTEFACT="$PREFIX-${{ matrix.agda }}-ubuntu"
         fi
-        if [[ ${{ matrix.os }} == "macos-latest" ]]; then
+        if [[ ${{ matrix.os }} == "macos-15" ]]; then
           ARTEFACT="$PREFIX-${{ matrix.agda }}-macos-arm64"
         fi
         if [[ ${{ matrix.os }} == "macos-15-intel" ]]; then
