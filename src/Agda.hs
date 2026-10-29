@@ -53,9 +53,12 @@ import           Agda.TypeChecking.Errors       ( getAllWarningsOfTCErr
                                                 , prettyTCWarnings'
                                                 )
 import           Agda.TypeChecking.Monad        ( HasOptions
+                                                , MonadTCState
                                                 , TCErr
                                                 , commandLineOptions
                                                 , runTCMTop'
+                                                , setTCLens
+                                                , stBackends
                                                 )
 import           Agda.TypeChecking.Monad.Base   ( TCM )
 import qualified Agda.TypeChecking.Monad.Benchmark
@@ -194,7 +197,7 @@ handleCommandReq (CmdReq cmd) = do
 --------------------------------------------------------------------------------
 
 getCommandLineOptions
-  :: (HasOptions m, MonadIO m) => ServerM m CommandLineOptions
+  :: (HasOptions m, MonadTCState m, MonadIO m) => ServerM m CommandLineOptions
 getCommandLineOptions = do
   -- command line options from ARGV
   argv   <- asks (optRawAgdaOptions . envOptions)
@@ -206,12 +209,14 @@ getCommandLineOptions = do
   result <- runExceptT $ do
     let p = parseBackendOptions builtinBackends merged defaultOptions
     let (r, _warns) = runOptM p
-    (bs, opts) <- ExceptT $ pure r
-    return opts
+    ExceptT $ pure r
   case result of
     -- something bad happened, use the default options instead
-    Left  _    -> commandLineOptions
-    Right opts -> return opts
+    Left  _          -> commandLineOptions
+    -- register the backends, every fresh TCM state starts with none
+    Right (bs, opts) -> do
+      lift $ setTCLens stBackends bs
+      return opts
 
 -- | Run a TCM action in IO and throw away all of the errors
 -- TODO: handle the caught errors
