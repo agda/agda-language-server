@@ -14,8 +14,9 @@ import Language.LSP.Protocol.Message
 import Language.LSP.Protocol.Types
 import Language.LSP.Test
 import Switchboard (agdaCustomMethod)
-import System.Directory (createDirectoryIfMissing, getTemporaryDirectory, removeDirectoryRecursive)
+import System.Directory (createDirectoryIfMissing, getTemporaryDirectory, makeAbsolute, removeDirectoryRecursive)
 import System.FilePath ((</>))
+import System.Process (CreateProcess (cwd))
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -24,7 +25,8 @@ tests alsPath =
   testGroup
     "LSP"
     [ testCase "load" (demo alsPath),
-      testCase "compile with the GHC and GHCNoMain backends" (testCompile alsPath)
+      testCase "compile with the GHC and GHCNoMain backends" (testCompile alsPath),
+      testCase "compile with the HTML backend after an invalid Agda option" (testCompileAfterInvalidOption alsPath)
     ]
 
 demo :: FilePath -> IO ()
@@ -54,7 +56,7 @@ demo alsPath = do
 -- Haskell code, so this doesn't need a working GHC, and '--compile-dir'
 -- keeps the generated MAlonzo tree out of test/data.
 testCompile :: FilePath -> IO ()
-testCompile alsPath = withCompileDir $ \compileDir -> do
+testCompile alsPath = withTempDir "als-test-compile" $ \compileDir -> do
   let server = alsPath ++ " +AGDA --ghc-dont-call-ghc --compile-dir=" ++ compileDir ++ " -AGDA"
   runSession server fullLatestClientCaps "test/data/" $ do
     ghc <- displayInfos <$> runIOTCM "IOTCM \"test/data/A.agda\" NonInteractive Direct( Cmd_compile GHC \"test/data/A.agda\" [] )"
@@ -71,19 +73,37 @@ testCompile alsPath = withCompileDir $ \compileDir -> do
     noMainWarning = "warning: -W[no]GenericWarning\nNo main function defined in A. Use --no-main to suppress this\nwarning."
 #endif
 
-    displayInfos :: [JSON.Value] -> [JSON.Value]
-    displayInfos = filter isDisplayInfo
+-- | Like 'testCompile', but with an Agda option that fails to parse. als
+-- then falls back to the default options, and it must still register
+-- Agda's builtin backends. The fallback also drops '--ghc-dont-call-ghc'
+-- and '--compile-dir', so this compiles with the HTML backend instead,
+-- which goes through the same backend lookup but needs no GHC. The
+-- server runs in a temporary directory, so the generated html/ tree
+-- stays out of the repo.
+testCompileAfterInvalidOption :: FilePath -> IO ()
+testCompileAfterInvalidOption alsPath = withTempDir "als-test-html" $ \dir -> do
+  file <- makeAbsolute "test/data/A.agda"
+  let server = alsPath ++ " +AGDA --no-such-option -AGDA"
+      inDir process = process {cwd = Just dir}
+  runSessionWithConfigCustomProcess inDir defaultConfig server fullLatestClientCaps "test/data/" $ do
+    html <- displayInfos <$> runIOTCM ("IOTCM " ++ show file ++ " NonInteractive Direct( Cmd_compile HTML " ++ show file ++ " [] )")
+    liftIO $ html @?= [JSON.toJSON (IR.ResponseDisplayInfo (IR.DisplayInfoCompilationOk [] []))]
 
-    isDisplayInfo :: JSON.Value -> Bool
+-- | Keeps only the 'ResponseDisplayInfo' responses
+displayInfos :: [JSON.Value] -> [JSON.Value]
+displayInfos = filter isDisplayInfo
+  where
     isDisplayInfo (JSON.Object o) = KeyMap.lookup "tag" o == Just "ResponseDisplayInfo"
     isDisplayInfo _ = False
 
-withCompileDir :: (FilePath -> IO a) -> IO a
-withCompileDir = bracket create removeDirectoryRecursive
+-- | Runs an action with a fresh directory of the given name under the
+-- system's temporary directory, and removes it afterwards
+withTempDir :: String -> (FilePath -> IO a) -> IO a
+withTempDir name = bracket create removeDirectoryRecursive
   where
     create = do
       tmp <- getTemporaryDirectory
-      let dir = tmp </> "als-test-compile"
+      let dir = tmp </> name
       createDirectoryIfMissing True dir
       return dir
 
