@@ -206,17 +206,20 @@ getCommandLineOptions = do
   -- concatenate both
   let merged = argv <> config
 
-  result <- runExceptT $ do
-    let p = parseBackendOptions builtinBackends merged defaultOptions
-    let (r, _warns) = runOptM p
-    ExceptT $ pure r
-  case result of
-    -- something bad happened, use the default options instead
-    Left  _          -> commandLineOptions
-    -- register the backends, every fresh TCM state starts with none
+  case parse merged of
+    -- something bad happened, use the default options instead,
+    -- and register the backends with their default options
+    Left  _          -> do
+      forM_ (parse []) $ \(bs, _) -> register bs
+      commandLineOptions
     Right (bs, opts) -> do
-      lift $ setTCLens stBackends bs
+      register bs
       return opts
+ where
+  parse args =
+    fst $ runOptM $ parseBackendOptions builtinBackends args defaultOptions
+  -- every fresh TCM state starts with no backends
+  register bs = lift $ setTCLens stBackends bs
 
 -- | Run a TCM action in IO and throw away all of the errors
 -- TODO: handle the caught errors
