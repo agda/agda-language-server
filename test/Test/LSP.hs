@@ -50,7 +50,7 @@ demo alsPath = do
     testCustomMethod "IOTCM \"test/data/A.agdaa\" NonInteractive Direct( Cmd_load \"test/data/A.agda\" [] )"
 
 -- | Compiles a fixture with both GHC backend settings and expects
--- 'DisplayInfoCompilationOk' for each. Before #99 was fixed, als never
+-- 'DisplayInfoCompilationOk' for each. Before #66 was fixed, als never
 -- registered Agda's builtin backends, so both failed with "No backend
 -- called 'GHC'". '--ghc-dont-call-ghc' stops after generating the
 -- Haskell code, so this doesn't need a working GHC, and '--compile-dir'
