@@ -43,6 +43,8 @@ data Options = Options
   { optViaTCP :: Maybe Int,
     optRawAgdaOptions :: [String],
     optRawResponses :: Bool,
+    -- | Load the file again for every hover, without the hover cache
+    optNoHoverCache :: Bool,
     optSetup :: Bool,
     optHelp :: Bool,
     optVersion :: Bool
@@ -50,7 +52,7 @@ data Options = Options
 
 defaultOptions :: Options
 defaultOptions =
-  Options {optViaTCP = Nothing, optRawAgdaOptions = [], optRawResponses = False, optSetup = False, optHelp = False, optVersion = False}
+  Options {optViaTCP = Nothing, optRawAgdaOptions = [], optRawResponses = False, optNoHoverCache = False, optSetup = False, optHelp = False, optVersion = False}
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -75,6 +77,11 @@ options =
       ["raw"]
       (NoArg (\opts -> opts {optRawResponses = True}))
       "return all responses in raw JSON format",
+    Option
+      []
+      ["no-hover-cache"]
+      (NoArg (\opts -> opts {optNoHoverCache = True}))
+      "load the file again for every hover, for comparison with the hover cache",
 #if MIN_VERSION_Agda(2,8,0)
     Option
       []
