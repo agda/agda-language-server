@@ -107,12 +107,15 @@ inferTypeOfText filepath text = runCommandM $ do
   -- infer later
   let norm = AsIs
   -- localStateCommandM: restore TC state afterwards, do we need this here?
-  typ <- localStateCommandM $ do
+  localStateCommandM $ do
     (e, _attrs) <- lift $ runPM $ parse exprParser (unpack text)
+    -- print inside 'atTopLevel', which sets the scope of the module, like
+    -- Agda's own Emacs mode does. The scope that 'cmd_load'' leaves is
+    -- complete only when it checks the module, not when it loads the
+    -- module from its .agdai, and printing in it qualifies names.
     lift $ atTopLevel $ do
-      concreteToAbstract_ e >>= typeInCurrent norm
-
-  render <$> prettyATop typ
+      typ <- concreteToAbstract_ e >>= typeInCurrent norm
+      render <$> prettyATop typ
 
 onHover :: LSP.Uri -> LSP.Position -> ServerM (LspM Config) (LSP.Hover LSP.|? LSP.Null)
 onHover uri pos = do
