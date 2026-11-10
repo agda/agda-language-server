@@ -5,6 +5,7 @@ module Test.Hover (tests) where
 
 import Control.Monad (forM_)
 import Control.Monad.IO.Class
+import Data.List (sort)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
@@ -14,7 +15,7 @@ import Language.LSP.Protocol.Types
 import Language.LSP.Test
 import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, getModificationTime, getPermissions, listDirectory, removeFile, setModificationTime, setOwnerExecutable, setPermissions)
 import System.Environment (getEnvironment)
-import System.FilePath ((</>))
+import System.FilePath (takeExtension, takeFileName, (</>))
 import System.Info (os)
 import System.Process (CreateProcess (cwd, env))
 import Test.LSP (runIOTCM, withTempDir)
@@ -29,7 +30,8 @@ tests alsPath =
       hoverAfterImportGraphChanges alsPath,
       hoverAfterProjectChanges alsPath,
       hoverInSession alsPath,
-      testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath)
+      testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath),
+      testCase "with --no-hover-cache, every hover loads again" (hoverWithoutCache alsPath)
     ]
 
 -- | Each test hovers, changes files on disk the way an editor or a git
@@ -375,8 +377,34 @@ hoverWithInterface alsPath = withFixtures alsPath "Hover" "als-hover-interface" 
     fresh <- openDoc (docPath doc) "agda"
     expectHover fresh onF "T → T"
 
+-- | With --no-hover-cache, which turns the cache off, the second hover
+-- loads the files again and writes the .agdai files again
+hoverWithoutCache :: FilePath -> IO ()
+hoverWithoutCache alsPath = withFixtures (alsPath ++ " --no-hover-cache") "Hover" "als-hover-no-cache" $ \dir -> do
+  doc <- openDoc "Main.agda" "agda"
+  expectHover doc onF "T → T"
+  written <- liftIO $ interfaceFiles dir
+  liftIO $ map takeFileName written @?= ["Dep.agdai", "Main.agdai"]
+  liftIO $ mapM_ removeFile written
+  expectHover doc onF "T → T"
+  writtenAgain <- liftIO $ interfaceFiles dir
+  liftIO $ map takeFileName writtenAgain @?= ["Dep.agdai", "Main.agdai"]
+
 --------------------------------------------------------------------------------
 -- Helpers
+
+-- | The .agdai files in a directory and its subdirectories, sorted
+interfaceFiles :: FilePath -> IO [FilePath]
+interfaceFiles dir = do
+  entries <- sort <$> listDirectory dir
+  concat <$> mapM inEntry entries
+  where
+    inEntry entry = do
+      let path = dir </> entry
+      isDirectory <- doesDirectoryExist path
+      if isDirectory
+        then interfaceFiles path
+        else return [path | takeExtension path == ".agdai"]
 
 -- | Copies the fixtures in test/data/<fixtures> to a temporary directory
 -- and runs a session there
