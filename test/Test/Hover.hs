@@ -12,9 +12,10 @@ import GHC.Stack (HasCallStack)
 import Language.LSP.Protocol.Message
 import Language.LSP.Protocol.Types
 import Language.LSP.Test
-import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, getModificationTime, listDirectory, removeFile, setModificationTime)
+import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, getModificationTime, getPermissions, listDirectory, removeFile, setModificationTime, setOwnerExecutable, setPermissions)
 import System.Environment (getEnvironment)
 import System.FilePath ((</>))
+import System.Info (os)
 import System.Process (CreateProcess (cwd, env))
 import Test.LSP (withTempDir)
 import Test.Tasty
@@ -25,6 +26,7 @@ tests alsPath =
   testGroup
     "Hover"
     [ hoverAfterEdits alsPath,
+      hoverAfterProjectChanges alsPath,
       testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath)
     ]
 
@@ -129,6 +131,75 @@ hoverAfterEdits alsPath =
         liftIO $ setModificationTime file time
         expectHover doc onF "T → T"
     ]
+
+-- | Like 'hoverAfterEdits', but the changes are to the project setup:
+-- the .agda-lib files, the libraries file and the trusted executables
+hoverAfterProjectChanges :: FilePath -> TestTree
+hoverAfterProjectChanges alsPath =
+  testGroup "hover after project changes" $
+    [ testCase "add an include directory that has the import" $ withFixtures alsPath "HoverLibrary" "als-hover-include" $ \dir -> do
+        doc <- openDoc ("src" </> "Main.agda") "agda"
+        expectHover doc onF "T → T"
+        liftIO $ removeFile (dir </> "src" </> "Dep.agda")
+        writeText (dir </> "hover-library.agda-lib") "name: hover-library\ninclude: src other\n"
+        expectHover doc onF "T → T → T",
+      -- no .agda file changes here, so a change in the include dirs is the
+      -- only thing that tells the hover to reload
+      testCase "only the include dirs change, making an import ambiguous" $ withFixtures alsPath "HoverLibrary" "als-hover-only-includes" $ \dir -> do
+        doc <- openDoc ("src" </> "Main.agda") "agda"
+        expectHover doc onF "T → T"
+        writeText (dir </> "hover-library.agda-lib") "name: hover-library\ninclude: src other\n"
+        expectFreshHover alsPath dir doc onF,
+      testCase "remove a flag the hovered file needs" $ withFixtures alsPath "HoverLibrary" "als-hover-flags" $ \dir -> do
+        let library = dir </> "hover-library.agda-lib"
+        original <- readText library
+        writeText library (original <> "flags: --prop\n")
+        doc <- openDoc ("src" </> "UsesProp.agda") "agda"
+        expectHover doc onF "T → T"
+        writeText library original
+        expectFreshHover alsPath dir doc onF,
+      testCase "an import moves into a dependency" $ withFixtures alsPath "HoverLibrary" "als-hover-depend" $ \dir -> do
+        doc <- openDoc ("src" </> "Main.agda") "agda"
+        expectHover doc onF "T → T"
+        writeText (dir </> ".agda" </> "libraries") (Text.pack (dir </> "dep" </> "dep.agda-lib") <> "\n")
+        liftIO $ removeFile (dir </> "src" </> "Dep.agda")
+        writeText (dir </> "hover-library.agda-lib") "name: hover-library\ninclude: src\ndepend: dep\n"
+        expectHover doc onF "T → T → T",
+      testCase "the libraries file stops listing a dependency" $ withFixtures alsPath "HoverLibrary" "als-hover-libraries" $ \dir -> do
+        let libraries = dir </> ".agda" </> "libraries"
+        writeText libraries (Text.pack (dir </> "dep" </> "dep.agda-lib") <> "\n")
+        liftIO $ removeFile (dir </> "src" </> "Dep.agda")
+        writeText (dir </> "hover-library.agda-lib") "name: hover-library\ninclude: src\ndepend: dep\n"
+        doc <- openDoc ("src" </> "Main.agda") "agda"
+        expectHover doc onF "T → T → T"
+        writeText libraries ""
+        expectFreshHover alsPath dir doc onF,
+      testCase "a new .agda-lib next to the hovered file" $ withFixtures alsPath "HoverLibrary" "als-hover-new-library" $ \dir -> do
+        doc <- openDoc ("src" </> "Main.agda") "agda"
+        expectHover doc onF "T → T"
+        liftIO $ removeFile (dir </> "src" </> "Dep.agda")
+        expectFreshHover alsPath dir doc onF
+        writeText (dir </> "src" </> "near.agda-lib") "name: near\ninclude: . ../other\n"
+        expectHover doc onF "T → T → T"
+    ]
+      -- the tool is a shell script, which Windows cannot run
+      ++ [ testCase "remove a trusted executable, then add it back" $ withFixtures alsPath "HoverLibrary" "als-hover-executables" $ \dir -> do
+             let tool = dir </> "tool"
+                 executables = dir </> ".agda" </> "executables"
+             writeText tool "#!/bin/sh\necho done\n"
+             liftIO $ getPermissions tool >>= setPermissions tool . setOwnerExecutable True
+             writeText executables (Text.pack tool <> "\n")
+             doc <- openDoc ("src" </> "UsesTool.agda") "agda"
+             expectHover doc onToolF "T → T"
+             writeText executables ""
+             expectFreshHover alsPath dir doc onToolF
+             writeText executables (Text.pack tool <> "\n")
+             expectHover doc onToolF "T → T"
+           | os /= "mingw32"
+         ]
+  where
+    -- UsesTool.agda starts with an OPTIONS pragma, so 'g = f' is one line lower
+    onToolF = Position 6 4
 
 -- | The first hover checks Main.agda and Dep.agda and writes their .agdai
 -- files. A new server then hovers at the same place, with those .agdai
