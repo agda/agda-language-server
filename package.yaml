@@ -173,6 +173,15 @@ tests:
       - -threaded
       - -with-rtsopts=-N
 
+benchmarks:
+  als-bench:
+    main: Bench.hs
+    source-dirs: bench
+    dependencies:
+      - lsp-test
+    ghc-options:
+      - -threaded
+
 # tests:
 #   als-test:
 #     main:                Spec.hs
