@@ -17,7 +17,7 @@ import System.Environment (getEnvironment)
 import System.FilePath ((</>))
 import System.Info (os)
 import System.Process (CreateProcess (cwd, env))
-import Test.LSP (withTempDir)
+import Test.LSP (runIOTCM, withTempDir)
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -27,6 +27,7 @@ tests alsPath =
     "Hover"
     [ hoverAfterEdits alsPath,
       hoverAfterProjectChanges alsPath,
+      hoverInSession alsPath,
       testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath)
     ]
 
@@ -201,6 +202,71 @@ hoverAfterProjectChanges alsPath =
     -- UsesTool.agda starts with an OPTIONS pragma, so 'g = f' is one line lower
     onToolF = Position 6 4
 
+-- | Like 'hoverAfterEdits', but for what an editor does in one session:
+-- unsaved edits, switching files, loading, and hovering on different
+-- kinds of token. The hover loads the file on disk and reads the token
+-- from the editor's text.
+hoverInSession :: FilePath -> TestTree
+hoverInSession alsPath =
+  testGroup
+    "hover across unsaved edits and file switches"
+    [ testCase "an unsaved edit, then an import edit" $ withFixtures alsPath "Hover" "als-hover-unsaved" $ \dir -> do
+        doc <- openDoc "Main.agda" "agda"
+        expectHover doc onF "T → T"
+        main <- readText (dir </> "Main.agda")
+        edit doc (main <> "\nh : T\nh = f t\n")
+        expectHover doc onF "T → T"
+        expectHover doc onUnsavedF "T → T"
+        dep <- readText (dir </> "Dep.agda")
+        writeText (dir </> "Dep.agda") (addArgumentToF dep)
+        expectHover doc onUnsavedF "T → T → T",
+      testCase "an unsaved edit, then discarded" $ withFixtures alsPath "Hover" "als-hover-discard" $ \dir -> do
+        doc <- openDoc "Main.agda" "agda"
+        expectHover doc onF "T → T"
+        main <- readText (dir </> "Main.agda")
+        edit doc (Text.replace "\n\ng : _" "\ng : _" main)
+        expectHover doc (Position 4 4) "T → T"
+        edit doc main
+        expectHover doc onF "T → T",
+      testCase "switch between files" $ withFixtures alsPath "Hover" "als-hover-switch" $ \dir -> do
+        main <- openDoc "Main.agda" "agda"
+        viaMid <- openDoc "ViaMid.agda" "agda"
+        expectHover main onF "T → T"
+        expectHover viaMid onF "T → T"
+        expectHover main onF "T → T"
+        dep <- readText (dir </> "Dep.agda")
+        writeText (dir </> "Dep.agda") (addArgumentToF dep)
+        expectHover viaMid onF "T → T → T"
+        expectHover main onF "T → T → T",
+      testCase "load between hovers" $ withFixtures alsPath "Hover" "als-hover-load" $ \dir -> do
+        doc <- openDoc "Main.agda" "agda"
+        expectHover doc onF "T → T"
+        load doc
+        expectHover doc onF "T → T"
+        dep <- readText (dir </> "Dep.agda")
+        writeText (dir </> "Dep.agda") (addArgumentToF dep)
+        load doc
+        expectHover doc onF "T → T → T",
+      testCase "kinds of token" $ withFixtures alsPath "Hover" "als-hover-tokens" $ \dir -> do
+        doc <- openDoc "Tokens.agda" "agda"
+        -- a name from an import
+        expectHover doc (Position 4 6) "Set"
+        -- a name with a Unicode character
+        expectHover doc (Position 8 1) "T → T"
+        -- a qualified name
+        expectHover doc (Position 14 12) "T → T"
+        -- an operator, a local variable and a name from a where block,
+        -- which the hover does not find in the scope of the module, and
+        -- a keyword, which does not parse as an expression
+        expectFreshHover alsPath dir doc (Position 11 8)
+        expectFreshHover alsPath dir doc (Position 11 6)
+        expectFreshHover alsPath dir doc (Position 11 11)
+        expectFreshHover alsPath dir doc (Position 12 3)
+    ]
+  where
+    -- 'f' in the line 'h = f t' that the unsaved edit adds to Main.agda
+    onUnsavedF = Position 8 4
+
 -- | The first hover checks Main.agda and Dep.agda and writes their .agdai
 -- files. A new server then hovers at the same place, with those .agdai
 -- files valid. The hover text must not depend on whether a .agdai was
@@ -263,8 +329,19 @@ writeText file = liftIO . TextIO.writeFile file
 -- server and to the disk
 save :: TextDocumentIdentifier -> Text -> Session ()
 save doc text = do
-  changeDoc doc [TextDocumentContentChangeEvent (InR (TextDocumentContentChangeWholeDocument text))]
+  edit doc text
   writeText (docPath doc) text
+
+-- | Changes an open file in the editor only, without saving it
+edit :: TextDocumentIdentifier -> Text -> Session ()
+edit doc text = changeDoc doc [TextDocumentContentChangeEvent (InR (TextDocumentContentChangeWholeDocument text))]
+
+-- | Loads an open file with 'Cmd_load', the way agda-mode does
+load :: TextDocumentIdentifier -> Session ()
+load doc = do
+  let file = show (docPath doc)
+  _ <- runIOTCM ("IOTCM " ++ file ++ " NonInteractive Direct( Cmd_load " ++ file ++ " [] )")
+  return ()
 
 docPath :: TextDocumentIdentifier -> FilePath
 docPath (TextDocumentIdentifier docUri) = case uriToFilePath docUri of
