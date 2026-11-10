@@ -2,6 +2,7 @@
 
 import Data.Proxy (Proxy (..))
 import Data.Typeable (Typeable)
+import qualified Test.Hover as Hover
 import qualified Test.LSP as LSP
 import qualified Test.Smoke as Smoke
 import qualified Test.SrcLoc as SrcLoc
@@ -35,6 +36,7 @@ tests = askOption $ \(AlsPathOption alsPath) ->
     [ SrcLoc.tests,
       Version.tests,
       LSP.tests alsPath,
+      Hover.tests alsPath,
       Smoke.tests alsPath
 #if defined(wasm32_HOST_ARCH)
     , WASM.tests alsPath
