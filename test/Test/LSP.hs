@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.LSP (tests, withTempDir) where
+module Test.LSP (tests, withTempDir, runIOTCM) where
 
 import Agda
 import qualified Agda.IR as IR
