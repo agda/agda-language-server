@@ -26,6 +26,7 @@ tests alsPath =
   testGroup
     "Hover"
     [ hoverAfterEdits alsPath,
+      hoverAfterImportGraphChanges alsPath,
       hoverAfterProjectChanges alsPath,
       hoverInSession alsPath,
       testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath)
@@ -132,6 +133,101 @@ hoverAfterEdits alsPath =
         liftIO $ setModificationTime file time
         expectHover doc onF "T → T"
     ]
+
+-- | Like 'hoverAfterEdits', but an import breaks deeper in the import
+-- graph: ViaMid imports Mid, which imports Dep. Agda reports the error
+-- where the broken import is, and checks the imports in the order of the
+-- declarations. A reload must give the same error as a fresh server.
+hoverAfterImportGraphChanges :: FilePath -> TestTree
+hoverAfterImportGraphChanges alsPath =
+  testGroup "hover after an import breaks deep in the import graph" $
+    [ testCase (shape ++ ", " ++ change ++ " Dep") $ withFixtures alsPath "Hover" ("als-hover-graph-" ++ show i) $ \dir -> do
+        writeText (dir </> "ViaMid.agda") ("module ViaMid where\n\n" <> imports <> "\ng : _\ng = f\n")
+        -- a second include directory, empty until a file shadows Dep
+        writeText (dir </> "graph.agda-lib") "name: graph\ninclude: . extra\n"
+        liftIO $ createDirectoryIfMissing True (dir </> "extra")
+        doc <- openDoc "ViaMid.agda" "agda"
+        let onG = Position (fromIntegral (4 + length (Text.lines imports))) 4
+        expectHover doc onG "T → T"
+        dep <- readText (dir </> "Dep.agda")
+        case change of
+          "delete" -> liftIO $ removeFile (dir </> "Dep.agda")
+          "rename" -> do
+            liftIO $ removeFile (dir </> "Dep.agda")
+            writeText (dir </> "Renamed.agda") (Text.replace "module Dep" "module Renamed" dep)
+          _ -> writeText (dir </> "extra" </> "Dep.agda") dep
+        expectFreshHover alsPath dir doc onG
+    | (i, (shape, imports, change)) <-
+        zip [1 :: Int ..]
+          [ (shape, imports, change)
+          | (shape, imports) <-
+              [ ("ViaMid imports Mid", "open import Mid\n"),
+                ("ViaMid imports Dep, then Mid", "open import Dep\nopen import Mid\n"),
+                ("ViaMid imports Mid, then Dep", "open import Mid\nopen import Dep\n")
+              ],
+            change <- ["delete", "rename", "shadow"]
+          ]
+    ]
+      ++ [ testCase ("Dep keeps its path but " ++ fault) $ withFixtures alsPath "Hover" ("als-hover-graph-fault-" ++ show i) $ \dir -> do
+             doc <- openDoc "ViaMid.agda" "agda"
+             expectHover doc onF "T → T"
+             dep <- readText (dir </> "Dep.agda")
+             writeText (dir </> "Dep.agda") (breakDep dep)
+             expectFreshHover alsPath dir doc onF
+         | (i, (fault, breakDep)) <-
+             zip
+               [1 :: Int ..]
+               [ ("names another module", Text.replace "module Dep" "module Other"),
+                 ("has an unknown option", ("{-# OPTIONS --no-such-option #-}\n" <>)),
+                 ("has a type error", Text.replace "f x = x" "f x = Set"),
+                 ("has a postulate under --safe", \dep -> "{-# OPTIONS --safe #-}\n" <> dep <> "\npostulate bad : T\n"),
+                 ("imports a missing module", Text.replace "module Dep where\n" "module Dep where\n\nopen import Missing\n"),
+                 ("has a parse error", (<> "\nh = (\n"))
+               ]
+         ]
+      ++ [ testCase ("two imports break, " ++ first ++ " imported first") $ withFixtures alsPath "Hover" ("als-hover-graph-two-" ++ first) $ \dir -> do
+             writeText (dir </> "A.agda") "module A where\nopen import MissingA public\n"
+             writeText (dir </> "Z.agda") "module Z where\nopen import MissingZ public\n"
+             writeText (dir </> "MissingA.agda") "module MissingA where\npostulate TA : Set\n"
+             writeText (dir </> "MissingZ.agda") "module MissingZ where\npostulate TZ : Set\n"
+             let imports = if first == "Z" then "import Z\nimport A\n" else "import A\nimport Z\n"
+             writeText (dir </> "Main.agda") ("module Main where\n\n" <> imports <> "open import Dep\ng : _\ng = f\n")
+             doc <- openDoc "Main.agda" "agda"
+             expectHover doc (Position 6 4) "T → T"
+             liftIO $ removeFile (dir </> "MissingA.agda")
+             liftIO $ removeFile (dir </> "MissingZ.agda")
+             expectFreshHover alsPath dir doc (Position 6 4)
+         | first <- ["A", "Z"]
+         ]
+      ++ [ testCase "a module in a subdirectory gets a shadow, then moves" $ withFixtures alsPath "Hover" "als-hover-graph-subdirectory" $ \dir -> do
+             let dep = "module Sub.Dep where\n\ndata T : Set where\n  t : T\n\nf : T -> T\nf x = x\n"
+             writeText (dir </> "sub.agda-lib") "name: sub\ninclude: src extra\n"
+             liftIO $ createDirectoryIfMissing True (dir </> "src" </> "Sub")
+             liftIO $ createDirectoryIfMissing True (dir </> "extra")
+             writeText (dir </> "src" </> "Sub" </> "Dep.agda") dep
+             writeText (dir </> "src" </> "UsesSub.agda") "module UsesSub where\n\nopen import Sub.Dep\n\ng : _\ng = f\n"
+             doc <- openDoc ("src" </> "UsesSub.agda") "agda"
+             expectHover doc onF "T → T"
+             -- extra/Sub did not exist before
+             liftIO $ createDirectoryIfMissing True (dir </> "extra" </> "Sub")
+             writeText (dir </> "extra" </> "Sub" </> "Dep.agda") dep
+             expectFreshHover alsPath dir doc onF
+             liftIO $ removeFile (dir </> "src" </> "Sub" </> "Dep.agda")
+             expectHover doc onF "T → T",
+           -- the edit after the move tells whether the hover reads Dep from
+           -- its new place
+           testCase "Dep moves to another listed include dir, then changes" $ withFixtures alsPath "Hover" "als-hover-graph-move" $ \dir -> do
+             writeText (dir </> "graph.agda-lib") "name: graph\ninclude: . extra\n"
+             liftIO $ createDirectoryIfMissing True (dir </> "extra")
+             doc <- openDoc "ViaMid.agda" "agda"
+             expectHover doc onF "T → T"
+             dep <- readText (dir </> "Dep.agda")
+             liftIO $ removeFile (dir </> "Dep.agda")
+             writeText (dir </> "extra" </> "Dep.agda") dep
+             expectHover doc onF "T → T"
+             writeText (dir </> "extra" </> "Dep.agda") (addArgumentToF dep)
+             expectHover doc onF "T → T → T"
+         ]
 
 -- | Like 'hoverAfterEdits', but the changes are to the project setup:
 -- the .agda-lib files, the libraries file and the trusted executables
