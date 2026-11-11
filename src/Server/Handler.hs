@@ -45,6 +45,7 @@ import qualified Agda.Parser                   as Parser
 import           Agda.Position                  ( makeToOffset
                                                 , toAgdaPositionWithoutFile
                                                 )
+import           Agda.Syntax.Abstract.Name      ( isLeParentModuleOf )
 import           Agda.Syntax.Abstract.Pretty    ( prettyATop )
 import           Agda.Syntax.Parser             ( exprParser
                                                 , parse
@@ -229,6 +230,33 @@ orOnAnyException m fallback = TCM $ \r e ->
     Just (async :: SomeAsyncException) -> throwIO async
     Nothing -> unTCM fallback r e
 
+-- | Registers the current module and its submodules at the current
+-- checkpoint, so that names defined in them are applied to the module
+-- parameters. Runs inside 'atTopLevel'.
+--
+-- This works around Agda #8905. 'atTopLevel' moves the module checkpoints
+-- that exist to the checkpoint of the context it builds, but after the
+-- current module is loaded from its .agdai, none exist, so 'D' in
+-- @module M (A : Set)@ comes out as @(A₁ : Set) → Set@ instead of @Set@.
+-- The fix in Agda, agda/agda#8906, does the same as this function inside
+-- 'atTopLevel', and is not merged.
+--
+-- When an Agda release has the fix, run this function only on the Agda
+-- versions before that release, with a CPP version check, and remove it
+-- once every supported Agda has the fix.
+--
+-- #8906 leaves open whether submodules with their own parameters should
+-- get the checkpoint (they do here, as after a load that checks the
+-- module), and whether loading the .agdai should register it instead. If
+-- Agda decides otherwise, this function differs from Agda's fix on the
+-- versions it still runs on. No test covers a submodule with parameters.
+keepModuleParameters :: TCM ()
+keepModuleParameters = do
+  current <- currentModule
+  sections <- Map.union <$> useTC (stSignature . sigSections)
+                        <*> useTC (stImports . sigSections)
+  forM_ (filter (current `isLeParentModuleOf`) (Map.keys sections)) setModuleCheckpoint
+
 inferTypeOfText
   :: FilePath -> Text -> ServerM (LspM Config) (Either String String)
 inferTypeOfText filepath text = do
@@ -272,6 +300,7 @@ inferTypeOfText filepath text = do
       -- complete only when it checks the module, not when it loads the
       -- module from its .agdai, and printing in it qualifies names.
       lift $ atTopLevel $ do
+        keepModuleParameters
         typ <- concreteToAbstract_ e >>= typeInCurrent norm
         render <$> prettyATop typ
 
