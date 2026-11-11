@@ -4,8 +4,8 @@
 module Monad where
 
 import Agda.IR
-import Agda.Interaction.Base (IOTCM)
-import Agda.TypeChecking.Monad (TCMT)
+import Agda.Interaction.Base (CommandState, IOTCM)
+import Agda.TypeChecking.Monad (TCM, TCMT, TCState)
 import Control.Concurrent
 import Control.Monad.Reader
 import Data.IORef
@@ -40,7 +40,18 @@ data Env = Env
     envLogChan :: Chan Text,
     envCommandController :: CommandController,
     envResponseChan :: Chan Response,
-    envResponseController :: ResponseController
+    envResponseController :: ResponseController,
+    -- | The state after the last load done for a hover
+    envHoverCache :: IORef (Maybe HoverCache)
+  }
+
+-- | What a hover needs to skip loading a file again
+data HoverCache = HoverCache
+  { hcFilePath :: FilePath,
+    -- | Asks Agda if it would still see the same inputs. Runs in a fresh state.
+    hcStillValid :: TCM Bool,
+    hcTCState :: TCState,
+    hcCommandState :: CommandState
   }
 
 createInitEnv :: (MonadIO m, MonadLsp Config m) => Options -> m Env
@@ -51,6 +62,7 @@ createInitEnv options =
     <*> liftIO CommandController.new
     <*> liftIO newChan
     <*> liftIO ResponseController.new
+    <*> liftIO (newIORef Nothing)
 
 --------------------------------------------------------------------------------
 
