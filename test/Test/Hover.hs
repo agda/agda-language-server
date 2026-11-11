@@ -31,6 +31,7 @@ tests alsPath =
       hoverAfterProjectChanges alsPath,
       hoverInSession alsPath,
       testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath),
+      testCase "module parameters with or without a valid .agdai" (hoverParamsWithInterface alsPath),
       testCase "a hover with no changes reuses the last load" (hoverReusesLoad alsPath),
       testCase "with --no-hover-cache, every hover loads again" (hoverWithoutCache alsPath)
     ]
@@ -405,6 +406,26 @@ hoverWithoutCache alsPath = withFixtures (alsPath ++ " --no-hover-cache") "Hover
   expectHover doc onF "T → T"
   writtenAgain <- liftIO $ interfaceFiles dir
   liftIO $ map takeFileName writtenAgain @?= ["Dep.agdai", "Main.agdai"]
+
+-- | Like 'hoverWithInterface', but in a module with parameters. The first
+-- hover checks Param.agda. A new server then loads Param from its valid
+-- .agdai, and hovers twice, the second time on the load it reuses. Agda
+-- (#8905) forgets the module parameters at the top level after an .agdai
+-- load, and gives '(A₁ : Set) → Set' for 'D' and '_A_2 → D' for 'd'.
+hoverParamsWithInterface :: FilePath -> IO ()
+hoverParamsWithInterface alsPath = withFixtures alsPath "Hover" "als-hover-param" $ \dir -> do
+  doc <- openDoc "Param.agda" "agda"
+  expectHover doc onD "Set"
+  expectHover doc onLowerD "A → D"
+  liftIO $ runSessionIn alsPath dir $ do
+    fresh <- openDoc (docPath doc) "agda"
+    expectHover fresh onD "Set"
+    expectHover fresh onLowerD "A → D"
+    expectHover fresh onD "Set"
+  where
+    -- 'D' in 'g = D' and 'd' in 'e = d'
+    onD = Position 8 4
+    onLowerD = Position 11 4
 
 --------------------------------------------------------------------------------
 -- Helpers
