@@ -31,6 +31,7 @@ tests alsPath =
       hoverAfterProjectChanges alsPath,
       hoverInSession alsPath,
       testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath),
+      testCase "a hover with no changes reuses the last load" (hoverReusesLoad alsPath),
       testCase "with --no-hover-cache, every hover loads again" (hoverWithoutCache alsPath)
     ]
 
@@ -377,8 +378,23 @@ hoverWithInterface alsPath = withFixtures alsPath "Hover" "als-hover-interface" 
     fresh <- openDoc (docPath doc) "agda"
     expectHover fresh onF "T → T"
 
--- | With --no-hover-cache, which turns the cache off, the second hover
--- loads the files again and writes the .agdai files again
+-- | The first hover checks Main.agda and Dep.agda and writes their .agdai
+-- files. With no change to the files, the second hover reuses that load,
+-- so it writes no .agdai file again after they are deleted.
+hoverReusesLoad :: FilePath -> IO ()
+hoverReusesLoad alsPath = withFixtures alsPath "Hover" "als-hover-reuse" $ \dir -> do
+  doc <- openDoc "Main.agda" "agda"
+  expectHover doc onF "T → T"
+  written <- liftIO $ interfaceFiles dir
+  liftIO $ map takeFileName written @?= ["Dep.agdai", "Main.agdai"]
+  liftIO $ mapM_ removeFile written
+  expectHover doc onF "T → T"
+  writtenAgain <- liftIO $ interfaceFiles dir
+  liftIO $ writtenAgain @?= []
+
+-- | Like 'hoverReusesLoad', but with --no-hover-cache, which turns the
+-- cache off: the second hover loads the files again and writes the .agdai
+-- files again
 hoverWithoutCache :: FilePath -> IO ()
 hoverWithoutCache alsPath = withFixtures (alsPath ++ " --no-hover-cache") "Hover" "als-hover-no-cache" $ \dir -> do
   doc <- openDoc "Main.agda" "agda"
