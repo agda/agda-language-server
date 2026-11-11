@@ -220,6 +220,42 @@ loadCheck mainFile opts = do
                 and <$> mapM (\(m, p, _) -> stillResolves m p) entries
               if not resolves then return False else (== libOptions) <$> libraryOptions
 
+-- | The persistent state of the last load, for the next load to start from,
+-- so that Agda reuses the modules it decoded. It drops each module whose
+-- lookup changed, and each module that imports one of those, directly or
+-- not. Agda checks the imports of a decoded module before it checks any
+-- declaration, so a kept module reports a broken import with a shorter
+-- range and less context than a fresh load does. Gives Nothing if the
+-- lookups cannot be checked.
+--
+-- Agda's own 'modulesToKeep', in 'setIncludeDirs', does not cover this. It
+-- drops the decoded modules whose lookup differs between the old and the
+-- new include dirs, but 'cmd_load'' resets the state before it sets the
+-- include dirs, which clears the old lookups, so Agda looks up the "old"
+-- side on the disk as it is now. A change on the disk under the same
+-- include dirs then goes unseen: when A/M.agda is deleted and B/M.agda is
+-- added, Agda keeps the decoded M, and this function drops it.
+persistentStateForReload :: TCState -> TCM (Maybe PersistentTCState)
+persistentStateForReload old = do
+  fresh <- getTC
+  result <- (putTC old >> Just <$> keep) `orOnAnyException` return Nothing
+  putTC fresh
+  return result
+  where
+    persistent = stPersistentState old
+    decoded = stDecodedModules persistent
+    importsOf = map fst . iImportedModules . miInterface
+    keep = do
+      -- the include dirs of the last load, which its lookups used
+      includes <- toList <$> getIncludeDirs
+      let names = Set.toList $ Set.fromList $ Map.keys decoded ++ concatMap importsOf (Map.elems decoded)
+      resolvesTo <- liftIO $ lookupCheck includes names
+      let sameLookup m = resolveModule m >>= maybe (return False) (liftIO . resolvesTo m)
+      changed <- Set.fromList <$> filterM (fmap not . sameLookup) names
+      let addImporters bad = Set.union bad $ Map.keysSet $ Map.filter (any (`Set.member` bad) . importsOf) decoded
+          closure bad = let bad' = addImporters bad in if bad' == bad then bad else closure bad'
+      return persistent { stDecodedModules = Map.withoutKeys decoded (closure changed) }
+
 -- | Runs a TCM action and gives the fallback on any exception, not only on
 -- a 'TCErr': Agda reports a bug with '__IMPOSSIBLE__', which is a Haskell
 -- exception, and the checks also do IO. Asynchronous exceptions, such as a
@@ -279,6 +315,10 @@ inferTypeOfText filepath text = do
         lift $ putTC (hcTCState c)
         put (hcCommandState c)
       _ -> do
+        -- start from the modules the last load decoded, except the changed ones
+        forM_ cached $ \c -> lift $ do
+          kept <- persistentStateForReload (hcTCState c)
+          forM_ kept $ \p -> modifyTC $ \st -> st { stPersistentState = p }
         -- load first
         cmd_load' filepath [] True Imp.TypeCheck $ \_ -> return ()
         unless noCache $ do
