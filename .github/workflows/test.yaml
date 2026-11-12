@@ -187,6 +187,13 @@ jobs:
     # runners (pre-provisioned by the runner image); actions/cache archives
     # the symlink itself, not its target, so Linux must cache the real path
     # directly. macOS and Windows have no such indirection.
+    # Parts of this tree belong to root on the runner image. Take ownership
+    # before the restore, or tar cannot restore directory modes and
+    # timestamps and actions/cache reports a miss after the download.
+    - name: Take ownership of the Linux toolchain cache directory
+      if: runner.os == 'Linux'
+      run: sudo chown -R "$(id -u):$(id -g)" /usr/local/.ghcup
+
     - name: 💾 Restore Haskell toolchain cache (all platforms, shared across Agda targets, before setup)
       id: haskell-toolchain
       uses: actions/cache/restore@v4
