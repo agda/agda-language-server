@@ -33,7 +33,7 @@ jobs:
   # copy staying in sync by hand.
   check-cabal-drift:
     name: Generate Cabal File & Build Sdist
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -1145,7 +1145,7 @@ jobs:
     name: Publish Dev Release
     needs: [check-cabal-drift, build-and-test, verify-native-artifact, build-wasm]
     if: always() && !cancelled() && !contains(needs.*.result, 'failure') && github.ref == 'refs/heads/master' && github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     concurrency:
@@ -1205,7 +1205,7 @@ jobs:
       always() && !cancelled() && !contains(needs.*.result, 'failure') &&
       github.ref == 'refs/heads/master' && github.event_name == 'push' &&
       github.repository == 'agda/agda-language-server'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     concurrency:
