@@ -11,6 +11,11 @@ env:
   # and baked into the toolchain and compiled-dependency cache keys below.
   # Never 'latest'.
   STACK_VERSION: '3.3.1'
+  # 'true' when this run only builds and saves the dependency caches. It
+  # then skips the ALS build, bundling, tests and artifacts. Steps test
+  # env.CACHE_ONLY. Job-level 'if's cannot read env, so check-cabal-drift
+  # and verify-native-artifact repeat this expression.
+  CACHE_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.cache-only }}
 
 on:
   push:
@@ -20,6 +25,11 @@ on:
   # A manual run on master saves the shared caches, like a push does.
   # Use it to refill them after they expire or are deleted.
   workflow_dispatch:
+    inputs:
+      cache-only:
+        description: Only build and save the dependency caches (skip the ALS build, tests and artifacts)
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
@@ -36,6 +46,7 @@ jobs:
   # copy staying in sync by hand.
   check-cabal-drift:
     name: Generate Cabal File & Build Sdist
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cache-only) }}
     runs-on: ubuntu-24.04
     steps:
     - name: 📥 Checkout repository
@@ -353,10 +364,11 @@ jobs:
         key: stack-snapshot-v3-${{ runner.os }}-${{ runner.arch }}-${{ env.STACK_VERSION }}-${{ env.GHC_VERSION }}-${{ env.ICU_VERSION }}-${{ env.STACK_RESOLVER }}-${{ matrix.agda }}-${{ env.CONFIG_HASH }}
 
     - name: 🏗️ Build ALS
+      if: env.CACHE_ONLY != 'true'
       run: stack build $STACK_YAML_ARG
 
     - name: 📦 Bundle executable, DLLs and data files (on macOS)
-      if: runner.os == 'macOS'
+      if: runner.os == 'macOS' && env.CACHE_ONLY != 'true'
       run: |  # Bundle icu4c DLLs
 
         # see if icu4c has been installed
@@ -446,7 +458,7 @@ jobs:
         echo "    new path  : $icudata_path_new"
 
     - name: 📦 Bundle ICU libraries (on Linux)
-      if: runner.os == 'Linux'
+      if: runner.os == 'Linux' && env.CACHE_ONLY != 'true'
       run: |
         command -v patchelf >/dev/null 2>&1 || sudo apt-get install -y patchelf
 
@@ -475,7 +487,7 @@ jobs:
         echo "rpath set on $executable: $(patchelf --print-rpath "$executable")"
 
     - name: 📦 Bundle executable, DLLs and data files (on Linux and macOS)
-      if: runner.os != 'Windows'
+      if: runner.os != 'Windows' && env.CACHE_ONLY != 'true'
       id: zip
       run: |
         # locate the data-dir
@@ -505,7 +517,7 @@ jobs:
         
 
     - name: 📦 Bundle executable, DLLs and data files (on Windows)
-      if: runner.os == 'Windows'
+      if: runner.os == 'Windows' && env.CACHE_ONLY != 'true'
       shell: pwsh
       run: |
         # locate the data-dir
@@ -540,9 +552,11 @@ jobs:
         mv zip/"$($env:ARTEFACT).zip" .
   
     - name: 🧪 Run tests
+      if: env.CACHE_ONLY != 'true'
       run: stack test $STACK_YAML_ARG
 
     - name: 📤 Upload native artifact
+      if: env.CACHE_ONLY != 'true'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.ARTEFACT }}
@@ -564,7 +578,7 @@ jobs:
     # then checks whichever artifact was built, and an entry whose build
     # failed fails at its own download. publish-* still require that
     # nothing failed.
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && !(github.event_name == 'workflow_dispatch' && inputs.cache-only) }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1128,6 +1142,7 @@ jobs:
         key: ${{ env.CABAL_STORE_KEY }}
 
     - name: Build als
+      if: env.CACHE_ONLY != 'true'
       working-directory: './als'
       run: |
         mkdir ~/out
@@ -1137,6 +1152,7 @@ jobs:
         echo "WASM_BINARY_NAME=${WASM_ASSET_BASENAME}.wasm" >> $GITHUB_ENV
 
     - name: 📤 Upload WASM artifact
+      if: env.CACHE_ONLY != 'true'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.WASM_ASSET_BASENAME }}
