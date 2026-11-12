@@ -11,11 +11,12 @@ env:
   # and baked into the toolchain and compiled-dependency cache keys below.
   # Never 'latest'.
   STACK_VERSION: '3.3.1'
-  # 'true' when this run only builds and saves the dependency caches. It
-  # then skips the ALS build, bundling, tests and artifacts. Steps test
-  # env.CACHE_ONLY. Job-level 'if's cannot read env, so check-cabal-drift
-  # and verify-native-artifact repeat this expression.
-  CACHE_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.cache-only }}
+  # 'true' when this run only builds and saves the dependency caches: a
+  # scheduled run, or a manual run with cache-only on. It then skips the
+  # ALS build, bundling, tests and artifacts. Steps test env.CACHE_ONLY.
+  # Job-level 'if's cannot read env, so check-cabal-drift and
+  # verify-native-artifact repeat this expression.
+  CACHE_ONLY: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.cache-only) }}
 
 on:
   push:
@@ -30,6 +31,11 @@ on:
         description: Only build and save the dependency caches (skip the ALS build, tests and artifacts)
         type: boolean
         default: true
+  # Every three days, so each shared cache is used well within GitHub's
+  # seven-day eviction of caches that nobody reads. Runs on master, in
+  # cache-only mode.
+  schedule:
+    - cron: '19 3 */3 * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
@@ -46,7 +52,7 @@ jobs:
   # copy staying in sync by hand.
   check-cabal-drift:
     name: Generate Cabal File & Build Sdist
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.cache-only) }}
+    if: ${{ !(github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.cache-only)) }}
     runs-on: ubuntu-24.04
     steps:
     - name: 📥 Checkout repository
@@ -245,7 +251,7 @@ jobs:
     - name: 💾 Save Haskell toolchain cache (Agda 2.8.0 is the sole writer, right after setup+verification)
       if: >
         matrix.agda == 'Agda-2.8.0' &&
-        (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' &&
+        (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.ref == 'refs/heads/master' &&
         steps.haskell-toolchain.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
@@ -353,7 +359,7 @@ jobs:
 
     - name: 💾 Save compiled-dependency cache
       if: >
-        (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' &&
+        (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.ref == 'refs/heads/master' &&
         steps.build-deps.outcome == 'success' && steps.build-test-deps.outcome == 'success' &&
         steps.stack-snapshot.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
@@ -578,7 +584,7 @@ jobs:
     # then checks whichever artifact was built, and an entry whose build
     # failed fails at its own download. publish-* still require that
     # nothing failed.
-    if: ${{ !cancelled() && !(github.event_name == 'workflow_dispatch' && inputs.cache-only) }}
+    if: ${{ !cancelled() && !(github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.cache-only)) }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -914,7 +920,7 @@ jobs:
     - name: Cache ghc-wasm-meta (Agda 2.8.0 is the sole writer)
       if: >
         matrix.agda.name == '2.8.0' &&
-        (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' &&
+        (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.ref == 'refs/heads/master' &&
         steps.ghc-wasm-cache-restore.outputs.cache-hit != 'true' &&
         steps.validate-wasm-toolchain.outcome == 'success'
       uses: actions/cache/save@v4
@@ -999,7 +1005,7 @@ jobs:
     - name: Cache native utilities (Agda 2.8.0 is the sole writer)
       if: >
         matrix.agda.name == '2.8.0' &&
-        (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' &&
+        (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.ref == 'refs/heads/master' &&
         steps.native-utils-cache-restore.outputs.cache-hit != 'true' &&
         steps.install-native-utils.outcome == 'success'
       uses: actions/cache/save@v4
@@ -1124,7 +1130,7 @@ jobs:
     - name: Cache dist-newstyle
       uses: actions/cache/save@v4
       if: >
-        (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' &&
+        (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.ref == 'refs/heads/master' &&
         steps.build-deps-other-than-agda.outcome == 'success' &&
         steps.dist-newstyle-cache-restore-resolved.outputs.cache-hit != 'true'
       with:
@@ -1133,7 +1139,7 @@ jobs:
 
     - name: Save cabal global store cache
       if: >
-        (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' &&
+        (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.ref == 'refs/heads/master' &&
         steps.cabal-store-cache-restore.outputs.cache-hit != 'true' &&
         steps.build-deps-other-than-agda.outcome == 'success'
       uses: actions/cache/save@v4
