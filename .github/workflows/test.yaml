@@ -668,6 +668,53 @@ jobs:
           [[ -d "release/lib" ]] || { echo "::error::missing release/lib in extracted archive"; exit 1; }
         fi
 
+    - name: 🧪 Check the packaged executable needs at most glibc 2.38 (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        # The README's "Prebuilt binaries" section states this minimum
+        # glibc for the -ubuntu artifact; change both together. The
+        # bundled ICU libraries need glibc too, so they count as well.
+        max_glibc=2.38
+
+        # Prints the highest GLIBC_ symbol version any given file needs.
+        highest_glibc() {
+          for f in "$@"; do
+            objdump -T "$f" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' || true
+          done | sed 's/^GLIBC_//' | sort -uV | tail -n 1
+        }
+
+        # Succeeds if the files need at most glibc $1.
+        within() {
+          local max=$1; shift
+          local highest
+          highest=$(highest_glibc "$@")
+          [[ -n "$highest" ]] || { echo "::error::no GLIBC_ symbol versions found in $*"; exit 1; }
+          [[ "$(printf '%s\n%s\n' "$highest" "$max" | sort -V | tail -n 1)" == "$max" ]]
+        }
+
+        shopt -s nullglob
+        files=(release/als release/lib/*.so*)
+        for f in "${files[@]}"; do
+          highest=$(highest_glibc "$f")
+          if [[ -n "$highest" ]]; then
+            echo "$f: GLIBC_$highest"
+          else
+            echo "$f: no GLIBC_ symbols"
+          fi
+        done
+
+        within "$max_glibc" "${files[@]}" || {
+          echo "::error::the packaged files need glibc $(highest_glibc "${files[@]}"), above the stated minimum $max_glibc"
+          exit 1
+        }
+
+        # Shows the check above would catch a file needing a newer
+        # glibc: the same files must fail against a lower maximum.
+        if within 2.0 "${files[@]}"; then
+          echo "::error::the glibc check passed against a maximum of 2.0"
+          exit 1
+        fi
+
     - name: 🧪 Check the packaged executable starts (Linux, hidden system ICU)
       if: runner.os == 'Linux'
       run: bash .github/scripts/check-artifact-runs.sh release/als --hide-icu
