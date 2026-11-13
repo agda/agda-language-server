@@ -31,6 +31,8 @@ The ICU libraries are bundled in the archive. The other libraries come from the 
 - `libgmp`, `libz`, and `libtinfo`
 - `libstdc++` from GCC 12 or later (`GLIBCXX_3.4.30`), and `libgcc_s`
 
+The prebuilt binaries are not supported on other Linux distributions, such as NixOS. On those, [build from source](#build-from-source) instead.
+
 #### Development releases
 
 For testing the latest features and bug fixes, you can download development pre-releases:
