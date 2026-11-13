@@ -22,6 +22,15 @@ You can also download prebuilt binaries [from the release page](https://github.c
 
 Supported platforms: **Windows**, **Mac**, and **Ubuntu**.
 
+#### Ubuntu
+
+The `-ubuntu` binaries are for x86_64. They are built and tested on Ubuntu 24.04, and need glibc 2.38 or later.
+
+The ICU libraries are bundled in the archive. The other libraries come from the system:
+- glibc, including the dynamic loader `ld-linux-x86-64.so.2` and `libm`
+- `libgmp`, `libz`, and `libtinfo`
+- `libstdc++` from GCC 12 or later (`GLIBCXX_3.4.30`), and `libgcc_s`
+
 #### Development releases
 
 For testing the latest features and bug fixes, you can download development pre-releases:
