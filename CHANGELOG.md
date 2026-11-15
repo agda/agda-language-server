@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v10 - 2026-11-15
+
+### Added
+- #68: Cache the hover's load and reuse it until its inputs change; add `--no-hover-cache` to load the file for every hover.
+- A cache-only CI mode that skips ALS builds and tests, and a scheduled refresh of the shared caches every three days.
+
+### Changed
+- #68: Keep decoded modules on reload, except the changed ones.
+- Run all native Linux jobs on `ubuntu-24.04`, and fail the Linux artifact check if it needs glibc above 2.38.
+- Document the Ubuntu binaries' arch, glibc and system libraries, and point users of other distros to building from source.
+
+### Fixed
+- #66: Register the parsed backends so `Cmd_compile` finds the GHC backend, including when Agda options fail to parse.
+- #68: Keep module parameters in hovers after an `.agdai` load, and print the hover type inside `atTopLevel`.
+- Let tar restore the root-owned Linux toolchain cache.
+
 ## v9 - 2026-10-27
 
 ### Changed
