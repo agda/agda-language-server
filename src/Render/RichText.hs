@@ -5,6 +5,7 @@
 module Render.RichText
   ( Block (..),
     Inlines (..),
+    toPlainText,
     -- LinkTarget (..),
     space,
     text,
@@ -184,6 +185,21 @@ data Inline
   deriving (Generic)
 
 instance ToJSON Inline
+
+-- | The text of the inlines, as a client would show it. Unlike 'show',
+-- it puts no space between adjacent inlines: '<>' joins them with no
+-- space, and '<+>' adds its space as text.
+toPlainText :: Inlines -> String
+toPlainText = concatMap inline . toList . unInlines
+  where
+    inline (Icon s _) = s
+    inline (Text s _) = s
+    inline (Link _ xs _) = toPlainText xs
+    inline (Hole i) = "?" ++ show i
+    inline (Horz xs) = unwords (map toPlainText xs)
+    inline (Vert xs) = unlines (map toPlainText xs)
+    inline (Parn x) = "(" <> toPlainText x <> ")"
+    inline (PrHz xs) = "(" <> unwords (map toPlainText xs) <> ")"
 
 instance Show Inline where
   show (Icon s _) = s
