@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## Unreleased
+
+### Removed
+- Agda-2.6.4.3 is no longer supported, and no 2.6.4.3 binaries are built.
+
 ## v10 - 2026-11-15
 
 ### Added
