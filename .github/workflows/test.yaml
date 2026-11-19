@@ -79,7 +79,7 @@ jobs:
 
     - name: 🔒 Check stack-*.yaml.lock drift (fails if Stack would rewrite it)
       run: |
-        for f in stack-9.10.2-Agda-2.8.0.yaml stack-9.10.2-Agda-2.7.0.1.yaml stack-9.10.2-Agda-2.6.4.3.yaml; do
+        for f in stack-9.10.2-Agda-2.9.0.yaml stack-9.10.2-Agda-2.8.0.yaml stack-9.10.2-Agda-2.7.0.1.yaml stack-9.10.2-Agda-2.6.4.3.yaml; do
           echo "::group::${f}.lock"
           stack build --stack-yaml "$f" --dry-run --lock-file error-on-write
           echo "::endgroup::"
