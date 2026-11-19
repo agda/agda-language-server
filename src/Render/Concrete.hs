@@ -48,6 +48,9 @@ instance Render Modality where
       [ render (getRelevance mod),
         render (getQuantity mod),
         render (getCohesion mod)
+#if MIN_VERSION_Agda(2,8,0)
+      , render (getModalPolarity mod)
+#endif
       ]
 
 -- | OpApp
