@@ -83,7 +83,13 @@ tests =
         agrees e "⦇ f x ⦈",
       testCase "qualified idiom brackets" $ do
         e <- parseExpr "M.(| f x |)"
-        agrees e "M.⦇ f x ⦈"
+        agrees e "M.⦇ f x ⦈",
+      testCase "quantity 0" $ do
+        e <- parseExpr "(@0 x : A) → A"
+        agrees e "(@0 x : A) → A",
+      testCase "erased quantity" $ do
+        e <- parseExpr "(@erased x : A) → A"
+        agrees e "(@erased x : A) → A"
     ]
 
 -- | Asserts Agda's text first, so a failure shows whether the snippet has
