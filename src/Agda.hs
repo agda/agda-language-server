@@ -8,13 +8,14 @@ module Agda
   , runAgda
   , sendCommand
   , getCommandLineOptions
+  , parseAgdaOptions
   , CommandReq(..)
   , CommandRes(..)
   ) where
 
 import           Prelude                        hiding ( null )
 
-import           Agda.Compiler.Backend          ( parseBackendOptions )
+import           Agda.Compiler.Backend          ( Backend, parseBackendOptions )
 import           Agda.Compiler.Builtin          ( builtinBackends )
 import           Agda.Convert                   ( fromResponse )
 #if MIN_VERSION_Agda(2,9,0)
@@ -227,31 +228,38 @@ getCommandLineOptions
   :: (HasOptions m, MonadTCState m, MonadIO m) => ServerM m CommandLineOptions
 #endif
 getCommandLineOptions = do
-  -- command line options from ARGV
-  argv   <- asks (optRawAgdaOptions . envOptions)
-  -- command line options from agda-mode
-  config <- asks (configRawAgdaOptions . envConfig)
-  -- concatenate both
-  let merged = argv <> config
-
-  case parse merged of
+  parsed <- parseAgdaOptions
+  case parsed of
     -- something bad happened, use the default options instead,
     -- and register the backends with their default options
-    Left  _          -> do
-      forM_ (parse []) $ \(bs, _) -> register bs
+    Nothing          -> do
+      forM_ (parseAgdaArgs []) $ \(bs, _) -> register bs
       commandLineOptions
-    Right (bs, opts) -> do
+    Just (bs, opts) -> do
       register bs
       return opts
  where
-  parse args =
-    fst $ runOptM $ parseBackendOptions builtinBackends args defaultOptions
   -- every fresh TCM state starts with no backends
 #if MIN_VERSION_Agda(2,9,0)
   register bs = lift $ setSession lensBackends bs
 #else
   register bs = lift $ setTCLens stBackends bs
 #endif
+
+-- | The Agda options from ARGV and from agda-mode, with the backends they
+-- set up, or Nothing if they do not parse
+parseAgdaOptions :: Monad m => ServerM m (Maybe ([Backend], CommandLineOptions))
+parseAgdaOptions = do
+  -- command line options from ARGV
+  argv   <- asks (optRawAgdaOptions . envOptions)
+  -- command line options from agda-mode
+  config <- asks (configRawAgdaOptions . envConfig)
+  -- concatenate both
+  return $ parseAgdaArgs (argv <> config)
+
+parseAgdaArgs :: [String] -> Maybe ([Backend], CommandLineOptions)
+parseAgdaArgs args = either (const Nothing) Just $
+  fst $ runOptM $ parseBackendOptions builtinBackends args defaultOptions
 
 -- | Run a TCM action in IO and throw away all of the errors
 -- TODO: handle the caught errors
