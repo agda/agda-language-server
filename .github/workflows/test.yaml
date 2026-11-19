@@ -1231,6 +1231,11 @@ jobs:
         pattern: als-dev-*
         path: artifacts
 
+    # Release gate: Agda 2.9.0 is built and tested, but not published until
+    # ALS ships it. Remove this step (and the one in publish-release) then.
+    - name: 🚧 Drop Agda 2.9.0 artifacts (not released yet)
+      run: rm -rf artifacts/als-dev-Agda-2.9.0-*
+
     - name: 🚢 Create/Update Dev Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1482,6 +1487,13 @@ jobs:
       with:
         pattern: 'als-dev-*'
         path: artifacts
+
+    # Release gate: Agda 2.9.0 is built and tested, but not published until
+    # ALS ships it, so the artifact check below still expects 15. Remove
+    # this step (and the one in publish-dev) then.
+    - name: 🚧 Drop Agda 2.9.0 artifacts (not released yet)
+      if: env.ALREADY_PUBLISHED != 'true'
+      run: rm -rf artifacts/als-dev-Agda-2.9.0-*
 
     - name: 📥 Download this run's Hackage sdist
       if: env.ALREADY_PUBLISHED != 'true'
