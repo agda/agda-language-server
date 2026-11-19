@@ -109,15 +109,17 @@ jobs:
         # ld can read ("unknown architecture arm64e.x1"). macos-15 also keeps
         # the release's minimum macOS where it was.
         os: [windows-latest, ubuntu-24.04, macos-15, macos-15-intel]
-        agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
+        agda: ['Agda-2.9.0', 'Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
         # macos-15-intel (Intel Mac) runners are scarce and can sit queued
         # for 13+ minutes before starting, dominating PR feedback latency
         # for a job that then only takes ~3 minutes to actually run. Cut
         # PR runs down to one Agda version on that runner; push/tag events
-        # (master, releases) still get the full 3-way matrix. The 'os'
+        # (master, releases) still get the full 4-way matrix. The 'os'
         # value collapses to '' when not a pull_request, which matches no
         # real matrix entry, so nothing is excluded outside pull_request.
         exclude:
+          - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
+            agda: 'Agda-2.9.0'
           - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
             agda: 'Agda-2.7.0.1'
           - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
@@ -179,7 +181,7 @@ jobs:
     #  - The toolchain cache holds only the ghcup install directory
     #    (~/.ghcup on Linux/macOS, C:\ghcup on Windows), keyed by the
     #    pinned STACK_VERSION and GHC_VERSION (no Agda target -- shared
-    #    across the three Agda entries for this OS/architecture). It is
+    #    across the four Agda entries for this OS/architecture). It is
     #    restored before Haskell setup so a hit lets setup skip
     #    downloading GHC. Setup installs Stack separately, into the runner
     #    tool cache, so this cache does not hold it. Both pinned versions
@@ -188,7 +190,7 @@ jobs:
     #    the snapshot/dependency builds below, so a setup or
     #    version-mismatch failure blocks the save but a later
     #    dependency-build failure cannot suppress it.
-    #    Only the Agda 2.8.0 entry is allowed to save it, so the three
+    #    Only the Agda 2.8.0 entry is allowed to save it, so the four
     #    parallel jobs for one OS/architecture never race to write the
     #    same key. haskell-actions/setup is pinned to a full commit SHA
     #    (not the mutable v2 tag) so its installer behavior can't
@@ -589,7 +591,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-24.04, macos-15, macos-15-intel]
-        agda: ['Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
+        agda: ['Agda-2.9.0', 'Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
         # Must mirror build-and-test's matrix and PR exclusions, and the
         # artifact-name computation below must mirror its "Determine
         # which version of Agda to target" step, exactly -- otherwise
@@ -597,6 +599,8 @@ jobs:
         # Keep both in sync by hand; there is no single source of truth
         # to derive them from.
         exclude:
+          - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
+            agda: 'Agda-2.9.0'
           - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
             agda: 'Agda-2.7.0.1'
           - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
