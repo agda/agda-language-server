@@ -5,7 +5,7 @@ module Agda.Parser where
 --------------------------------------------------------------------------------
 
 import Agda.Syntax.Parser (parseFile, runPMIO, tokensParser)
-import Agda.Syntax.Parser.Tokens (Token)
+import Agda.Syntax.Parser.Tokens (Token (TokMarkup, TokTeX))
 import Agda.Syntax.Position (Position' (posPos), PositionWithoutFile, Range, RangeFile (RangeFile), getRange, rEnd', rStart')
 import Agda.Utils.FileName (mkAbsolute)
 import Control.Monad.State
@@ -35,7 +35,7 @@ tokenAt uri source position = case LSP.uriToFilePath uri of
 #endif
         let tokens = fst r
         -- find the token at the position
-        return $ find (pointedBy position) tokens
+        return $ find (pointedBy position) tokens >>= nonLiterate
     case result of
       Left _err -> return Nothing
       Right Nothing -> return Nothing
@@ -48,6 +48,13 @@ tokenAt uri source position = case LSP.uriToFilePath uri of
             let text = Text.drop (start - 1) (Text.take (end - 1) source)
             return $ Just (token, text)
   where
+    -- the text of a literate file (prose, and the fences of its code
+    -- blocks) is not code, so there is nothing to infer
+    nonLiterate :: Token -> Maybe Token
+    nonLiterate (TokTeX _) = Nothing
+    nonLiterate (TokMarkup _) = Nothing
+    nonLiterate token = Just token
+
     startAndEnd :: Range -> Maybe (PositionWithoutFile, PositionWithoutFile)
     startAndEnd range = do
       start <- rStart' range
