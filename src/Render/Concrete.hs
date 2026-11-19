@@ -207,7 +207,7 @@ instance Render NamedBinding where
 #if MIN_VERSION_Agda(2,8,0)
   render (NamedBinding withH
 #if MIN_VERSION_Agda(2,9,0)
-           x@(Arg (ArgInfo h (Modality r q c p) _o _fv (Annotation lock _))
+           x@(Arg (ArgInfo h (Modality r q c p) _o _fv (Annotation lock rew))
 #else
            x@(Arg (ArgInfo h (Modality r q c p) _o _fv (Annotation lock))
 #endif
@@ -222,6 +222,10 @@ instance Render NamedBinding where
         . (pol <+>)
         . (lck <+>)
         . (tac <+>)
+#if MIN_VERSION_Agda(2,9,0)
+        . (rw <+>)
+    rw = render rew
+#endif
     coh = render c
     qnt = render q
     pol = render p
@@ -308,6 +312,9 @@ instance Render TypedBinding where
             renderCohesion y $
               renderQuantity y $
                 renderTactic (binderName $ namedArg y) $
+#if MIN_VERSION_Agda(2,9,0)
+                  (render (getRewriteAnn y) <+>) $
+#endif
                   sep
                     [ fsep (fmap (render . NamedBinding False) ys),
                       ":" <+> render e
