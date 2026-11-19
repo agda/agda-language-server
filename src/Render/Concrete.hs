@@ -470,15 +470,23 @@ instance Render Declaration where
             vcat (fmap render fs)
           ]
 #if MIN_VERSION_Agda(2,9,0)
-      FunClause _ lhs rhs wh _ ->
+      -- the modality comes first, as in Agda's printer; an empty one is
+      -- left out, so that 'sep' adds no space for it
+      FunClause ai lhs rhs wh _ ->
+        sep $
+          [render m | let m = getModality ai, not (null (render m))]
+            ++ [ render lhs,
+                 render rhs,
+                 render wh
+               ]
 #else
       FunClause lhs rhs wh _ ->
-#endif
         sep
           [ render lhs,
             render rhs,
             render wh
           ]
+#endif
       DataSig _ _er x tel e ->
         fsep
           [ hsep

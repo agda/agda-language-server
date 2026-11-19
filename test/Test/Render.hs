@@ -89,7 +89,13 @@ tests =
         agrees e "(@0 x : A) → A",
       testCase "erased quantity" $ do
         e <- parseExpr "(@erased x : A) → A"
-        agrees e "(@erased x : A) → A"
+        agrees e "(@erased x : A) → A",
+      testCase "function clause" $ do
+        d <- clauseOf "f : A → A\nf x = x"
+        agrees d "f x = x",
+      testCase "function clause with a modality" $ do
+        d <- clauseOf "@0 f : A → A\n@0 f x = x"
+        agrees d "@0 f x = x"
     ]
 
 -- | Asserts Agda's text first, so a failure shows whether the snippet has
@@ -125,6 +131,14 @@ parseExpr src = do
   case result of
     Left err -> assertFailure ("parse error: " ++ prettyShow err)
     Right (e, _attrs) -> return e
+
+-- | The clause of a type signature followed by one clause
+clauseOf :: String -> IO Declaration
+clauseOf src = do
+  ds <- parseDecls src
+  case ds of
+    [_, d@FunClause {}] -> return d
+    _ -> assertFailure ("not a signature and a clause: " ++ show (length ds))
 
 importDecl :: IO Declaration
 importDecl = do
