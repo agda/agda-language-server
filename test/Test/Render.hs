@@ -95,7 +95,17 @@ tests =
         agrees d "f x = x",
       testCase "function clause with a modality" $ do
         d <- clauseOf "@0 f : A → A\n@0 f x = x"
-        agrees d "@0 f x = x"
+        agrees d "@0 f x = x",
+      testCase "rewrite in a typed binder" $ do
+        e <- parseExpr "(@rewrite p : x ≡ y) → A"
+        agrees e "(@rewrite p : x ≡ y) → A",
+      testCase "rewrite in a hidden domain-free binder" $ do
+        e <- parseExpr "λ {@rewrite p} → p"
+        agrees e "λ {@rewrite p} → p",
+      -- Agda adds no parentheses for @rewrite alone
+      testCase "rewrite in a visible domain-free binder" $ do
+        e <- parseExpr "λ (@rewrite p) → p"
+        agrees e "λ @rewrite p → p"
     ]
 
 -- | Asserts Agda's text first, so a failure shows whether the snippet has

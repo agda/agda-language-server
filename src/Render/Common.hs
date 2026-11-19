@@ -36,6 +36,9 @@ import Agda.Syntax.Common
     PolarityModality (..),
     ModalPolarity (..),
 #endif
+#if MIN_VERSION_Agda(2,9,0)
+    RewriteAnn (..),
+#endif
   )
 import Agda.Utils.Functor ((<&>))
 import Agda.Utils.List1 (toList)
@@ -109,6 +112,14 @@ instance Render Q1Origin where
     Q1 {} -> "@1"
     Q1Linear {} -> "@linear"
 
+#if MIN_VERSION_Agda(2,9,0)
+-- | The @rewrite attribute of a binder
+instance Render RewriteAnn where
+  render = \case
+    IsRewrite _ -> "@rewrite"
+    IsNotRewrite -> mempty
+
+#endif
 instance Render QωOrigin where
   render = \case
     QωInferred -> mempty
