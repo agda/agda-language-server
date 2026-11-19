@@ -71,7 +71,19 @@ tests =
         agrees e "x + y",
       testCase "known operator application without an aspect" $ do
         e <- knownOpApp Nothing
-        agrees e "x + y"
+        agrees e "x + y",
+      testCase "do block" $ do
+        e <- parseExpr "do x"
+        agrees e "do x",
+      testCase "qualified do block" $ do
+        e <- parseExpr "M.do x"
+        agrees e "M.do x",
+      testCase "idiom brackets" $ do
+        e <- parseExpr "(| f x |)"
+        agrees e "⦇ f x ⦈",
+      testCase "qualified idiom brackets" $ do
+        e <- parseExpr "M.(| f x |)"
+        agrees e "M.⦇ f x ⦈"
     ]
 
 -- | Asserts Agda's text first, so a failure shows whether the snippet has

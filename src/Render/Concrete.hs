@@ -120,7 +120,7 @@ instance Render Expr where
         ]
     Paren _ e -> parens $ render e
 #if MIN_VERSION_Agda(2,9,0)
-    IdiomBrackets _ _ exprs ->
+    IdiomBrackets _ q exprs -> qualifier q $
 #else
     IdiomBrackets _ exprs ->
 #endif
@@ -129,7 +129,7 @@ instance Render Expr where
         [e] -> leftIdiomBrkt <+> render e <+> rightIdiomBrkt
         e : es -> leftIdiomBrkt <+> render e <+> fsep (fmap (("|" <+>) . render) es) <+> rightIdiomBrkt
 #if MIN_VERSION_Agda(2,9,0)
-    DoBlock _ _ ss -> "do" <+> vcat (fmap render (toList ss))
+    DoBlock _ q ss -> qualifier q $ "do" <+> vcat (fmap render (toList ss))
 #else
     DoBlock _ ss -> "do" <+> vcat (fmap render (toList ss))
 #endif
@@ -930,6 +930,14 @@ renderOpApp q args = merge [] $ prOp moduleNames concreteNames args
       [] -> (d, [])
       b : bs -> (b <> d, bs)
 
+#if MIN_VERSION_Agda(2,9,0)
+-- | Puts the module qualifier of a @do@ block or idiom brackets in
+-- front, as Agda's @qualifier@ does
+qualifier :: Maybe QName -> Inlines -> Inlines
+qualifier (Just x) k = render x <> "." <> k
+qualifier Nothing k = k
+
+#endif
 -- `prettyOpApp` for Agda 2.8.0 and above
 renderOpApp280 :: 
   forall a.
