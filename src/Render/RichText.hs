@@ -200,6 +200,11 @@ instance Show Inline where
 -- | ToJSON instances for A.types
 instance {-# OVERLAPS #-} ToJSON Agda.Range
 
+#if MIN_VERSION_Agda(2,9,0)
+instance ToJSON Agda.IntervalWithoutFile' where
+  toJSON = toJSON . Agda.unpackIWF
+#endif
+
 instance ToJSON (Agda.Interval' ()) where
 #if MIN_VERSION_Agda(2,8,0)
   toJSON (Agda.Interval () start end) = toJSON (start, end)

@@ -291,7 +291,12 @@ keepModuleParameters = do
   current <- currentModule
   sections <- Map.union <$> useTC (stSignature . sigSections)
                         <*> useTC (stImports . sigSections)
+#if MIN_VERSION_Agda(2,9,0)
+  forM_ (filter (current `isLeParentModuleOf`) (Map.keys sections)) $ \m ->
+    setModuleCheckpoint m =<< viewTC eCurrentCheckpoint
+#else
   forM_ (filter (current `isLeParentModuleOf`) (Map.keys sections)) setModuleCheckpoint
+#endif
 
 inferTypeOfText
   :: FilePath -> Text -> ServerM (LspM Config) (Either String String)
