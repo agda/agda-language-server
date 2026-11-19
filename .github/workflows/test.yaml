@@ -79,7 +79,7 @@ jobs:
 
     - name: 🔒 Check stack-*.yaml.lock drift (fails if Stack would rewrite it)
       run: |
-        for f in stack-9.10.2-Agda-2.9.0.yaml stack-9.10.2-Agda-2.8.0.yaml stack-9.10.2-Agda-2.7.0.1.yaml stack-9.10.2-Agda-2.6.4.3.yaml; do
+        for f in stack-9.10.2-Agda-2.9.0.yaml stack-9.10.2-Agda-2.8.0.yaml stack-9.10.2-Agda-2.7.0.1.yaml; do
           echo "::group::${f}.lock"
           stack build --stack-yaml "$f" --dry-run --lock-file error-on-write
           echo "::endgroup::"
@@ -109,12 +109,12 @@ jobs:
         # ld can read ("unknown architecture arm64e.x1"). macos-15 also keeps
         # the release's minimum macOS where it was.
         os: [windows-latest, ubuntu-24.04, macos-15, macos-15-intel]
-        agda: ['Agda-2.9.0', 'Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
+        agda: ['Agda-2.9.0', 'Agda-2.8.0', 'Agda-2.7.0.1']
         # macos-15-intel (Intel Mac) runners are scarce and can sit queued
         # for 13+ minutes before starting, dominating PR feedback latency
         # for a job that then only takes ~3 minutes to actually run. Cut
         # PR runs down to one Agda version on that runner; push/tag events
-        # (master, releases) still get the full 4-way matrix. The 'os'
+        # (master, releases) still get the full matrix. The 'os'
         # value collapses to '' when not a pull_request, which matches no
         # real matrix entry, so nothing is excluded outside pull_request.
         exclude:
@@ -122,8 +122,6 @@ jobs:
             agda: 'Agda-2.9.0'
           - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
             agda: 'Agda-2.7.0.1'
-          - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
-            agda: 'Agda-2.6.4.3'
       fail-fast: false
     steps:
 
@@ -591,7 +589,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-24.04, macos-15, macos-15-intel]
-        agda: ['Agda-2.9.0', 'Agda-2.8.0', 'Agda-2.7.0.1', 'Agda-2.6.4.3']
+        agda: ['Agda-2.9.0', 'Agda-2.8.0', 'Agda-2.7.0.1']
         # Must mirror build-and-test's matrix and PR exclusions, and the
         # artifact-name computation below must mirror its "Determine
         # which version of Agda to target" step, exactly -- otherwise
@@ -603,8 +601,6 @@ jobs:
             agda: 'Agda-2.9.0'
           - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
             agda: 'Agda-2.7.0.1'
-          - os: ${{ github.event_name == 'pull_request' && 'macos-15-intel' || '' }}
-            agda: 'Agda-2.6.4.3'
       fail-fast: false
     steps:
 
@@ -887,7 +883,6 @@ jobs:
         agda:
         - { name: '2.8.0', label: 'Agda-2.8.0', flag: '2-8-0', commit: 'e2f8c69414fa115328280ecc4de1d2b7a23be7fa' }
         - { name: '2.7.0.1', label: 'Agda-2.7.0.1', flag: '2-7-0', commit: '702c924fdab93aa8992adca84e72a91c490f7b1b' }
-        - { name: '2.6.4.3', label: 'Agda-2.6.4.3', flag: '2-6-4', commit: '8f35851954c39dc3849095bfd018bed9bd1b32ad' }
       fail-fast: false
     
     env:
