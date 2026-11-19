@@ -62,6 +62,9 @@ import           Agda.Syntax.TopLevelModuleName ( TopLevelModuleName, moduleName
 import           Agda.TypeChecking.Monad
 import           Agda.Utils.FileName            ( AbsolutePath, absolute, doesFileExistCaseSensitive, filePath )
 import           Agda.Utils.Hash                ( Hash, hashTextFile )
+#if MIN_VERSION_Agda(2,9,0)
+import           Agda.Utils.Atomic              ( newAtomic, readAtomic )
+#endif
 #if MIN_VERSION_Agda(2,8,0)
 import           Agda.Syntax.Parser             ( agdaFileExtensions )
 #else
@@ -235,13 +238,34 @@ loadCheck mainFile opts = do
 -- side on the disk as it is now. A change on the disk under the same
 -- include dirs then goes unseen: when A/M.agda is deleted and B/M.agda is
 -- added, Agda keeps the decoded M, and this function drops it.
+--
+-- On Agda 2.9, the module-to-file map is in the session state, which
+-- 'cmd_load'' does not reset, and the old persistent state still holds
+-- the session of the last load. So the state this function gives gets a
+-- new session. That session keeps the file dictionary of the old one,
+-- because it allocates the file IDs that the kept modules refer to. It
+-- has no module-to-file entries, so that each lookup runs against the
+-- disk again, as on the Agda versions before 2.9. Its other parts, such
+-- as the backends, come from the fresh state of this hover.
 persistentStateForReload :: TCState -> TCM (Maybe PersistentTCState)
 persistentStateForReload old = do
   fresh <- getTC
-  result <- (putTC old >> Just <$> keep) `orOnAnyException` return Nothing
+  result <- (putTC old >> Just <$> (keep >>= withNewSession fresh)) `orOnAnyException` return Nothing
   putTC fresh
   return result
   where
+#if MIN_VERSION_Agda(2,9,0)
+    withNewSession fresh kept = do
+      oldSession <- readAtomic (stPersistentSession kept)
+      freshSession <- readAtomic (stPersistentSession (stPersistentState fresh))
+      session <- newAtomic freshSession
+        { stSessionFileDict = stSessionFileDict oldSession
+        , stSessionModuleToSourceId = Map.empty
+        }
+      return kept { stPersistentSession = session }
+#else
+    withNewSession _ kept = return kept
+#endif
     persistent = stPersistentState old
     decoded = stDecodedModules persistent
     importsOf = map fst . iImportedModules . miInterface
@@ -307,7 +331,14 @@ inferTypeOfText filepath text = do
   noCache <- asks (optNoHoverCache . envOptions)
   runCommandM $ do
     cached <- if noCache then return Nothing else liftIO $ readIORef cacheRef
-    -- ask Agda if it would still see the same inputs, and leave no trace of asking
+    -- ask Agda if it would still see the same inputs, and leave no trace of asking.
+    -- On Agda 2.9, 'putTC fresh' does not undo what the check writes into
+    -- the session state (the module-to-file map and the file dictionary),
+    -- because the session is shared. A cache hit replaces the whole state
+    -- with the cached one, and a reload starts from the new session that
+    -- 'persistentStateForReload' gives, so neither sees those writes. If
+    -- that function gives Nothing, the reload keeps this fresh session,
+    -- whose map the check can only have set from no decoded modules.
     reusable <- case cached of
       Just c | hcFilePath c == filepath -> lift $ do
         fresh <- getTC
