@@ -23,6 +23,8 @@ import Agda.Syntax.Common
 #endif
 
     Quantity (..),
+    Q0Origin (..),
+    Q1Origin (..),
     QωOrigin (..),
     Relevance (..),
     RewriteEqn' (..),
@@ -91,17 +93,21 @@ instance Render Relevance where
 -- | Quantity
 instance Render Quantity where
   render = \case
-    Quantity0 o ->
-      let s = show o
-       in if Agda.null o
-            then "@0"
-            else text s
-    Quantity1 o ->
-      let s = show o
-       in if Agda.null o
-            then "@1"
-            else text s
+    Quantity0 o -> let d = render o in if Agda.null d then "@0" else d
+    Quantity1 o -> let d = render o in if Agda.null d then "@1" else d
     Quantityω o -> render o
+
+instance Render Q0Origin where
+  render = \case
+    Q0Inferred -> mempty
+    Q0 {} -> "@0"
+    Q0Erased {} -> "@erased"
+
+instance Render Q1Origin where
+  render = \case
+    Q1Inferred -> mempty
+    Q1 {} -> "@1"
+    Q1Linear {} -> "@linear"
 
 instance Render QωOrigin where
   render = \case
