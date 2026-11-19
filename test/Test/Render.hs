@@ -96,6 +96,9 @@ tests =
       testCase "function clause with a modality" $ do
         d <- clauseOf "@0 f : A → A\n@0 f x = x"
         agrees d "@0 f x = x",
+      testCase "function clause with a polarity" $ do
+        d <- clauseOf "@++ f : A → A\n@++ f x = x"
+        agrees d "@++ f x = x",
       testCase "rewrite in a typed binder" $ do
         e <- parseExpr "(@rewrite p : x ≡ y) → A"
         agrees e "(@rewrite p : x ≡ y) → A",
