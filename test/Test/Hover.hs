@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Hover tests (#68)
@@ -372,16 +373,30 @@ hoverInSession alsPath =
 -- the fences of its code blocks) is not code, so it has no hover.
 literateBlocks :: FilePath -> TestTree
 literateBlocks alsPath =
-  testGroup
-    "literate blocks"
+  testGroup "literate blocks" $
     [ testCase "literate text has no hover" $ withFixtures alsPath "Hover" "als-hover-prose" $ \dir -> do
         writeText (dir </> "Blocks.lagda.md") blocksSource
         doc <- openDoc "Blocks.lagda.md" "agda"
         -- in 'Some prose.'
         expectNoHover doc (Position 2 1)
         -- in the fence '```agda'
-        expectNoHover doc (Position 4 1)
+        expectNoHover doc (Position 4 1),
+      testCase "a bare Markdown block is Agda code by default" $ withFixtures alsPath "Hover" "als-hover-bare-default" $ \dir -> do
+        writeText (dir </> "Blocks.lagda.md") blocksSource
+        doc <- openDoc "Blocks.lagda.md" "agda"
+        expectHover doc onT "T"
     ]
+#if MIN_VERSION_Agda(2,9,0)
+      -- the option is new in Agda 2.9.0
+      ++ [ testCase "with --literate-markdown-only-agda-blocks, a bare Markdown block is not code" $ withFixtures (alsPath ++ " +AGDA --literate-markdown-only-agda-blocks -AGDA") "Hover" "als-hover-bare-only-agda" $ \dir -> do
+             writeText (dir </> "Blocks.lagda.md") blocksSource
+             doc <- openDoc "Blocks.lagda.md" "agda"
+             expectNoHover doc onT
+         ]
+#endif
+  where
+    -- 't' in 'x = t', in the bare block
+    onT = Position 13 4
 
 -- | A literate Markdown file with prose, an '```agda' block and a bare
 -- '```' block
