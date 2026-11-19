@@ -4,6 +4,7 @@ import Data.Proxy (Proxy (..))
 import Data.Typeable (Typeable)
 import qualified Test.Hover as Hover
 import qualified Test.LSP as LSP
+import qualified Test.Render as Render
 import qualified Test.Smoke as Smoke
 import qualified Test.SrcLoc as SrcLoc
 import qualified Test.Version as Version
@@ -34,6 +35,7 @@ tests = askOption $ \(AlsPathOption alsPath) ->
   testGroup
     "Tests"
     [ SrcLoc.tests,
+      Render.tests,
       Version.tests,
       LSP.tests alsPath,
       Hover.tests alsPath,
