@@ -4,6 +4,10 @@ module Agda.Parser where
 
 --------------------------------------------------------------------------------
 
+#if MIN_VERSION_Agda(2,9,0)
+import Agda (parseAgdaOptions)
+import Agda.Interaction.Options (CommandLineOptions (optMdOnlyAgdaBlocks))
+#endif
 import Agda.Syntax.Parser (parseFile, runPMIO, tokensParser)
 import Agda.Syntax.Parser.Tokens (Token (TokMarkup, TokTeX))
 import Agda.Syntax.Position (Position' (posPos), PositionWithoutFile, Range, RangeFile (RangeFile), getRange, rEnd', rStart')
@@ -25,11 +29,18 @@ tokenAt uri source position = case LSP.uriToFilePath uri of
   Nothing -> return Nothing
   Just filepath -> do
     let file = RangeFile (mkAbsolute filepath) Nothing
+#if MIN_VERSION_Agda(2,9,0)
+    -- read literate Markdown and Typst files as Agda does, which only
+    -- treats '```agda' blocks as code with this option. When the options
+    -- do not parse, Agda's default (False) applies, as in
+    -- 'getCommandLineOptions'.
+    mdOnlyAgdaBlocks <- maybe False (optMdOnlyAgdaBlocks . snd) <$> parseAgdaOptions
+#endif
     (result, _warnings) <- liftIO $
       runPMIO $ do
         -- parse the file and get all tokens
 #if MIN_VERSION_Agda(2,9,0)
-        (r, _fileType) <- parseFile False tokensParser file (unpack source)
+        (r, _fileType) <- parseFile mdOnlyAgdaBlocks tokensParser file (unpack source)
 #else
         (r, _fileType) <- parseFile tokensParser file (unpack source)
 #endif
