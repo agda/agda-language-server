@@ -299,17 +299,17 @@ orOnAnyException m fallback = TCM $ \r e ->
 -- current module is loaded from its .agdai, none exist, so 'D' in
 -- @module M (A : Set)@ comes out as @(A₁ : Set) → Set@ instead of @Set@.
 -- The fix in Agda, agda/agda#8906, does the same as this function inside
--- 'atTopLevel', and is not merged.
+-- 'atTopLevel', and is merged for Agda 2.10. On Agda 2.9, this function
+-- registers each module at the checkpoint of the context that
+-- 'atTopLevel' builds ('eCurrentCheckpoint'), as the fix does with the
+-- checkpoint it passes to 'setAllModuleCheckpoints'.
 --
 -- When an Agda release has the fix, run this function only on the Agda
 -- versions before that release, with a CPP version check, and remove it
 -- once every supported Agda has the fix.
 --
--- #8906 leaves open whether submodules with their own parameters should
--- get the checkpoint (they do here, as after a load that checks the
--- module), and whether loading the .agdai should register it instead. If
--- Agda decides otherwise, this function differs from Agda's fix on the
--- versions it still runs on. No test covers a submodule with parameters.
+-- The merged fix also registers the submodules, so this function and the
+-- fix agree. No test covers a submodule with parameters.
 keepModuleParameters :: TCM ()
 keepModuleParameters = do
   current <- currentModule
