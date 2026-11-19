@@ -106,12 +106,8 @@ versionString =
   "Agda v2.9.0 Language Server v" <> show versionNumber <> suffix
 #elif MIN_VERSION_Agda(2,8,0)
   "Agda v2.8.0 Language Server v" <> show versionNumber <> suffix
-#elif MIN_VERSION_Agda(2,7,0)
-  "Agda v2.7.0.1 Language Server v" <> show versionNumber <> suffix
-#elif MIN_VERSION_Agda(2,6,4)
-  "Agda v2.6.4.3 Language Server v" <> show versionNumber <> suffix
 #else
-  error "Unsupported Agda version"
+  "Agda v2.7.0.1 Language Server v" <> show versionNumber <> suffix
 #endif
   where
 #ifdef wasm32_HOST_ARCH

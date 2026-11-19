@@ -9,10 +9,6 @@ import           Agda                           ( getCommandLineOptions
 import qualified Agda.IR                       as IR
 
 import           Agda.Interaction.Base          ( CommandQueue(..)
-#if MIN_VERSION_Agda(2,7,0)
-#else
-                                                , CommandM
-#endif
                                                 , CommandState(optionsOnReload)
                                                 , Rewrite(AsIs)
                                                 , initCommandState
@@ -31,9 +27,8 @@ import           Agda.Interaction.InteractionTop
 #endif
 
 #if MIN_VERSION_Agda(2,8,0)
-#elif MIN_VERSION_Agda(2,7,0)
-                                                , CommandM
 #else
+                                                , CommandM
 #endif
                                                 )
 import           Agda.Interaction.Options       ( CommandLineOptions
