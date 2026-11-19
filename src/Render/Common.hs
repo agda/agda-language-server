@@ -18,9 +18,7 @@ import Agda.Syntax.Common
     MetaId (MetaId),
     NameId (..),
     Named (namedThing),
-#if MIN_VERSION_Agda(2,7,0)
     OverlapMode (..),
-#endif
 
     Quantity (..),
     Q0Origin (..),
@@ -151,7 +149,6 @@ instance Render PolarityModality where
 
 --------------------------------------------------------------------------------
 
-#if MIN_VERSION_Agda(2,7,0)
 instance Render OverlapMode where
   render = \case
     Overlappable -> "OVERLAPPABLE"
@@ -160,7 +157,6 @@ instance Render OverlapMode where
     Overlaps -> "OVERLAPS"
     FieldOverlap -> "overlap"
     DefaultOverlap -> mempty
-#endif
 
 --------------------------------------------------------------------------------
 
@@ -189,10 +185,8 @@ instance Render Lock where
     IsLock LockOTick -> "@tick"
     IsNotLock -> mempty
 
-#if MIN_VERSION_Agda(2,7,0)
 renderErased :: Erased -> Inlines -> Inlines
 renderErased = renderQuantity . asQuantity
-#endif
 
 renderCohesion :: (LensCohesion a) => a -> Inlines -> Inlines
 renderCohesion a d =
@@ -204,9 +198,7 @@ instance (Render p, Render e) => Render (RewriteEqn' qn nm p e) where
   render = \case
     Rewrite es -> prefixedThings (text "rewrite") (render . snd <$> toList es)
     Invert _ pes -> prefixedThings (text "invert") (toList pes <&> (\(p, e) -> render p <+> "<-" <+> render e) . namedThing)
-#if MIN_VERSION_Agda(2,7,0)
     LeftLet pes  -> prefixedThings (text "using") [render p <+> "<-" <+> render e | (p, e) <- List1.toList pes]
-#endif
 
 prefixedThings :: Inlines -> [Inlines] -> Inlines
 prefixedThings kw = \case

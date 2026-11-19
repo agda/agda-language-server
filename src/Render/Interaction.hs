@@ -4,9 +4,7 @@
 module Render.Interaction where
 
 import Agda.Interaction.Base
-#if MIN_VERSION_Agda(2,7,0)
 import Agda.Interaction.Output (OutputConstraint, OutputForm)
-#endif
 import Agda.Syntax.Internal (Blocker (..))
 import Agda.TypeChecking.Monad
 import qualified Data.IntMap as IntMap
@@ -103,9 +101,7 @@ instance (Render a, Render b) => Render (OutputConstraint a b) where
             "Candidate:",
             vcat exprs'
           ]
-#if MIN_VERSION_Agda(2,7,0)
   render (ResolveInstanceOF q) = "Resolve output type of instance" <?> render q
-#endif
   render (PTSInstance name1 name2) =
     "PTS instance for (" <> render name1 <> ", " <> render name2 <> ")"
   render (PostponedCheckFunDef name expr _err) =

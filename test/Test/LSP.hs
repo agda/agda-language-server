@@ -67,11 +67,7 @@ testCompile alsPath = withTempDir "als-test-compile" $ \compileDir -> do
   where
     -- A.agda has no 'main', so the GHC backend warns about it
     noMainWarning :: String
-#if MIN_VERSION_Agda(2,7,0)
     noMainWarning = "warning: -W[no]NoMain\nNo main function defined in A.\nUse option --no-main to suppress this warning."
-#else
-    noMainWarning = "warning: -W[no]GenericWarning\nNo main function defined in A. Use --no-main to suppress this\nwarning."
-#endif
 
 -- | Like 'testCompile', but with an Agda option that fails to parse. als
 -- then falls back to the default options, and it must still register

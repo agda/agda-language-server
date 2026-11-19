@@ -26,10 +26,6 @@ import           Agda.Interaction.Response      ( Response_boot
 #endif
 import           Agda.Interaction.Base          ( Command
                                                 , Command'(Command, Done, Error)
-#if MIN_VERSION_Agda(2,7,0)
-#else
-                                                , CommandM
-#endif
                                                 , CommandState(optionsOnReload)
                                                 , IOTCM
                                                 , initCommandState
@@ -45,7 +41,7 @@ import           Agda.Interaction.InteractionTop
                                                 , maybeAbort
                                                 , runInteraction
 #if MIN_VERSION_Agda(2,8,0)
-#elif MIN_VERSION_Agda(2,7,0)
+#else
                                                 , CommandM
 #endif
                                                 )
