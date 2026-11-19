@@ -30,6 +30,7 @@ tests alsPath =
       hoverAfterImportGraphChanges alsPath,
       hoverAfterProjectChanges alsPath,
       hoverInSession alsPath,
+      literateBlocks alsPath,
       testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath),
       testCase "module parameters with or without a valid .agdai" (hoverParamsWithInterface alsPath),
       testCase "a hover with no changes reuses the last load" (hoverReusesLoad alsPath),
@@ -367,6 +368,43 @@ hoverInSession alsPath =
     -- 'f' in the line 'h = f t' that the unsaved edit adds to Main.agda
     onUnsavedF = Position 8 4
 
+-- | Hovers in a literate Markdown file. The text of the file (prose, and
+-- the fences of its code blocks) is not code, so it has no hover.
+literateBlocks :: FilePath -> TestTree
+literateBlocks alsPath =
+  testGroup
+    "literate blocks"
+    [ testCase "literate text has no hover" $ withFixtures alsPath "Hover" "als-hover-prose" $ \dir -> do
+        writeText (dir </> "Blocks.lagda.md") blocksSource
+        doc <- openDoc "Blocks.lagda.md" "agda"
+        -- in 'Some prose.'
+        expectNoHover doc (Position 2 1)
+        -- in the fence '```agda'
+        expectNoHover doc (Position 4 1)
+    ]
+
+-- | A literate Markdown file with prose, an '```agda' block and a bare
+-- '```' block
+blocksSource :: Text
+blocksSource =
+  Text.unlines
+    [ "# Blocks",
+      "",
+      "Some prose.",
+      "",
+      "```agda",
+      "module Blocks where",
+      "",
+      "data T : Set where",
+      "  t : T",
+      "```",
+      "",
+      "```",
+      "x : T",
+      "x = t",
+      "```"
+    ]
+
 -- | The first hover checks Main.agda and Dep.agda and writes their .agdai
 -- files. A new server then hovers at the same place, with those .agdai
 -- files valid. The hover text must not depend on whether a .agdai was
@@ -522,6 +560,12 @@ expectHover :: HasCallStack => TextDocumentIdentifier -> Position -> Text -> Ses
 expectHover doc pos typ = do
   actual <- hoverText doc pos
   liftIO $ actual @?= "\n```agda-language-server\n" <> typ <> "\n```\n"
+
+-- | Expects no hover at a position
+expectNoHover :: HasCallStack => TextDocumentIdentifier -> Position -> Session ()
+expectNoHover doc pos = do
+  TResponseMessage _ _ rsp <- request SMethod_TextDocumentHover (HoverParams doc pos Nothing)
+  liftIO $ rsp @?= Right (InR Null)
 
 -- | Expects the hover to be the same as that of a fresh server
 expectFreshHover :: HasCallStack => FilePath -> FilePath -> TextDocumentIdentifier -> Position -> Session ()
