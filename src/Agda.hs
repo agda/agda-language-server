@@ -17,6 +17,12 @@ import           Prelude                        hiding ( null )
 import           Agda.Compiler.Backend          ( parseBackendOptions )
 import           Agda.Compiler.Builtin          ( builtinBackends )
 import           Agda.Convert                   ( fromResponse )
+#if MIN_VERSION_Agda(2,9,0)
+import           Agda.Interaction.Response      ( Response_boot
+                                                  ( Resp_HighlightingInfo
+                                                  )
+                                                )
+#endif
 import           Agda.Interaction.Base          ( Command
                                                 , Command'(Command, Done, Error)
 #if MIN_VERSION_Agda(2,7,0)
@@ -57,8 +63,14 @@ import           Agda.TypeChecking.Monad        ( HasOptions
                                                 , TCErr
                                                 , commandLineOptions
                                                 , runTCMTop'
+#if MIN_VERSION_Agda(2,9,0)
+                                                , ModifySession
+                                                , lensBackends
+                                                , setSession
+#else
                                                 , setTCLens
                                                 , stBackends
+#endif
                                                 )
 import           Agda.TypeChecking.Monad.Base   ( TCM )
 import qualified Agda.TypeChecking.Monad.Benchmark
@@ -111,14 +123,25 @@ start = do
   result <- runAgda $ do
     -- decides how to output Response
     lift $ setInteractionOutputCallback $ \response -> do
-      resp <- if optRawResponses (envOptions env)
-        then do
-          value <- (pure . encodeTCM) response
-          resp' <- fmap IR.ResponseJSONRaw value
-          return resp'
-        else fromResponse response
+#if MIN_VERSION_Agda(2,9,0)
+      -- highlighting for another file: the IR has no field for its file,
+      -- so it is dropped instead of being applied to the current one
+      let forOtherFile = case response of
+            Resp_HighlightingInfo _ _ _ _ (Just _) -> True
+            _ -> False
+#else
+      let forOtherFile = False
+#endif
+      let raw = optRawResponses (envOptions env)
+      unless (forOtherFile && not raw) $ do
+        resp <- if raw
+          then do
+            value <- (pure . encodeTCM) response
+            resp' <- fmap IR.ResponseJSONRaw value
+            return resp'
+          else fromResponse response
 
-      sendResponse env resp
+        sendResponse env resp
 
     -- keep reading command
     commands <- liftIO $ initialiseCommandQueue (readCommand env)
@@ -197,7 +220,12 @@ handleCommandReq (CmdReq cmd) = do
 --------------------------------------------------------------------------------
 
 getCommandLineOptions
+#if MIN_VERSION_Agda(2,9,0)
+  :: (HasOptions m, MonadTCState m, ModifySession m, MonadIO m)
+  => ServerM m CommandLineOptions
+#else
   :: (HasOptions m, MonadTCState m, MonadIO m) => ServerM m CommandLineOptions
+#endif
 getCommandLineOptions = do
   -- command line options from ARGV
   argv   <- asks (optRawAgdaOptions . envOptions)
@@ -219,7 +247,11 @@ getCommandLineOptions = do
   parse args =
     fst $ runOptM $ parseBackendOptions builtinBackends args defaultOptions
   -- every fresh TCM state starts with no backends
+#if MIN_VERSION_Agda(2,9,0)
+  register bs = lift $ setSession lensBackends bs
+#else
   register bs = lift $ setTCLens stBackends bs
+#endif
 
 -- | Run a TCM action in IO and throw away all of the errors
 -- TODO: handle the caught errors

@@ -28,7 +28,11 @@ tokenAt uri source position = case LSP.uriToFilePath uri of
     (result, _warnings) <- liftIO $
       runPMIO $ do
         -- parse the file and get all tokens
+#if MIN_VERSION_Agda(2,9,0)
+        (r, _fileType) <- parseFile False tokensParser file (unpack source)
+#else
         (r, _fileType) <- parseFile tokensParser file (unpack source)
+#endif
         let tokens = fst r
         -- find the token at the position
         return $ find (pointedBy position) tokens

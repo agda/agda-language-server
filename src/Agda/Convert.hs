@@ -6,7 +6,13 @@ import Agda.IR (FromAgda (..))
 import qualified Agda.IR as IR
 import Agda.Interaction.Base
 import Agda.Interaction.BasicOps as B
+#if MIN_VERSION_Agda(2,9,0)
+import Agda.Interaction.Emacs.Lisp (Lisp)
+import Agda.Utils.DocTree (treeToTextNoAnn)
+import qualified Data.Text as Text
+#else
 import Agda.Interaction.EmacsCommand (Lisp)
+#endif
 import Agda.Interaction.EmacsTop (showInfoError)
 import Agda.Interaction.Highlighting.Common (chooseHighlightingMethod, toAtoms)
 import Agda.Interaction.Highlighting.Precise (Aspects (..), DefinitionSite (..), HighlightingInfo, TokenBased (..))
@@ -83,7 +89,11 @@ serialize :: Lisp String -> String
 serialize = show . pretty
 
 fromResponse :: Response -> TCM IR.Response
+#if MIN_VERSION_Agda(2,9,0)
+fromResponse (Resp_HighlightingInfo info remove method modFile _) =
+#else
 fromResponse (Resp_HighlightingInfo info remove method modFile) =
+#endif
   fromHighlightingInfo info remove method modFile
 fromResponse (Resp_DisplayInfo info) = IR.ResponseDisplayInfo <$> fromDisplayInfo info
 fromResponse (Resp_ClearHighlighting TokenBased) = return IR.ResponseClearHighlightingTokenBased
@@ -91,7 +101,11 @@ fromResponse (Resp_ClearHighlighting NotOnlyTokenBased) = return IR.ResponseClea
 fromResponse Resp_DoneAborting = return IR.ResponseDoneAborting
 fromResponse Resp_DoneExiting = return IR.ResponseDoneExiting
 fromResponse Resp_ClearRunningInfo = return IR.ResponseClearRunningInfo
+#if MIN_VERSION_Agda(2,9,0)
+fromResponse (Resp_RunningInfo n s) = return $ IR.ResponseRunningInfo n (Text.unpack (treeToTextNoAnn s))
+#else
 fromResponse (Resp_RunningInfo n s) = return $ IR.ResponseRunningInfo n s
+#endif
 fromResponse (Resp_Status s) = return $ IR.ResponseStatus (sChecked s) (sShowImplicitArguments s)
 fromResponse (Resp_JumpToError f p) = return $ IR.ResponseJumpToError f (fromIntegral p)
 fromResponse (Resp_InteractionPoints is) =

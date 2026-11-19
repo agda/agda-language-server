@@ -37,7 +37,11 @@ toAgdaRange :: ToOffset -> Text -> LSP.Range -> Range
 toAgdaRange table path (LSP.Range start end) =
   Range
     (Strict.Just $ mkRangeFile $ AbsolutePath path)
+#if MIN_VERSION_Agda(2,9,0)
+    (Seq.singleton (PackIWF interval))
+#else
     (Seq.singleton interval)
+#endif
   where
     interval :: IntervalWithoutFile
     interval =
