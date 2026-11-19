@@ -16,7 +16,7 @@ import Agda.Utils.List1 as List1 (fromList, toList, List1)
 import qualified Agda.Utils.List1 as List1
 import qualified Agda.Utils.List2 as List2
 import Agda.Utils.Null
-import Data.Maybe (isNothing, maybeToList)
+import Data.Maybe (fromMaybe, isNothing, maybeToList)
 import qualified Data.Strict.Maybe as Strict
 import qualified Data.Text as T
 import Render.Class
@@ -85,7 +85,13 @@ instance Render Expr where
 #if MIN_VERSION_Agda(2,8,0)
     OpApp _ q _ es -> fsep $ renderOpApp280 (Asp.Name Nothing True) q es
     WithApp _ e es -> fsep $ render e : fmap (("|" <+>) . render) (toList es)
+#if MIN_VERSION_Agda(2,9,0)
+    KnownOpApp asp _ q _ es -> fsep $ renderOpApp280 (fromMaybe (Asp.Name Nothing True) (Asp.aspect asp)) q es
+    -- Agda only adds highlighting here
+    Highlighted _ e -> render e
+#else
     KnownOpApp nk _ q _ es -> fsep $ renderOpApp280 (Asp.Name (Just nk) True) q es
+#endif
 #else
     OpApp _ q _ es -> fsep $ renderOpApp q es
     WithApp _ e es -> fsep $ render e : fmap ((text' ["delimiter"] "|" <+>) . render) es
@@ -113,12 +119,20 @@ instance Render Expr where
           maybe mempty (\e -> "in" <+> render e) me
         ]
     Paren _ e -> parens $ render e
+#if MIN_VERSION_Agda(2,9,0)
+    IdiomBrackets _ _ exprs ->
+#else
     IdiomBrackets _ exprs ->
+#endif
       case exprs of
         [] -> emptyIdiomBrkt
         [e] -> leftIdiomBrkt <+> render e <+> rightIdiomBrkt
         e : es -> leftIdiomBrkt <+> render e <+> fsep (fmap (("|" <+>) . render) es) <+> rightIdiomBrkt
+#if MIN_VERSION_Agda(2,9,0)
+    DoBlock _ _ ss -> "do" <+> vcat (fmap render (toList ss))
+#else
     DoBlock _ ss -> "do" <+> vcat (fmap render (toList ss))
+#endif
     As _ x e -> render x <> "@" <> render e
     Dot _ e -> "." <> render e
     DoubleDot _ e -> ".." <> render e
@@ -192,7 +206,11 @@ instance (Render a) => Render (Binder' a) where
 instance Render NamedBinding where
 #if MIN_VERSION_Agda(2,8,0)
   render (NamedBinding withH
+#if MIN_VERSION_Agda(2,9,0)
+           x@(Arg (ArgInfo h (Modality r q c p) _o _fv (Annotation lock _))
+#else
            x@(Arg (ArgInfo h (Modality r q c p) _o _fv (Annotation lock))
+#endif
                (Named _mn xb@(Binder _mp _ (BName _y _fix t _fin))))) =
     applyWhen withH prH $
     applyWhenJust (isLabeled x) (\ l -> (text l <+>) . ("=" <+>)) (render xb)
@@ -451,7 +469,11 @@ instance Render Declaration where
           [ "field",
             vcat (fmap render fs)
           ]
+#if MIN_VERSION_Agda(2,9,0)
+      FunClause _ lhs rhs wh _ ->
+#else
       FunClause lhs rhs wh _ ->
+#endif
         sep
           [ render lhs,
             render rhs,
@@ -547,9 +569,13 @@ instance Render Declaration where
             vcat $ fmap render ds
           ]
 #if MIN_VERSION_Agda(2,8,0)
-      ModuleMacro _ NotErased{} x (SectionApp _ [] y es) DoOpen i
+#if MIN_VERSION_Agda(2,9,0)
+      ModuleMacro _ NotErased{} x (SectionApp _ [] y es) doOpen@(DoOpen _) i
+#else
+      ModuleMacro _ NotErased{} x (SectionApp _ [] y es) doOpen@DoOpen i
+#endif
         | isNoName x ->
-        sep [ render DoOpen
+        sep [ render doOpen
             , fsep $ render y : map render es
             , render i
             ]
@@ -584,11 +610,19 @@ instance Render Declaration where
             ]
 #endif
       Open _ x i -> hsep ["open", render x, render i]
+#if MIN_VERSION_Agda(2,9,0)
+      Import open _ x rn i ->
+        hsep [render open, "import", render x, as rn, render i]
+        where
+          as (Left y) = "as" <+> render (asName y)
+          as (Right args) = fsep (map render args)
+#else
       Import _ x rn open i ->
         hsep [render open, "import", render x, as rn, render i]
         where
           as Nothing = mempty
           as (Just y) = "as" <+> render (asName y)
+#endif
       UnquoteDecl _ xs t ->
         fsep ["unquoteDecl" <+> fsep (fmap render xs) <+> "=", render t]
       UnquoteDef _ xs t ->
@@ -705,10 +739,17 @@ pRecord x (RecordDirectives ind eta pat con) tel me cs =
 #endif
 
 instance Render OpenShortHand where
+#if MIN_VERSION_Agda(2,9,0)
+  render (DoOpen _) = "open"
+#else
   render DoOpen = "open"
+#endif
   render DontOpen = mempty
 
 instance Render Pragma where
+#if MIN_VERSION_Agda(2,9,0)
+  render (EtaEqualityPragma _) = "ETA_EQUALITY"
+#endif
   render (OptionsPragma _ opts) = fsep $ fmap text $ "OPTIONS" : opts
   render (BuiltinPragma _ b x) = hsep ["BUILTIN", text (rangedThing b), render x]
   render (RewritePragma _ _ xs) =
@@ -809,7 +850,9 @@ instance Render Pattern where
     ParenP _ p -> parens $ render p
     WildP _ -> "_"
     AsP _ x p -> render x <> "@" <> render p
-#if MIN_VERSION_Agda(2,8,0)
+#if MIN_VERSION_Agda(2,9,0)
+    DotP _ _ _ p    -> "." <> render p
+#elif MIN_VERSION_Agda(2,8,0)
     DotP _ _ p      -> "." <> render p
 #else
     DotP _ p -> "." <> render p

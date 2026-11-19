@@ -57,7 +57,13 @@ instance Render Term where
       Level l -> renderPrec p l
       MetaV x els -> render x `pApp` els
       DontCare v -> renderPrec p v
+#if MIN_VERSION_Agda(2,9,0)
+      Dummy kind es -> case kind of
+        DummyNamed s -> parens (text s) `pApp` es
+        DummyBrave hd -> render hd `pApp` es
+#else
       Dummy s es -> parens (text s) `pApp` es
+#endif
     where
       pApp d els =
         mparens (not (null els) && p > 9) $
@@ -133,7 +139,11 @@ instance Render Sort where
     LevelUniv -> "LevelUniv"
     SizeUniv -> "SizeUniv"
     LockUniv -> "LockUniv"
+#if MIN_VERSION_Agda(2,9,0)
+    PiSort _ a _s1 s2 ->
+#else
     PiSort a _s1 s2 ->
+#endif
       mparens (p > 9) $
         "piSort"
           <+> renderDom (domInfo a) (text (absName s2) <+> ":" <+> render (unDom a))
