@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### Added
+- #73: Support Agda-2.9.0. Its native binaries are published to the `dev` release; there is no 2.9.0 WASM build.
+
 ### Removed
 - Agda-2.6.4.3 is no longer supported, and no 2.6.4.3 binaries are built.
 
