@@ -112,6 +112,9 @@ instance Render QωOrigin where
 instance Render Cohesion where
   render Flat = "@♭"
   render Continuous = mempty
+#if MIN_VERSION_Agda(2,9,0)
+  render Sharp = "@♯"
+#endif
   render Squash = "@⊤"
 
 -- | Polarity

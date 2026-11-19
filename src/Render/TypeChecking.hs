@@ -23,7 +23,7 @@ instance Render Occurrence where
       GuardPos -> "g+"
 
 instance Render ProblemId where
-  render (ProblemId n) = render n
+  render (ProblemId n) = text (show n)
 
 instance Render Comparison where
   render CmpEq = "="
