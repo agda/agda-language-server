@@ -1430,15 +1430,15 @@ jobs:
           # Self-consistency (checked above) isn't completeness: a release
           # whose binaries and their manifest entries were both removed
           # together would still pass that check. Require the exact same
-          # deterministic 15-binary-plus-sdist matrix enforced on the
+          # deterministic 14-binary-plus-sdist matrix enforced on the
           # fresh-draft path, not just internal agreement.
           EXPECTED_RELEASE_ASSETS=$(printf '%s\n' \
+            "als-v${VERSION}-Agda-2.9.0-ubuntu.zip"   "als-v${VERSION}-Agda-2.9.0-macos-arm64.zip"   "als-v${VERSION}-Agda-2.9.0-macos-x64.zip"   "als-v${VERSION}-Agda-2.9.0-windows.zip" \
             "als-v${VERSION}-Agda-2.8.0-ubuntu.zip"   "als-v${VERSION}-Agda-2.8.0-macos-arm64.zip"   "als-v${VERSION}-Agda-2.8.0-macos-x64.zip"   "als-v${VERSION}-Agda-2.8.0-windows.zip" \
             "als-v${VERSION}-Agda-2.7.0.1-ubuntu.zip" "als-v${VERSION}-Agda-2.7.0.1-macos-arm64.zip" "als-v${VERSION}-Agda-2.7.0.1-macos-x64.zip" "als-v${VERSION}-Agda-2.7.0.1-windows.zip" \
-            "als-v${VERSION}-Agda-2.6.4.3-ubuntu.zip" "als-v${VERSION}-Agda-2.6.4.3-macos-arm64.zip" "als-v${VERSION}-Agda-2.6.4.3-macos-x64.zip" "als-v${VERSION}-Agda-2.6.4.3-windows.zip" \
-            "als-v${VERSION}-Agda-2.8.0-wasm.wasm" "als-v${VERSION}-Agda-2.7.0.1-wasm.wasm" "als-v${VERSION}-Agda-2.6.4.3-wasm.wasm" \
+            "als-v${VERSION}-Agda-2.8.0-wasm.wasm" "als-v${VERSION}-Agda-2.7.0.1-wasm.wasm" \
             "agda-language-server-${VERSION}.tar.gz" | sort)
-          [[ "$MANIFEST_NAMES" == "$EXPECTED_RELEASE_ASSETS" ]] || conflict "release ${TAG}'s asset set doesn't match the expected 15-binary-plus-sdist matrix"
+          [[ "$MANIFEST_NAMES" == "$EXPECTED_RELEASE_ASSETS" ]] || conflict "release ${TAG}'s asset set doesn't match the expected 14-binary-plus-sdist matrix"
 
           EXPECTED_SDIST_NAME="agda-language-server-${VERSION}.tar.gz"
           SDIST_ENTRIES=$(echo "$MANIFEST_NAMES" | grep -Fxc "$EXPECTED_SDIST_NAME" || true)
@@ -1482,15 +1482,6 @@ jobs:
         pattern: 'als-dev-*'
         path: artifacts
 
-    # Release gate: Agda 2.9.0 is published to the dev release, but not yet
-    # in a versioned release, so the lists here still describe v10 (with
-    # Agda 2.6.4.3). When the version is next bumped, remove this step and
-    # swap 2.6.4.3 for 2.9.0 in the expected asset list above and the
-    # artifact list below (no 2.9.0 WASM build, so drop 2.6.4.3-wasm).
-    - name: 🚧 Drop Agda 2.9.0 artifacts (not released yet)
-      if: env.ALREADY_PUBLISHED != 'true'
-      run: rm -rf artifacts/als-dev-Agda-2.9.0-*
-
     - name: 📥 Download this run's Hackage sdist
       if: env.ALREADY_PUBLISHED != 'true'
       uses: actions/download-artifact@v4
@@ -1499,7 +1490,7 @@ jobs:
         path: artifacts/hackage-sdist
 
     # The build matrix is fixed (build-and-test.yaml: 4 OS x 3 Agda
-    # versions = 12 native, build-wasm: 3 Agda versions = 3 WASM). A
+    # versions = 12 native, build-wasm: 2 Agda versions = 2 WASM). A
     # retry after one Actions artifact has separately expired/been
     # deleted must fail here, not silently stage a release missing that
     # matrix output.
@@ -1507,18 +1498,18 @@ jobs:
       if: env.ALREADY_PUBLISHED != 'true'
       run: |
         EXPECTED=(
+          als-dev-Agda-2.9.0-ubuntu   als-dev-Agda-2.9.0-macos-arm64   als-dev-Agda-2.9.0-macos-x64   als-dev-Agda-2.9.0-windows
           als-dev-Agda-2.8.0-ubuntu   als-dev-Agda-2.8.0-macos-arm64   als-dev-Agda-2.8.0-macos-x64   als-dev-Agda-2.8.0-windows
           als-dev-Agda-2.7.0.1-ubuntu als-dev-Agda-2.7.0.1-macos-arm64 als-dev-Agda-2.7.0.1-macos-x64 als-dev-Agda-2.7.0.1-windows
-          als-dev-Agda-2.6.4.3-ubuntu als-dev-Agda-2.6.4.3-macos-arm64 als-dev-Agda-2.6.4.3-macos-x64 als-dev-Agda-2.6.4.3-windows
-          als-dev-Agda-2.8.0-wasm als-dev-Agda-2.7.0.1-wasm als-dev-Agda-2.6.4.3-wasm
+          als-dev-Agda-2.8.0-wasm als-dev-Agda-2.7.0.1-wasm
         )
         EXPECTED_SORTED=$(printf '%s\n' "${EXPECTED[@]}" | sort)
         # Restricted to 'als-dev-*': 'artifacts/hackage-sdist' (downloaded
         # separately, checked in the next step) lives alongside these at
-        # the same depth and must not be counted as a sixteenth artifact.
+        # the same depth and must not be counted as a fifteenth artifact.
         ACTUAL_SORTED=$(find artifacts -mindepth 1 -maxdepth 1 -type d -name 'als-dev-*' -printf '%f\n' | sort)
         if [[ "$EXPECTED_SORTED" != "$ACTUAL_SORTED" ]]; then
-          echo "::error::downloaded artifact set doesn't match the expected 15-artifact build matrix"
+          echo "::error::downloaded artifact set doesn't match the expected 14-artifact build matrix"
           diff <(echo "$EXPECTED_SORTED") <(echo "$ACTUAL_SORTED") || true
           exit 1
         fi
