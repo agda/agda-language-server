@@ -24,7 +24,7 @@ import Agda.Syntax.Concrete.Pretty ()
 import Agda.Syntax.Parser (exprParser, moduleParser, parse, parseFile, runPMIO)
 import Agda.Syntax.Position (RangeFile (RangeFile), noRange)
 import Agda.Syntax.TopLevelModuleName.Boot (noModuleNameHash)
-import Agda.Utils.FileName (mkAbsolute)
+import Agda.Utils.FileName (absolute)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Agda.Utils.Null (empty)
 import qualified Agda.Utils.Set1 as Set1
@@ -124,7 +124,8 @@ agrees t expected = do
 -- the snippet
 parseDecls :: String -> IO [Declaration]
 parseDecls src = do
-  let file = RangeFile (mkAbsolute "/M.agda") Nothing
+  path <- absolute "M.agda"
+  let file = RangeFile path Nothing
   (result, _warnings) <- runPMIO $ parseFile False moduleParser file ("module M where\n\n" ++ src ++ "\n")
   case result of
     Left err -> assertFailure ("parse error: " ++ prettyShow err)
