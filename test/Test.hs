@@ -5,6 +5,7 @@ import Data.Typeable (Typeable)
 import qualified Test.Hover as Hover
 import qualified Test.LSP as LSP
 import qualified Test.Render as Render
+import qualified Test.ResponseController as ResponseController
 import qualified Test.Smoke as Smoke
 import qualified Test.SrcLoc as SrcLoc
 import qualified Test.Version as Version
@@ -37,6 +38,7 @@ tests = askOption $ \(AlsPathOption alsPath) ->
     [ SrcLoc.tests,
       Render.tests,
       Version.tests,
+      ResponseController.tests,
       LSP.tests alsPath,
       Hover.tests alsPath,
       Smoke.tests alsPath
