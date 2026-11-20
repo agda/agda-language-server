@@ -1,6 +1,11 @@
 -- |
 -- Makes sure that all dispatched works are done.
 -- Notify when all dispatched works are done.
+--
+-- All of the state (both counts and the pending checkpoints) is guarded by one
+-- `MVar`, so checking whether a checkpoint is met and recording it happen in
+-- the same critical section as a completion. Otherwise a completion could land
+-- between the check and the write, and the checkpoint would never fire (#78).
 module Server.ResponseController
   ( ResponseController,
     new,
@@ -10,20 +15,18 @@ module Server.ResponseController
 where
 
 import Control.Concurrent
-import Control.Concurrent.SizedChan
-import Control.Monad
-  ( void,
-    when,
-  )
-import Data.IORef
+import Control.Monad (when)
+import Data.List (partition)
 
-data ResponseController = ResponseController
+newtype ResponseController = ResponseController (MVar State)
+
+data State = State
   { -- | The number of work dispatched
-    dispatchedCount :: IORef Int,
+    dispatched :: !Int,
     -- | The number of work completed
-    completedCount :: IORef Int,
-    -- | A channel of "Checkpoints" to be met
-    checkpointChan :: SizedChan Checkpoint
+    completed :: !Int,
+    -- | Checkpoints yet to be met
+    checkpoints :: [Checkpoint]
   }
 
 -- | An "Checkpoint" is just a number with a callback, the callback will be invoked once the number is "met"
@@ -31,46 +34,35 @@ type Checkpoint = (Int, () -> IO ())
 
 -- | Constructs a new ResponseController
 new :: IO ResponseController
-new = ResponseController <$> newIORef 0 <*> newIORef 0 <*> newSizedChan
+new = ResponseController <$> newMVar (State 0 0 [])
 
 -- | Returns a callback, invoked the callback to signal completion.
 -- This function and the returned callback are both non-blocking.
 dispatch :: ResponseController -> IO (() -> IO ())
-dispatch controller = do
-  -- bump `dispatchedCount`
-  modifyIORef' (dispatchedCount controller) succ
+dispatch (ResponseController var) = do
+  -- bump `dispatched`
+  modifyMVar_ var $ \s -> return s {dispatched = dispatched s + 1}
   return $ \() -> do
-    -- work completed, bump `completedCount`
-    modifyIORef' (completedCount controller) succ
-
-    -- see if there's any Checkpoint
-    result <- tryPeekSizedChan (checkpointChan controller)
-    case result of
-      -- no checkpoints, do nothing
-      Nothing -> return ()
-      -- a checkpoint is set!
-      Just (dispatched, callback) -> do
-        completed <- readIORef (completedCount controller)
-        -- see if the checkpoint is met
-        when (dispatched == completed) $ do
-          -- invoke the callback and remove the checkpoint
-          callback ()
-          void $ readSizedChan (checkpointChan controller)
+    -- work completed: bump `completed` and take every checkpoint it meets
+    met <- modifyMVar var $ \s -> do
+      let completed' = completed s + 1
+          (reached, pending) = partition (\(target, _) -> target <= completed') (checkpoints s)
+      return (s {completed = completed', checkpoints = pending}, reached)
+    -- invoke the callbacks outside the lock
+    mapM_ (\(_, callback) -> callback ()) met
 
 -- | Expects a callback, which will be invoked once all works dispatched BEFORE have been completed
 -- This function is non-blocking
 setCheckpoint :: ResponseController -> (() -> IO ()) -> IO ()
-setCheckpoint controller callback = do
-  dispatched <- readIORef (dispatchedCount controller)
-  completed <- readIORef (completedCount controller)
-  -- see if the previously dispatched works have been completed
-  if dispatched == completed
-    then callback ()
-    else do
-      -- constructs a Checkpoint from `dispatchedCount`
-      let checkpoint = (dispatched, callback)
-      -- write it to the channel
-      writeSizedChan (checkpointChan controller) checkpoint
+setCheckpoint (ResponseController var) callback = do
+  runNow <- modifyMVar var $ \s ->
+    -- see if the previously dispatched works have been completed
+    if dispatched s == completed s
+      then return (s, True)
+      else -- record a Checkpoint at the current `dispatched`
+        return (s {checkpoints = checkpoints s ++ [(dispatched s, callback)]}, False)
+  -- invoke the callback outside the lock
+  when runNow $ callback ()
 
 -- | The blocking version of `setCheckpoint`
 setCheckpointAndWait :: ResponseController -> IO ()
