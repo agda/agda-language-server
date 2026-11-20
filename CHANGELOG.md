@@ -4,13 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## Unreleased
+## v11 - 2026-11-20
 
 ### Added
-- #73: Support Agda-2.9.0. Its native binaries are published to the `dev` release; there is no 2.9.0 WASM build.
+- #73: Support Agda-2.9.0. Releases include its native binaries; there is no 2.9.0 WASM build.
 
 ### Removed
 - Agda-2.6.4.3 is no longer supported, and no 2.6.4.3 binaries are built.
+
+### Fixed
+- #78: Make the response checkpoint check atomic with completion, so a command can no longer hang without sending `ResponseEnd`.
 
 ## v10 - 2026-11-15
 

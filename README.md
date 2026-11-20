@@ -7,7 +7,7 @@ These are the currently supported versions of Agda:
 * Agda-2.8.0
 * Agda-2.7.0.1
 
-All releases will come with binaries built with these versions of Agda. Until the next versioned release, Agda-2.9.0 binaries are only on the [`dev` release](https://github.com/agda/agda-language-server/releases/tag/dev).
+All releases will come with binaries built with these versions of Agda.
 
 We plan to make the codebase compatible with **at most 3 versions of Agda** at a single time. Because otherwise we'd be drowned by CPP macros for conditional compilation.
 
