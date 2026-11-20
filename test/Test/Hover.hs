@@ -6,6 +6,8 @@ module Test.Hover (tests) where
 
 import Control.Monad (forM_)
 import Control.Monad.IO.Class
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as ByteString
 import Data.List (sort)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -17,6 +19,7 @@ import Language.LSP.Test
 import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, getModificationTime, getPermissions, listDirectory, removeFile, setModificationTime, setOwnerExecutable, setPermissions)
 import System.Environment (getEnvironment)
 import System.FilePath (takeExtension, takeFileName, (</>))
+import System.IO (IOMode (ReadMode), withFile)
 import System.Info (os)
 import System.Process (CreateProcess (cwd, env))
 import Test.LSP (runIOTCM, withTempDir)
@@ -35,7 +38,8 @@ tests alsPath =
       testCase "hover the same with or without a valid .agdai" (hoverWithInterface alsPath),
       testCase "module parameters with or without a valid .agdai" (hoverParamsWithInterface alsPath),
       testCase "a hover with no changes reuses the last load" (hoverReusesLoad alsPath),
-      testCase "with --no-hover-cache, every hover loads again" (hoverWithoutCache alsPath)
+      testCase "with --no-hover-cache, every hover loads again" (hoverWithoutCache alsPath),
+      testCase "copy a fixture while a file in it is open" copyWhileOpen
     ]
 
 -- | Each test hovers, changes files on disk the way an editor or a git
@@ -514,7 +518,10 @@ runSessionIn alsPath dir session = do
   let inDir process = process {cwd = Just dir, env = Just (("AGDA_DIR", agdaDir) : environment)}
   runSessionWithConfigCustomProcess inDir defaultConfig alsPath fullLatestClientCaps dir session
 
--- | Copies a directory and everything in it
+-- | Copies a directory and everything in it. Tests copy the same fixtures
+-- in parallel, so each source file is only read. 'copyFile' would not do:
+-- on Windows it makes GHC lock the source for writing, and a second copy
+-- of the same file fails with "resource busy (file is locked)" (#82).
 copyTree :: FilePath -> FilePath -> IO ()
 copyTree from to = do
   createDirectoryIfMissing True to
@@ -523,7 +530,37 @@ copyTree from to = do
     isDirectory <- doesDirectoryExist (from </> entry)
     if isDirectory
       then copyTree (from </> entry) (to </> entry)
-      else copyFile (from </> entry) (to </> entry)
+      else ByteString.readFile (from </> entry) >>= ByteString.writeFile (to </> entry)
+
+-- | Copies a fixture while another reader has one of its files open, as a
+-- parallel test does (#82)
+copyWhileOpen :: Assertion
+copyWhileOpen =
+  withFile (source </> "hover-library.agda-lib") ReadMode $ \_ ->
+    withTempDir "als-hover-copy-open" $ \dir -> do
+      copyTree source dir
+      copied <- treeContents dir
+      original <- treeContents source
+      copied @?= original
+  where
+    source = "test" </> "data" </> "HoverLibrary"
+
+-- | Every file under a directory, by its path relative to the directory,
+-- with its contents, sorted by path
+treeContents :: FilePath -> IO [(FilePath, ByteString)]
+treeContents root = sort <$> go ""
+  where
+    go relative = do
+      entries <- listDirectory (root </> relative)
+      concat <$> mapM (inEntry relative) entries
+    inEntry relative entry = do
+      let path = relative </> entry
+      isDirectory <- doesDirectoryExist (root </> path)
+      if isDirectory
+        then go path
+        else do
+          contents <- ByteString.readFile (root </> path)
+          return [(path, contents)]
 
 -- | Where 'f' is in 'g = f' of Main.agda and ViaMid.agda
 onF :: Position
